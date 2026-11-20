@@ -1,0 +1,70 @@
+{
+ "samples": [
+  {
+   "sachverhalt": [
+    {
+     "text": "Gemäß Planlieferliste war der Bewehrungsplan der Bodenplatte Achse C (Index b) bis zum 18.11.2026 durch das Ingenieurbüro Brandl zu liefern; in der Baubesprechung Nr. 7 wurde dieser Termin bestätigt.",
+     "evidence": [
+      "E-04",
+      "E-05"
+     ]
+    },
+    {
+     "text": "Am 20.11.2026 um 07:30 Uhr lagen die Bewehrungspläne Achse C (Index b) weiterhin nicht vor.",
+     "evidence": [
+      "E-01",
+      "E-06"
+     ]
+    },
+    {
+     "text": "Unsere Bewehrungskolonne konnte daher nur in den Achsen A und B verlegen; ab 12:00 Uhr stand in Achse C kein Arbeitsbereich mehr zur Verfügung.",
+     "evidence": [
+      "E-02"
+     ]
+    },
+    {
+     "text": "Das Ingenieurbüro Brandl teilte am 20.11.2026 um 12:15 Uhr mit, dass die Pläne noch in Prüfung sind und voraussichtlich am Montag, 23.11.2026, geliefert werden.",
+     "evidence": [
+      "E-07",
+      "E-08",
+      "E-11"
+     ]
+    },
+    {
+     "text": "Die fehlenden Pläne hatten wir bereits am 16.11.2026 telefonisch angemahnt.",
+     "evidence": [
+      "E-01"
+     ]
+    }
+   ],
+   "auswirkungen": [
+    {
+     "text": "Die für den 20.11.2026 ab 13:00 Uhr vorgesehene Betonage der Bodenplatte konnte nicht beginnen; die Betonpumpe wurde abbestellt.",
+     "evidence": [
+      "E-03",
+      "E-09",
+      "E-04"
+     ]
+    },
+    {
+     "text": "Die Tagesleistung der Bewehrung betrug 6,5 t bei einem Tagessoll von 8 t.",
+     "evidence": [
+      "E-11"
+     ]
+    },
+    {
+     "text": "Nach unserer Terminplanberechnung verschiebt sich das Ende der Bewehrung der Bodenplatte vom 20.11.2026 auf den 24.11.2026 und die Betonage auf den Zeitraum 24.11.2026 bis 26.11.2026.",
+     "evidence": [
+      "E-11"
+     ]
+    },
+    {
+     "text": "Da diese Vorgänge auf dem kritischen Weg liegen, verschiebt sich die Fertigstellung der Wände EG voraussichtlich vom 16.12.2026 auf den 18.12.2026; die Vertragsfrist Rohbau EG würde damit um 2 Arbeitstage überschritten.",
+     "evidence": [
+      "E-11"
+     ]
+    }
+   ]
+  }
+ ]
+}

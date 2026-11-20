@@ -1,0 +1,48 @@
+{
+ "base": {
+  "summary": "Bagger seit 10:00 Uhr defekt (Hydraulikschlauch), Aushub BA1 steht.",
+  "events": [
+   {
+    "end_time": null,
+    "affected_activities": [
+     "Aushub BA1"
+    ],
+    "resource_effects": [
+     {
+      "resource": "Bagger",
+      "status": "idle",
+      "start_time": "10:00",
+      "end_time": null
+     }
+    ],
+    "responsible_party_guess": "AN",
+    "responsible_rationale": "Eigenes Gerät des AN.",
+    "impact_estimate_days": null,
+    "blocked_until": null,
+    "owner_supplied_material": null,
+    "predecessor_by_owner": null,
+    "own_work": null,
+    "work_started": null,
+    "ordered_by": null,
+    "type": "equipment_failure",
+    "description": "Der Bagger steht seit 10 Uhr wegen eines geplatzten Hydraulikschlauchs am Ausleger.",
+    "cause": "Hydraulikschlauch am Ausleger geplatzt",
+    "start_time": "10:00",
+    "quotes": [
+     "Der Bagger steht seit 10 Uhr, Hydraulikschlauch am Ausleger geplatzt",
+     "Aushub BA1 steht solange komplett"
+    ]
+   }
+  ],
+  "progress": [],
+  "staffing": [],
+  "open_items": []
+ },
+ "variants": [
+  {},
+  {},
+  {},
+  {},
+  {}
+ ]
+}

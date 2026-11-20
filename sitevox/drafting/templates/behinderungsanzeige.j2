@@ -1,0 +1,17 @@
+### betreff
+Behinderungsanzeige gemäß § 6 Abs. 1 VOB/B – {{ event_label }}{% if f.affected_activities %} ({{ f.affected_activities | join(', ') }}){% endif %}
+### bezug
+Bauvorhaben {{ project.title }}, Bauvertrag Nr. {{ f.contract_no }} vom {{ contract_date }}; {{ project.contract_basis }}
+### anrede
+Sehr geehrte Damen und Herren,
+### einleitung
+hiermit zeigen wir Ihnen gemäß § 6 Abs. 1 VOB/B an, dass wir in der ordnungsgemäßen Ausführung unserer vertraglichen Leistungen behindert sind. Die Behinderung besteht seit {{ start_de }}.
+### sachverhalt
+[[SACHVERHALT]]
+### auswirkungen
+[[AUSWIRKUNGEN]]
+### forderung
+Wir bitten Sie, die hindernden Umstände umgehend zu beseitigen und uns mitzuteilen, ab wann eine ungehinderte Fortführung der Arbeiten möglich ist. Wir werden alles uns billigerweise Zumutbare tun, um die Weiterführung der Arbeiten zu ermöglichen, und nach Wegfall der Behinderung die Arbeiten unverzüglich wieder aufnehmen und Sie davon benachrichtigen (§ 6 Abs. 3 VOB/B).
+### vorbehalt
+Wir behalten uns vor, die Verlängerung der Ausführungsfristen gemäß § 6 Abs. 2 und Abs. 4 VOB/B sowie Ansprüche nach § 6 Abs. 6 VOB/B und § 642 BGB geltend zu machen. Die Bezifferung erfolgt gesondert, sobald Dauer und Umfang der Behinderung feststehen.
+{% include "_gruss.j2" %}

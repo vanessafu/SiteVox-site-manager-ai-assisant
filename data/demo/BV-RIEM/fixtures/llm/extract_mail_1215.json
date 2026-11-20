@@ -1,0 +1,42 @@
+{
+ "base": {
+  "summary": "IB Brandl: Pläne Achse C noch in Prüfung, voraussichtlich Montag.",
+  "events": [
+   {
+    "end_time": null,
+    "affected_activities": [
+     "Bewehrung BP Achse C"
+    ],
+    "resource_effects": [],
+    "responsible_party_guess": "AG",
+    "responsible_rationale": "Planlieferung durch Planer des AG.",
+    "impact_estimate_days": null,
+    "blocked_until": "2026-11-23",
+    "owner_supplied_material": null,
+    "predecessor_by_owner": null,
+    "own_work": null,
+    "work_started": null,
+    "ordered_by": null,
+    "type": "planlieferverzug",
+    "description": "Das Ingenieurbüro Brandl teilt mit, dass die Bewehrungspläne Achse C (Index b) noch in Prüfung sind und voraussichtlich Montag kommen.",
+    "cause": "Pläne Achse C in Prüfung",
+    "quotes": [
+     "die Bewehrungspläne Achse C (Index b) sind noch in der Prüfung",
+     "Die Pläne kommen voraussichtlich Montag"
+    ]
+   }
+  ],
+  "progress": [],
+  "staffing": [],
+  "open_items": []
+ },
+ "variants": [
+  {},
+  {},
+  {
+   "events.0.blocked_until": "2026-11-24"
+  },
+  {},
+  {}
+ ]
+}

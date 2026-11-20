@@ -1,0 +1,58 @@
+# SiteVox – deterministische Regeln (Abweichungs-Engine, Risikosphäre, Konfidenz)
+# Alles hier ist reproduzierbar; kein LLM beteiligt.
+
+[calendar]
+workdays = [1, 2, 3, 4, 5]          # ISO-Wochentage Mo–Fr
+# Feiertage Bayern im relevanten Zeitraum (ergänzen je Projekt)
+holidays = ["2026-12-24", "2026-12-25", "2026-12-26", "2026-12-31", "2027-01-01", "2027-01-06"]
+shift_start = "07:00"
+shift_end = "17:00"
+
+[alerts]
+daily_output_min_ratio = 0.85       # Alarm, wenn Tagesleistung < 85 % des Tagessolls
+critical_delay_days = 1             # Alarm, wenn Vorgang auf krit. Pfad >= 1 AT verzögert
+forecast_window_days = 3            # Ø-Leistung der letzten n AT für Prognose "bei aktuellem Tempo"
+
+[bullet]                            # Farbstufen im Bullet-Chart (Ist / Tagessoll)
+red_below = 0.60
+yellow_below = 0.90
+
+[weather]
+# "Witterungseinflüsse, mit denen bei Angebotsabgabe normalerweise gerechnet werden musste,
+#  gelten nicht als Behinderung" (§ 6 Abs. 2 Nr. 2 VOB/B). Schwellen = projektspezifisch
+# vereinbarte/übliche Grenzwerte; nur bei Überschreitung → Vorschlag Behinderungsanzeige.
+provider = "brightsky"
+api_url = "https://api.brightsky.dev/weather"
+precipitation_mm_day = 20.0         # Starkregen
+precipitation_mm_hour = 8.0
+wind_gust_kmh = 72.0                # Kranbetrieb einstellen (~20 m/s)
+temp_min_c = -5.0                   # Betonage ohne Winterbaumaßnahmen
+temp_max_c = 35.0
+
+[confidence]
+# Gewichtung der Signale je Feld (werden auf verfügbare Signale renormiert)
+w_evidence = 0.35
+w_asr = 0.15
+w_consistency = 0.30
+w_retrieval = 0.10
+w_rule = 0.10
+green_min = 0.80
+yellow_min = 0.50
+rule_violation_penalty = 0.35       # z. B. sphere=AN aber Behinderungsanzeige vorgeschlagen
+
+[confidence.importance]             # Gewicht für Review-Queue: Priorität = (1 - conf) * importance
+recipient = 1.0
+contract_no = 0.9
+legal_basis = 1.0
+sphere = 1.0
+event_start = 0.8
+cause = 0.9
+affected_activities = 0.7
+impact_estimate_days = 0.8
+delivery_method = 0.6
+default = 0.5
+
+[deadlines]
+# Anzeige-Ampel: Stunden seit Feststellung
+warn_after_h = 24
+critical_after_h = 48

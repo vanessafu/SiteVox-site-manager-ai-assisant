@@ -1,0 +1,48 @@
+{
+ "base": {
+  "summary": "Betonpumpe abbestellt, Bewehrung Achse C nicht fertig.",
+  "events": [
+   {
+    "end_time": null,
+    "affected_activities": [
+     "Betonage BP",
+     "Bewehrung BP Achse C"
+    ],
+    "resource_effects": [
+     {
+      "resource": "Betonpumpe",
+      "status": "planned_not_started",
+      "start_time": "13:00",
+      "end_time": "17:00"
+     }
+    ],
+    "responsible_party_guess": "AG",
+    "responsible_rationale": "Folge der fehlenden Pläne.",
+    "impact_estimate_days": null,
+    "blocked_until": null,
+    "owner_supplied_material": null,
+    "predecessor_by_owner": null,
+    "own_work": null,
+    "work_started": null,
+    "ordered_by": null,
+    "type": "planlieferverzug",
+    "description": "Die Betonpumpe wurde für heute abbestellt, da die Bewehrung in Achse C nicht fertig ist.",
+    "cause": "Bewehrung Achse C wegen fehlender Pläne nicht fertig",
+    "start_time": "13:00",
+    "quotes": [
+     "Betonpumpe für heute abbestellt, die Bewehrung in Achse C ist nicht fertig"
+    ]
+   }
+  ],
+  "progress": [],
+  "staffing": [],
+  "open_items": []
+ },
+ "variants": [
+  {},
+  {},
+  {},
+  {},
+  {}
+ ]
+}

@@ -1,0 +1,55 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+html,
+body {
+  height: 100%;
+}
+body {
+  @apply bg-slate-50 text-slate-900;
+  font-weight: 450;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+/* Icons kräftiger (lucide Standard = 2) */
+svg.lucide {
+  stroke-width: 2.4;
+}
+
+@layer components {
+  .card {
+    @apply rounded-lg border border-slate-200 bg-white;
+  }
+  .kpi {
+    @apply rounded-lg bg-slate-100 p-3 text-left transition hover:bg-slate-200/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent;
+  }
+  .btn {
+    @apply inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-800 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply inline-flex items-center gap-1.5 rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40;
+  }
+  .btn-xs {
+    @apply inline-flex items-center gap-1 rounded border border-slate-300 bg-white px-2 py-0.5 text-xs font-medium hover:bg-slate-100 disabled:opacity-40;
+  }
+  .pill {
+    @apply inline-flex items-center gap-1 rounded px-2 py-0.5 text-2xs font-medium;
+  }
+  .row-click {
+    @apply cursor-pointer rounded-md transition hover:bg-slate-100;
+  }
+  .section-head {
+    @apply mb-3 flex items-center justify-between border-b border-slate-200 pb-2;
+  }
+}
+
+.mark-red {
+  @apply rounded bg-bad-soft px-0.5 text-bad-text underline decoration-bad decoration-2;
+}
+.mark-amber {
+  @apply underline decoration-warn decoration-dotted decoration-2;
+}

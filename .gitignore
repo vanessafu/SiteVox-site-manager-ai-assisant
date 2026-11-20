@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.DS_Store
+# Laufzeitdaten (Demo-Eingaben unter data/demo und data/knowledge bleiben versioniert)
+data/sitevox.db*
+data/BV-*/
+data/index/
+data/serve_*.log
+data/asr_eval/
+# Frontend
+frontend/node_modules/
+frontend/.next/
+frontend/tsconfig.tsbuildinfo
+frontend/certs/

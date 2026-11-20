@@ -1,0 +1,52 @@
+# Projekt-Stammdaten (Demo). Gelten als Belegquelle "Vertrag/Stammdaten" für die Faktenprüfung.
+# Alle Namen sind fiktiv.
+company:
+  name: Hofbau Rohbau GmbH
+  address: Landsberger Straße 410, 81241 München
+  signer: J. Hofmann, Bauleitung
+  phone: "+49 89 0000 410"
+
+projects:
+  - id: BV-RIEM
+    name: BV Riem
+    title: Neubau Wohnanlage Riem, Baufeld 3
+    address: Willy-Brandt-Allee 12, 81829 München
+    lat: 48.1305
+    lon: 11.6955
+    contract_no: "RI-2026-014"
+    contract_date: "2026-08-14"
+    contract_basis: "VOB/B (aktuelle Fassung) als Vertragsbestandteil vereinbart"
+    client:                       # Auftraggeber (AG) – Empfänger aller Anzeigen
+      name: Wohnbau Riem GmbH & Co. KG
+      address: Messestraße 5, 81829 München
+      representative: Dipl.-Ing. Thomas Wagner
+      representative_role: Projektsteuerung, bevollmächtigter Vertreter des AG
+      email: t.wagner@wohnbau-riem.example
+    parties:                      # weitere Beteiligte (nicht empfangsberechtigt für Anzeigen!)
+      - name: Architekturbüro Lechner
+        role: Objektplanung (keine Vollmacht für Nachträge)
+        email: info@lechner-architekten.example
+      - name: Ingenieurbüro Brandl
+        role: Tragwerksplanung (Planlieferung für AG)
+        email: buero@ib-brandl.example
+    crews:
+      - {name: Kolonne Müller, trade: Bewehrung, planned_staff: 8}
+      - {name: Kolonne Schalung, trade: Schalung, planned_staff: 4}
+      - {name: Erdbau, trade: Aushub, planned_staff: 4}
+    resources:                    # Tagesverlauf-Zeilen (Geräte/Kolonnen) mit Standard-Einsatzzeit
+      - {id: bagger, name: Bagger, activity: A20, from: "07:00", to: "17:00"}
+      - {id: kolonne_mueller, name: Kolonne Müller, activity: A40, from: "07:00", to: "17:00"}
+      - {id: kolonne_schalung, name: Kolonne Schalung, activity: A30, from: "07:00", to: "16:00"}
+      - {id: betonpumpe, name: Betonpumpe, activity: A50, from: "13:00", to: "17:00"}
+    milestones:
+      - {id: M1, name: Vertragsfrist Rohbau EG, date: "2026-12-16", contractual: true}
+  - id: BV-PASING
+    name: BV Pasing
+    title: Umbau Bürogebäude Pasing
+    contract_no: "PA-2026-003"
+    client: {name: Pasinger Höfe GmbH, representative: N. N.}
+  - id: BV-A99
+    name: BV A99
+    title: Brückenbauwerk A99, BW 12
+    contract_no: "A99-2025-112"
+    client: {name: Autobahn GmbH des Bundes, Niederlassung Südbayern, representative: N. N.}

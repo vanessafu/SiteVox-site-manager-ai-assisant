@@ -1,0 +1,451 @@
+"""SiteVox API (FastAPI).
+
+Start:  uvicorn backend.main:app --reload --port 8000     (aus dem Repo-Root)
+Demo:   python scripts/make_demo_data.py && python scripts/seed_demo.py
+
+Human-in-the-loop ist technisch erzwungen:
+  * Es gibt keinen Endpunkt, der eine E-Mail versendet. "Freigeben" erzeugt nur DOCX/PDF/.eml-Entwurf,
+    optional einen Outlook-Entwurf über Graph mit Mail.ReadWrite (ohne Mail.Send).
+  * Freigabe nur, wenn alle roten Stellen bestätigt und die Checkliste vollständig ist.
+  * "Versendet" setzt ausschließlich die Bauleitung, nachdem sie selbst gesendet hat.
+"""
+from __future__ import annotations
+
+import sys
+import tempfile
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Optional
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, UploadFile  # noqa: E402
+from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
+from fastapi.responses import FileResponse  # noqa: E402
+from pydantic import BaseModel  # noqa: E402
+
+from sitevox import DISCLAIMER, editing, pipeline, rag, settings, store  # noqa: E402
+from sitevox.drafting import composer  # noqa: E402
+from sitevox.export import docx_export, outlook  # noqa: E402
+
+from . import views  # noqa: E402
+
+app = FastAPI(title="SiteVox API", version="0.1.0",
+              description="KI-Assistent für Bauleiter – Entwürfe, keine Rechtsberatung.")
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+ACTOR = "Bauleitung"  # Demo: ein Nutzer. Produktiv: aus Auth-Token.
+
+
+def _letter(lid: str) -> dict:
+    l = store.get("letters", lid)
+    if not l:
+        raise HTTPException(404, "Schreiben nicht gefunden")
+    return l
+
+
+# ------------------------------------------------------------------------------------------- meta
+@app.get("/api/health")
+def health() -> dict:
+    return {"ok": True, "mode": settings.mode(), "disclaimer": DISCLAIMER}
+
+
+@app.get("/api/projects")
+def projects() -> list[dict]:
+    return views.projects()
+
+
+@app.get("/api/projects/{pid}/dashboard")
+def dashboard(pid: str, date: Optional[str] = None) -> dict:
+    return views.dashboard(pid, date or views.default_day(pid))
+
+
+@app.get("/api/projects/{pid}/schedule")
+def schedule(pid: str, date: Optional[str] = None) -> dict:
+    d = views.dashboard(pid, date or views.default_day(pid))
+    return {"date": d["date"], **d["overview"]}
+
+
+# ------------------------------------------------------------------------------------------- captures
+@app.get("/api/projects/{pid}/captures")
+def captures(pid: str, date: Optional[str] = None) -> list[dict]:
+    caps = store.captures(pid, date) if date else store.captures(pid)
+    for c in caps:
+        c.pop("text", None) if c["kind"] == "document" else None
+    return caps
+
+
+@app.get("/api/captures/{cid}")
+def capture(cid: str) -> dict:
+    c = store.get("captures", cid)
+    if not c:
+        raise HTTPException(404)
+    c["evidence"] = store.evidence_many(c["evidence_ids"])
+    return c
+
+
+def _run_ingest(pid: str, kind: str, path: Optional[Path], text: Optional[str], captured_at: str, meta: dict) -> None:
+    try:
+        pipeline.ingest(pid, kind, file=path, text=text, captured_at=captured_at, meta=meta, actor=ACTOR)
+    except Exception as e:  # noqa: BLE001
+        store.audit("system", "capture", pid, "ingest_failed", note=str(e))
+
+
+@app.post("/api/projects/{pid}/captures")
+async def upload_capture(pid: str, background: BackgroundTasks, kind: str = Form(...),
+                         text: Optional[str] = Form(None), captured_at: Optional[str] = Form(None),
+                         transcript_hint: Optional[str] = Form(None), lat: Optional[float] = Form(None),
+                         lon: Optional[float] = Form(None), language: Optional[str] = Form(None),
+                         doc_type: Optional[str] = Form(None), doc_title: Optional[str] = Form(None),
+                         file: Optional[UploadFile] = File(None)) -> dict:
+    """Mobile Erfassung: Audio (MediaRecorder), Foto, Notiz, .eml oder Dokument. Verarbeitung im Hintergrund."""
+    if kind not in ("audio", "photo", "note", "email", "document"):
+        raise HTTPException(400, "unbekannte Art")
+    ts = captured_at or datetime.now().astimezone().isoformat(timespec="seconds")
+    path = None
+    if file is not None:
+        tmp = Path(tempfile.mkdtemp()) / Path(file.filename or f"upload_{kind}").name
+        tmp.write_bytes(await file.read())
+        path = tmp
+    elif kind != "note":
+        raise HTTPException(400, "Datei fehlt")
+    meta: dict[str, Any] = {"source": "mobile"}
+    if transcript_hint:
+        meta["transcript_hint"] = transcript_hint
+    if doc_type:
+        meta["doc_type"] = doc_type
+    if doc_title:
+        meta["doc_title"] = doc_title
+    if language in ("de", "en"):
+        meta["language"] = language  # Whisper-Sprache; Schreiben an den AG bleiben deutsch
+    if lat is not None and lon is not None:
+        meta["gps"] = {"lat": lat, "lon": lon}
+    background.add_task(_run_ingest, pid, kind, path, text, ts, meta)
+    return {"accepted": True, "captured_at": ts}
+
+
+# ------------------------------------------------------------------------------------------- events
+@app.get("/api/projects/{pid}/events")
+def events(pid: str, date: Optional[str] = None) -> list[dict]:
+    return [views.event_card(e) for e in store.events(pid, date)]
+
+
+@app.get("/api/events/{eid}")
+def event(eid: str) -> dict:
+    e = store.get("events", eid)
+    if not e:
+        raise HTTPException(404)
+    card = views.event_card(e)
+    card["evidence_docs"] = store.evidence_many(e["evidence"])
+    card["field_confidence"] = e.get("confidence", {}).get("fields", {})
+    card["audit"] = store.audit_log(eid)
+    return card
+
+
+class SphereIn(BaseModel):
+    sphere: str
+
+
+@app.post("/api/events/{eid}/sphere")
+def confirm_sphere(eid: str, body: SphereIn) -> dict:
+    if body.sphere not in ("AG", "AN", "neutral"):
+        raise HTTPException(400)
+    return views.event_card(pipeline.confirm_sphere(eid, body.sphere, ACTOR))
+
+
+class NoteIn(BaseModel):
+    note: str = ""
+
+
+@app.post("/api/events/{eid}/dismiss")
+def dismiss(eid: str, body: NoteIn) -> dict:
+    return views.event_card(pipeline.dismiss_event(eid, ACTOR, body.note))
+
+
+@app.post("/api/events/{eid}/draft")
+def create_draft(eid: str) -> dict:
+    e = store.get("events", eid)
+    if not e:
+        raise HTTPException(404)
+    if e.get("letter_id"):
+        return views.letter_view(_letter(e["letter_id"]))
+    try:
+        return views.letter_view(composer.create_letter(eid, actor=ACTOR))
+    except ValueError as ex:
+        raise HTTPException(409, str(ex)) from ex
+
+
+# ------------------------------------------------------------------------------------------- letters
+@app.get("/api/projects/{pid}/letters")
+def letters(pid: str) -> list[dict]:
+    out = []
+    for l in store.letters(pid):
+        ev = store.get("events", l["event_id"]) or {}
+        out.append({"letter_id": l["letter_id"], "kind": l["kind"], "kind_label": views.DOC_KIND_LABELS[l["kind"]],
+                    "status": l["status"], "event_id": l["event_id"], "event_label": ev.get("label"),
+                    "betreff": next((s["text"] for s in l.get("rendered", []) if s["key"] == "betreff"), ""),
+                    "created_at": l["created_at"], "sent_at": l.get("sent_at"),
+                    "open_issues": len([i for i in l["issues"] if i["status"] == "unverified"]),
+                    "deadline": views.event_card(ev)["deadline"] if ev else None})
+    return out
+
+
+@app.get("/api/letters/{lid}")
+def letter(lid: str) -> dict:
+    return views.letter_view(_letter(lid))
+
+
+class FieldAction(BaseModel):
+    action: str  # accept | edit | reject
+    value: Any = None
+
+
+@app.post("/api/letters/{lid}/fields/{key}")
+def field_action(lid: str, key: str, body: FieldAction) -> dict:
+    try:
+        return views.letter_view(composer.field_action(lid, key, body.action, ACTOR, body.value))
+    except (ValueError, KeyError) as ex:
+        raise HTTPException(400, str(ex)) from ex
+
+
+class SentenceIn(BaseModel):
+    text: str
+    evidence: Optional[list[str]] = None
+
+
+@app.put("/api/letters/{lid}/sentences/{section}/{idx}")
+def edit_sentence(lid: str, section: str, idx: int, body: SentenceIn) -> dict:
+    return views.letter_view(composer.edit_sentence(lid, section, idx, body.text, ACTOR, body.evidence))
+
+
+@app.post("/api/letters/{lid}/issues/{iid}/confirm")
+def confirm_issue(lid: str, iid: str, body: NoteIn) -> dict:
+    return views.letter_view(composer.confirm_issue(lid, iid, ACTOR, body.note))
+
+
+class CheckIn(BaseModel):
+    value: bool
+
+
+@app.post("/api/letters/{lid}/checklist/{key}")
+def checklist(lid: str, key: str, body: CheckIn) -> dict:
+    return views.letter_view(composer.set_checklist(lid, key, body.value, ACTOR))
+
+
+@app.post("/api/letters/{lid}/release")
+def release(lid: str) -> dict:
+    """Freigeben – erzeugt Exporte. Sendet nichts."""
+    try:
+        return views.letter_view(composer.release(lid, ACTOR))
+    except PermissionError as ex:
+        raise HTTPException(409, {"blockers": str(ex).split("; ")}) from ex
+
+
+@app.post("/api/letters/{lid}/reject")
+def reject(lid: str, body: NoteIn) -> dict:
+    return views.letter_view(composer.reject_letter(lid, ACTOR, body.note))
+
+
+class SentIn(BaseModel):
+    method: str = "E-Mail + Einschreiben"
+
+
+@app.post("/api/letters/{lid}/mark-sent")
+def mark_sent(lid: str, body: SentIn) -> dict:
+    try:
+        return views.letter_view(composer.mark_sent(lid, ACTOR, body.method))
+    except ValueError as ex:
+        raise HTTPException(409, str(ex)) from ex
+
+
+class GraphIn(BaseModel):
+    access_token: str
+
+
+@app.post("/api/letters/{lid}/outlook-draft")
+def outlook_draft(lid: str, body: GraphIn) -> dict:
+    """Optional: Entwurf im Outlook-Postfach anlegen (Graph, Mail.ReadWrite). Kein Versand."""
+    l = _letter(lid)
+    if l["status"] != "Geprüft":
+        raise HTTPException(409, "Erst freigeben")
+    res = outlook.graph_create_draft(l, body.access_token, Path(l["exports"]["docx"]))
+    store.audit(ACTOR, "letter", lid, "outlook_draft", after=res)
+    return res
+
+
+@app.get("/api/letters/{lid}/export/{fmt}")
+def export(lid: str, fmt: str) -> FileResponse:
+    l = _letter(lid)
+    if l["status"] not in ("Geprüft", "Versendet"):
+        raise HTTPException(409, "Export erst nach Freigabe (alle roten Stellen bestätigt, Checkliste erfüllt)")
+    p = l["exports"].get(fmt)
+    if not p or not Path(p).exists():
+        raise HTTPException(404, f"{fmt} nicht vorhanden" + (" – LibreOffice nicht installiert" if fmt == "pdf" else ""))
+    store.audit(ACTOR, "letter", lid, f"download_{fmt}")
+    media = {"docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+             "pdf": "application/pdf", "eml": "message/rfc822"}[fmt]
+    return FileResponse(p, media_type=media, filename=Path(p).name)
+
+
+@app.get("/api/projects/{pid}/daily-report")
+def daily_report(pid: str, date: Optional[str] = None, fmt: str = "docx") -> FileResponse:
+    paths = docx_export.daily_report_docx(pid, date or views.default_day(pid))
+    p = paths.get(fmt) or paths["docx"]
+    store.audit(ACTOR, "export", pid, "daily_report", after=paths)
+    return FileResponse(p, filename=Path(p).name)
+
+
+# ------------------------------------------------------------------------------------------- mailbox / KB
+@app.get("/api/projects/{pid}/mailbox")
+def mailbox(pid: str) -> list[dict]:
+    out = []
+    for m in store.emails(pid):
+        cap = store.get("captures", m.get("capture_id")) if m.get("capture_id") else None
+        out.append({**m, "summary": cap.get("summary") if cap else None,
+                    "event_ids": cap.get("event_ids", []) if cap else []})
+    return out
+
+
+@app.get("/api/projects/{pid}/knowledge")
+def knowledge(pid: str) -> list[dict]:
+    return [{"doc_id": d["doc_id"], "title": d["title"], "kind": d.get("kind"), "collection": d.get("collection"),
+             "project_id": d["project_id"], "pages": len(d["pages"]), "file": d.get("file")}
+            for d in store.documents(pid)]
+
+
+@app.get("/api/documents/{doc_id}")
+def document(doc_id: str) -> dict:
+    d = store.get("documents", doc_id)
+    if not d:
+        raise HTTPException(404)
+    return d
+
+
+@app.get("/api/projects/{pid}/knowledge/search")
+def knowledge_search(pid: str, q: str, collection: Optional[str] = None) -> list[dict]:
+    return [{k: (float(v) if hasattr(v, "item") else v) for k, v in h.items()}
+            for h in rag.index().search(q, project_id=pid, collection=collection, k=6)]
+
+
+@app.get("/api/evidence/{evid}")
+def evidence(evid: str) -> dict:
+    e = store.evidence(evid)
+    if not e:
+        raise HTTPException(404)
+    if e.get("capture_id"):
+        cap = store.get("captures", e["capture_id"]) or {}
+        e["transcript"] = cap.get("transcript")
+        e["email"] = cap.get("email")
+    return e
+
+
+@app.get("/api/audit")
+def audit(entity_id: Optional[str] = None) -> list[dict]:
+    return store.audit_log(entity_id)
+
+
+# ------------------------------------------------------------------------------------------- Bearbeiten / Löschen
+def _edit(fn, *a, **kw):
+    try:
+        return fn(*a, **kw)
+    except editing.EditError as ex:
+        raise HTTPException(409, str(ex)) from ex
+    except (ValueError, KeyError) as ex:
+        raise HTTPException(400, str(ex)) from ex
+
+
+@app.get("/api/projects/{pid}/master")
+def project_master(pid: str) -> dict:
+    return settings.project_cfg(pid)
+
+
+@app.put("/api/projects/{pid}/master")
+def update_project(pid: str, body: dict) -> dict:
+    return _edit(editing.update_project, pid, body, ACTOR)
+
+
+@app.get("/api/projects/{pid}/activities")
+def activities(pid: str) -> list[dict]:
+    return store.activities(pid)
+
+
+@app.post("/api/projects/{pid}/activities")
+def create_activity(pid: str, body: dict) -> dict:
+    return _edit(editing.save_activity, pid, None, body, ACTOR)
+
+
+@app.put("/api/projects/{pid}/activities/{aid}")
+def update_activity(pid: str, aid: str, body: dict) -> dict:
+    return _edit(editing.save_activity, pid, aid, body, ACTOR)
+
+
+@app.delete("/api/projects/{pid}/activities/{aid}")
+def delete_activity(pid: str, aid: str) -> dict:
+    _edit(editing.delete_activity, pid, aid, ACTOR)
+    return {"deleted": aid}
+
+
+class ProgressIn(BaseModel):
+    activity_id: str
+    date: str
+    qty: Optional[float] = None  # None = Eintrag löschen
+
+
+@app.put("/api/projects/{pid}/progress")
+def set_progress(pid: str, body: ProgressIn) -> dict:
+    _edit(editing.set_progress, pid, body.activity_id, body.date, body.qty, ACTOR)
+    pipeline.refresh_day(pid, datetime.fromisoformat(body.date).date())
+    return {"ok": True}
+
+
+@app.get("/api/projects/{pid}/progress")
+def get_progress(pid: str, date: Optional[str] = None) -> list[dict]:
+    return [p for p in store.progress(pid) if not date or p["date"] == date]
+
+
+class StaffIn(BaseModel):
+    date: str
+    crew: str
+    present: Optional[int] = None
+    planned: Optional[int] = None
+
+
+@app.put("/api/projects/{pid}/staffing")
+def set_staffing(pid: str, body: StaffIn) -> dict:
+    _edit(editing.set_staffing, pid, body.date, body.crew, body.present, body.planned, ACTOR)
+    return {"ok": True}
+
+
+@app.patch("/api/events/{eid}")
+def update_event(eid: str, body: dict) -> dict:
+    return views.event_card(_edit(editing.update_event, eid, body, ACTOR))
+
+
+@app.delete("/api/events/{eid}")
+def delete_event(eid: str) -> dict:
+    _edit(editing.delete_event, eid, ACTOR)
+    return {"deleted": eid}
+
+
+@app.patch("/api/captures/{cid}")
+def update_capture(cid: str, body: dict) -> dict:
+    return _edit(editing.update_capture, cid, body, ACTOR)
+
+
+@app.delete("/api/captures/{cid}")
+def delete_capture(cid: str) -> dict:
+    return _edit(editing.delete_capture, cid, ACTOR)
+
+
+@app.delete("/api/documents/{doc_id}")
+def delete_document(doc_id: str) -> dict:
+    _edit(editing.delete_document, doc_id, ACTOR)
+    return {"deleted": doc_id}
+
+
+@app.get("/files/{path:path}")
+def files(path: str) -> FileResponse:
+    base = settings.data_dir().resolve()
+    p = (base / path).resolve()
+    if not str(p).startswith(str(base)) or not p.is_file():
+        raise HTTPException(404)
+    return FileResponse(p)

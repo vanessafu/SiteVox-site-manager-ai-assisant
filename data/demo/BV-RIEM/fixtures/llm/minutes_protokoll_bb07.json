@@ -1,0 +1,32 @@
+{
+ "samples": [
+  {
+   "summary": [
+    "Vertragsfrist Rohbau EG 16.12.2026 bestätigt",
+    "Ingenieurbüro Brandl sagt Bewehrungspläne Achse C (Index b) für den 18.11.2026 zu",
+    "Betonage Bodenplatte für 20.11.2026 ab 13:00 Uhr vorgesehen, Pumpe durch AN bestellt",
+    "Durchführungen TGA in der Bodenplatte noch in Abstimmung"
+   ],
+   "open_items": [
+    {
+     "topic": "Bewehrungspläne Achse C (Index b) liefern",
+     "responsible": "Ingenieurbüro Brandl (für AG)",
+     "due": "2026-11-18",
+     "quote": "Ingenieurbüro Brandl sagt die Bewehrungspläne Achse C (Index b) für den 18.11.2026 zu."
+    },
+    {
+     "topic": "Absturzsicherung Baugrubenrand ergänzen",
+     "responsible": "AN",
+     "due": "2026-11-20",
+     "quote": "Absturzsicherung Baugrubenrand wird durch AN bis 20.11.2026 ergänzt."
+    },
+    {
+     "topic": "Abstimmung Durchführungen TGA in der Bodenplatte",
+     "responsible": "Architekturbüro Lechner",
+     "due": "2026-11-25",
+     "quote": "Verantwortlich: Architekturbüro Lechner. Termin: 25.11.2026."
+    }
+   ]
+  }
+ ]
+}

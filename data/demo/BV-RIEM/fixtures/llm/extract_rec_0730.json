@@ -1,0 +1,55 @@
+{
+ "base": {
+  "summary": "Bewehrungspläne Achse C (Index b) fehlen trotz Zusage; Betonage BP heute nicht möglich.",
+  "events": [
+   {
+    "end_time": null,
+    "affected_activities": [
+     "Bewehrung BP Achse C",
+     "Betonage BP"
+    ],
+    "resource_effects": [
+     {
+      "resource": "Kolonne Müller",
+      "status": "restricted",
+      "start_time": "12:00",
+      "end_time": null
+     }
+    ],
+    "responsible_party_guess": "AG",
+    "responsible_rationale": "Die Planbeistellung durch die Tragwerksplanung des AG ist eine Mitwirkungspflicht des Auftraggebers.",
+    "impact_estimate_days": 2,
+    "blocked_until": null,
+    "owner_supplied_material": null,
+    "predecessor_by_owner": null,
+    "own_work": null,
+    "work_started": null,
+    "ordered_by": null,
+    "type": "planlieferverzug",
+    "description": "Die Bewehrungspläne Achse C (Index b) liegen trotz Zusage für den 18.11. nicht vor.",
+    "cause": "Fehlende Bewehrungspläne Achse C, Index b (Ingenieurbüro Brandl)",
+    "start_time": "07:30",
+    "quotes": [
+     "Die Bewehrungspläne für Achse C, Index b, liegen immer noch nicht vor, obwohl das Ingenieurbüro Brandl die Pläne in der Baubesprechung für den 18.11. zugesagt hatte",
+     "ab 12 Uhr haben die in Achse C keinen Arbeitsbereich mehr",
+     "Damit ist die Betonage der Bodenplatte heute Nachmittag nicht zu halten"
+    ]
+   }
+  ],
+  "progress": [],
+  "staffing": [],
+  "open_items": []
+ },
+ "variants": [
+  {},
+  {
+   "events.0.impact_estimate_days": 1
+  },
+  {},
+  {
+   "events.0.responsible_party_guess": "neutral",
+   "events.0.impact_estimate_days": 3
+  },
+  {}
+ ]
+}

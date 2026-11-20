@@ -1,0 +1,190 @@
+{
+ "language": "de",
+ "duration": 10.6,
+ "segments": [
+  {
+   "start": 0.3,
+   "end": 1.18,
+   "text": "Zehn Uhr zwei.",
+   "words": [
+    {
+     "word": "Zehn",
+     "start": 0.3,
+     "end": 0.56,
+     "score": 0.911
+    },
+    {
+     "word": "Uhr",
+     "start": 0.61,
+     "end": 0.83,
+     "score": 0.931
+    },
+    {
+     "word": "zwei.",
+     "start": 0.88,
+     "end": 1.18,
+     "score": 0.911
+    }
+   ]
+  },
+  {
+   "start": 1.24,
+   "end": 5.12,
+   "text": "Der Bagger steht seit 10 Uhr, Hydraulikschlauch am Ausleger geplatzt.",
+   "words": [
+    {
+     "word": "Der",
+     "start": 1.24,
+     "end": 1.45,
+     "score": 0.918
+    },
+    {
+     "word": "Bagger",
+     "start": 1.51,
+     "end": 1.85,
+     "score": 0.974
+    },
+    {
+     "word": "steht",
+     "start": 1.9,
+     "end": 2.2,
+     "score": 0.963
+    },
+    {
+     "word": "seit",
+     "start": 2.26,
+     "end": 2.51,
+     "score": 0.917
+    },
+    {
+     "word": "10",
+     "start": 2.57,
+     "end": 2.75,
+     "score": 0.977
+    },
+    {
+     "word": "Uhr,",
+     "start": 2.8,
+     "end": 3.06,
+     "score": 0.965
+    },
+    {
+     "word": "Hydraulikschlauch",
+     "start": 3.11,
+     "end": 3.9,
+     "score": 0.74
+    },
+    {
+     "word": "am",
+     "start": 3.95,
+     "end": 4.13,
+     "score": 0.965
+    },
+    {
+     "word": "Ausleger",
+     "start": 4.19,
+     "end": 4.61,
+     "score": 0.79
+    },
+    {
+     "word": "geplatzt.",
+     "start": 4.66,
+     "end": 5.12,
+     "score": 0.948
+    }
+   ]
+  },
+  {
+   "start": 5.18,
+   "end": 8.28,
+   "text": "Werkstatt ist informiert, der Monteur kommt gegen eins.",
+   "words": [
+    {
+     "word": "Werkstatt",
+     "start": 5.18,
+     "end": 5.64,
+     "score": 0.921
+    },
+    {
+     "word": "ist",
+     "start": 5.69,
+     "end": 5.91,
+     "score": 0.907
+    },
+    {
+     "word": "informiert,",
+     "start": 5.97,
+     "end": 6.51,
+     "score": 0.91
+    },
+    {
+     "word": "der",
+     "start": 6.56,
+     "end": 6.78,
+     "score": 0.914
+    },
+    {
+     "word": "Monteur",
+     "start": 6.84,
+     "end": 7.22,
+     "score": 0.902
+    },
+    {
+     "word": "kommt",
+     "start": 7.27,
+     "end": 7.57,
+     "score": 0.93
+    },
+    {
+     "word": "gegen",
+     "start": 7.62,
+     "end": 7.92,
+     "score": 0.937
+    },
+    {
+     "word": "eins.",
+     "start": 7.98,
+     "end": 8.28,
+     "score": 0.919
+    }
+   ]
+  },
+  {
+   "start": 8.33,
+   "end": 10.25,
+   "text": "Aushub BA1 steht solange komplett.",
+   "words": [
+    {
+     "word": "Aushub",
+     "start": 8.33,
+     "end": 8.67,
+     "score": 0.936
+    },
+    {
+     "word": "BA1",
+     "start": 8.72,
+     "end": 8.94,
+     "score": 0.917
+    },
+    {
+     "word": "steht",
+     "start": 9.0,
+     "end": 9.29,
+     "score": 0.963
+    },
+    {
+     "word": "solange",
+     "start": 9.35,
+     "end": 9.73,
+     "score": 0.903
+    },
+    {
+     "word": "komplett.",
+     "start": 9.78,
+     "end": 10.25,
+     "score": 0.903
+    }
+   ]
+  }
+ ]
+}

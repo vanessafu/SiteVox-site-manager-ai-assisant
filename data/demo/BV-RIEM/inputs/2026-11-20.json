@@ -1,0 +1,62 @@
+[
+ {
+  "kind": "audio",
+  "file": "rec_0700.wav",
+  "time": "07:00",
+  "fixture": "rec_0700"
+ },
+ {
+  "kind": "audio",
+  "file": "rec_0730.wav",
+  "time": "07:30",
+  "fixture": "rec_0730"
+ },
+ {
+  "kind": "photo",
+  "file": "IMG_0731.jpg",
+  "time": "07:31",
+  "title": "Foto 07:31 · Achse C – Bewehrung unvollständig",
+  "meta": {
+   "link_event_type": "planlieferverzug"
+  }
+ },
+ {
+  "kind": "audio",
+  "file": "rec_1002.wav",
+  "time": "10:02",
+  "fixture": "rec_1002"
+ },
+ {
+  "kind": "email",
+  "file": "mail_1102.eml",
+  "time": "11:02",
+  "fixture": "mail_1102"
+ },
+ {
+  "kind": "email",
+  "file": "mail_1215.eml",
+  "time": "12:15",
+  "fixture": "mail_1215"
+ },
+ {
+  "kind": "audio",
+  "file": "rec_1300.wav",
+  "time": "13:00",
+  "fixture": "rec_1300"
+ },
+ {
+  "kind": "photo",
+  "file": "IMG_1410.jpg",
+  "time": "14:10",
+  "title": "Foto 14:10 · Bagger nach Reparatur",
+  "meta": {
+   "link_event_type": "equipment_failure"
+  }
+ },
+ {
+  "kind": "audio",
+  "file": "rec_1630.wav",
+  "time": "16:30",
+  "fixture": "rec_1630"
+ }
+]

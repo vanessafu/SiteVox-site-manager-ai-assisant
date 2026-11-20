@@ -1,0 +1,189 @@
+{
+ "language": "de",
+ "duration": 10.98,
+ "segments": [
+  {
+   "start": 0.3,
+   "end": 0.84,
+   "text": "13 Uhr.",
+   "words": [
+    {
+     "word": "13",
+     "start": 0.3,
+     "end": 0.49,
+     "score": 0.965
+    },
+    {
+     "word": "Uhr.",
+     "start": 0.55,
+     "end": 0.84,
+     "score": 0.98
+    }
+   ]
+  },
+  {
+   "start": 0.9,
+   "end": 5.69,
+   "text": "Betonpumpe für heute abbestellt, die Bewehrung in Achse C ist nicht fertig.",
+   "words": [
+    {
+     "word": "Betonpumpe",
+     "start": 0.9,
+     "end": 1.45,
+     "score": 0.952
+    },
+    {
+     "word": "für",
+     "start": 1.51,
+     "end": 1.75,
+     "score": 0.971
+    },
+    {
+     "word": "heute",
+     "start": 1.81,
+     "end": 2.14,
+     "score": 0.957
+    },
+    {
+     "word": "abbestellt,",
+     "start": 2.2,
+     "end": 2.8,
+     "score": 0.967
+    },
+    {
+     "word": "die",
+     "start": 2.86,
+     "end": 3.1,
+     "score": 0.956
+    },
+    {
+     "word": "Bewehrung",
+     "start": 3.16,
+     "end": 3.67,
+     "score": 0.969
+    },
+    {
+     "word": "in",
+     "start": 3.73,
+     "end": 3.93,
+     "score": 0.953
+    },
+    {
+     "word": "Achse",
+     "start": 3.99,
+     "end": 4.32,
+     "score": 0.9
+    },
+    {
+     "word": "C",
+     "start": 4.38,
+     "end": 4.53,
+     "score": 0.97
+    },
+    {
+     "word": "ist",
+     "start": 4.59,
+     "end": 4.83,
+     "score": 0.96
+    },
+    {
+     "word": "nicht",
+     "start": 4.89,
+     "end": 5.22,
+     "score": 0.943
+    },
+    {
+     "word": "fertig.",
+     "start": 5.27,
+     "end": 5.69,
+     "score": 0.956
+    }
+   ]
+  },
+  {
+   "start": 5.75,
+   "end": 10.62,
+   "text": "Neuer Betoniertermin erst, wenn die Pläne da sind und Achse C verlegt ist.",
+   "words": [
+    {
+     "word": "Neuer",
+     "start": 5.75,
+     "end": 6.08,
+     "score": 0.924
+    },
+    {
+     "word": "Betoniertermin",
+     "start": 6.14,
+     "end": 6.88,
+     "score": 0.94
+    },
+    {
+     "word": "erst,",
+     "start": 6.94,
+     "end": 7.27,
+     "score": 0.944
+    },
+    {
+     "word": "wenn",
+     "start": 7.33,
+     "end": 7.61,
+     "score": 0.933
+    },
+    {
+     "word": "die",
+     "start": 7.67,
+     "end": 7.91,
+     "score": 0.956
+    },
+    {
+     "word": "Pläne",
+     "start": 7.97,
+     "end": 8.3,
+     "score": 0.956
+    },
+    {
+     "word": "da",
+     "start": 8.36,
+     "end": 8.56,
+     "score": 0.905
+    },
+    {
+     "word": "sind",
+     "start": 8.62,
+     "end": 8.9,
+     "score": 0.916
+    },
+    {
+     "word": "und",
+     "start": 8.96,
+     "end": 9.2,
+     "score": 0.948
+    },
+    {
+     "word": "Achse",
+     "start": 9.26,
+     "end": 9.59,
+     "score": 0.9
+    },
+    {
+     "word": "C",
+     "start": 9.65,
+     "end": 9.8,
+     "score": 0.97
+    },
+    {
+     "word": "verlegt",
+     "start": 9.86,
+     "end": 10.28,
+     "score": 0.924
+    },
+    {
+     "word": "ist.",
+     "start": 10.34,
+     "end": 10.62,
+     "score": 0.928
+    }
+   ]
+  }
+ ]
+}

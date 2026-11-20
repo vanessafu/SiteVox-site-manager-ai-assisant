@@ -1,0 +1,45 @@
+{
+ "base": {
+  "summary": "Architekturbüro Lechner fordert 4 zusätzliche Kernbohrungen DN150 in der Bodenplatte.",
+  "events": [
+   {
+    "end_time": null,
+    "affected_activities": [],
+    "resource_effects": [],
+    "responsible_party_guess": "AG",
+    "responsible_rationale": "Vom Planer des AG geforderte, im Vertrag nicht vorgesehene Leistung.",
+    "impact_estimate_days": null,
+    "blocked_until": null,
+    "owner_supplied_material": null,
+    "predecessor_by_owner": null,
+    "own_work": null,
+    "work_started": false,
+    "ordered_by": "Architekturbüro Lechner",
+    "type": "additional_work",
+    "description": "Das Architekturbüro Lechner fordert zusätzlich 4 Kernbohrungen DN150 in der Bodenplatte für Grundleitungen der Haustechnik.",
+    "cause": "Zusätzliche Kernbohrungen DN150 (4 Stück) in der Bodenplatte",
+    "start_time": "11:02",
+    "quotes": [
+     "in der Bodenplatte Achse A–B zusätzlich 4 Kernbohrungen DN150 für die Grundleitungen der Haustechnik vorzusehen",
+     "Die Ausführung soll in der nächsten Woche erfolgen"
+    ]
+   }
+  ],
+  "progress": [],
+  "staffing": [],
+  "open_items": []
+ },
+ "variants": [
+  {},
+  {
+   "events.0.type": "leistungsaenderung"
+  },
+  {},
+  {
+   "events.0.responsible_party_guess": "unklar"
+  },
+  {
+   "events.0.type": "leistungsaenderung"
+  }
+ ]
+}
