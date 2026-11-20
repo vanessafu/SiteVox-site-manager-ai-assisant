@@ -1,0 +1,55 @@
+{
+ "base": {
+  "summary": "Personal 14 von 16; Kolonne Müller zwei Mann krank; Regen, ca. 4 °C.",
+  "events": [
+   {
+    "end_time": null,
+    "affected_activities": [
+     "Bewehrung BP"
+    ],
+    "resource_effects": [],
+    "responsible_party_guess": "AN",
+    "responsible_rationale": "Eigene Personaldisposition des AN.",
+    "impact_estimate_days": null,
+    "blocked_until": null,
+    "owner_supplied_material": null,
+    "predecessor_by_owner": null,
+    "own_work": true,
+    "work_started": null,
+    "ordered_by": null,
+    "type": "worker_shortage",
+    "description": "Bei der Kolonne Müller fehlen zwei Mitarbeiter krankheitsbedingt.",
+    "cause": "Krankheit, 2 Mann",
+    "start_time": "07:00",
+    "quotes": [
+     "Bei der Kolonne Müller fehlen zwei Mann krank, die sind heute nur zu sechst"
+    ]
+   }
+  ],
+  "progress": [],
+  "staffing": [
+   {
+    "crew": "Gesamt",
+    "present": 14,
+    "absent": 2,
+    "reason": "krank",
+    "quote": "Personal heute 14 Mann statt 16"
+   },
+   {
+    "crew": "Kolonne Müller",
+    "present": 6,
+    "absent": 2,
+    "reason": "krank",
+    "quote": "Bei der Kolonne Müller fehlen zwei Mann krank, die sind heute nur zu sechst"
+   }
+  ],
+  "open_items": []
+ },
+ "variants": [
+  {},
+  {},
+  {},
+  {},
+  {}
+ ]
+}

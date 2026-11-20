@@ -1,0 +1,34 @@
+"use client";
+import { useT } from "@/lib/i18n";
+import Link from "next/link";
+import { useParams } from "next/navigation";
+import { dLong, useApi } from "@/lib/api";
+import { Elapsed, StatusChip } from "@/components/ui";
+
+const FLOW = ["Entwurf", "Geprüft", "Versendet"];
+
+export default function Letters() {
+  const { pid } = useParams<{ pid: string }>();
+  const { data } = useApi<any[]>(`/api/projects/${pid}/letters`, 10_000);
+  const { t } = useT();
+  return (
+    <div className="mx-auto max-w-4xl p-4">
+      <h1 className="mb-1 text-lg font-semibold">{t("Schreiben")}</h1>
+      <p className="mb-4 text-xs text-slate-600">{t("Status: {s}. „Versendet“ setzt nur die Bauleitung nach eigenem Versand.", { s: FLOW.map((f) => t(f)).join(" → ") })}</p>
+      <div className="grid gap-2">
+        {(data || []).map((l) => (
+          <Link key={l.letter_id} href={`/p/${pid}/schreiben/${l.letter_id}`} className="card flex items-center gap-3 p-3 hover:bg-slate-50">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 font-medium">{t(l.kind_label)} <span className="text-xs font-normal text-slate-500">{l.letter_id}</span></div>
+              <div className="truncate text-xs text-slate-600">{l.betreff}</div>
+              <div className="text-2xs text-slate-500">{t("erstellt {d}", { d: dLong(l.created_at) })}{l.deadline && l.status !== "Versendet" && <> · <Elapsed from={l.deadline.detected_at} level={l.deadline.level} label={l.deadline.label} /></>}</div>
+            </div>
+            {l.open_issues > 0 && <span className="pill bg-bad-soft text-bad-text">{t("{n} nicht belegt", { n: l.open_issues })}</span>}
+            <StatusChip status={l.status} />
+          </Link>
+        ))}
+        {data && !data.length && <p className="text-sm text-slate-600">{t("Noch keine Schreiben. Entwürfe entstehen aus „Handlungsbedarf“ im Dashboard.")}</p>}
+      </div>
+    </div>
+  );
+}

@@ -1,0 +1,92 @@
+{
+ "base": {
+  "summary": "Tagesleistung: Aushub 190 m³, Bewehrung 6,5 t, Schalung Rand 63 m, Betonage 0.",
+  "events": [
+   {
+    "end_time": "13:30",
+    "affected_activities": [
+     "Aushub BA1"
+    ],
+    "resource_effects": [
+     {
+      "resource": "Bagger",
+      "status": "idle",
+      "start_time": "10:00",
+      "end_time": "13:30"
+     }
+    ],
+    "responsible_party_guess": "AN",
+    "responsible_rationale": "Eigenes Gerät.",
+    "impact_estimate_days": null,
+    "blocked_until": null,
+    "owner_supplied_material": null,
+    "predecessor_by_owner": null,
+    "own_work": null,
+    "work_started": null,
+    "ordered_by": null,
+    "type": "equipment_failure",
+    "description": "Der Bagger lief ab 13:30 Uhr wieder.",
+    "cause": "Reparatur Hydraulikschlauch abgeschlossen",
+    "start_time": "10:00",
+    "quotes": [
+     "der Bagger lief ab halb zwei wieder"
+    ]
+   },
+   {
+    "end_time": null,
+    "affected_activities": [],
+    "resource_effects": [],
+    "responsible_party_guess": "AG",
+    "responsible_rationale": "",
+    "impact_estimate_days": null,
+    "blocked_until": null,
+    "owner_supplied_material": null,
+    "predecessor_by_owner": null,
+    "own_work": null,
+    "work_started": false,
+    "ordered_by": null,
+    "type": "additional_work",
+    "description": "Die Kernbohrungen wurden noch nicht begonnen.",
+    "cause": "Zusätzliche Kernbohrungen DN150",
+    "quotes": [
+     "Kernbohrungen noch nicht begonnen"
+    ]
+   }
+  ],
+  "progress": [
+   {
+    "activity": "Aushub BA1",
+    "quantity": 190,
+    "unit": "m³",
+    "quote": "Aushub BA1 etwa 190 Kubik"
+   },
+   {
+    "activity": "Bewehrung BP",
+    "quantity": 6.5,
+    "unit": "t",
+    "quote": "Bewehrung Bodenplatte 6,5 Tonnen verlegt"
+   },
+   {
+    "activity": "Schalung Rand",
+    "quantity": 63,
+    "unit": "m",
+    "quote": "Schalung Rand 63 Meter"
+   },
+   {
+    "activity": "Betonage BP",
+    "quantity": 0,
+    "unit": "m³",
+    "quote": "Betonage null"
+   }
+  ],
+  "staffing": [],
+  "open_items": []
+ },
+ "variants": [
+  {},
+  {},
+  {},
+  {},
+  {}
+ ]
+}

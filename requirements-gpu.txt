@@ -1,0 +1,12 @@
+# Zusätzlich auf dem GPU-Rechner (SITEVOX_MODE=gpu)
+-r requirements.txt
+torch>=2.4
+vllm>=0.10              # Qwen3-4B-Instruct-2507 / Qwen3-8B als OpenAI-kompatible Server
+transformers>=4.57      # Qwen3-VL (lazy in-process)
+accelerate>=0.33
+whisperx>=3.4           # ASR + Wort-Alignment
+faster-whisper>=1.1
+docling>=2.15           # PDF/DOCX/Scans inkl. OCR + Tabellen
+chromadb>=0.5
+sentence-transformers>=3.0   # BGE-M3 + bge-reranker-v2-m3
+# Mac-Entwicklung: mlx-whisper

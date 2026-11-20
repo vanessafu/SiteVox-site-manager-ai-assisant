@@ -1,0 +1,48 @@
+{
+ "samples": [
+  {
+   "sachverhalt": [
+    {
+     "text": "Mit E-Mail vom 20.11.2026, 11:02 Uhr, forderte das Architekturbüro Lechner die Herstellung von zusätzlich 4 Kernbohrungen DN150 in der Bodenplatte Achse A–B für die Grundleitungen der Haustechnik.",
+     "evidence": [
+      "E-01"
+     ]
+    },
+    {
+     "text": "Die Ausführung soll in der nächsten Woche erfolgen.",
+     "evidence": [
+      "E-02"
+     ]
+    },
+    {
+     "text": "Eine entsprechende Position ist im Leistungsverzeichnis nicht enthalten.",
+     "evidence": [
+      "E-03",
+      "E-06"
+     ]
+    },
+    {
+     "text": "Mit der Ausführung wurde noch nicht begonnen.",
+     "evidence": [
+      "E-04"
+     ]
+    }
+   ],
+   "auswirkungen": [
+    {
+     "text": "Für die Kernbohrungen entstehen zusätzliche Kosten für Gerät, Personal und Entsorgung, die von den vereinbarten Preisen nicht erfasst sind.",
+     "evidence": [
+      "E-03"
+     ]
+    },
+    {
+     "text": "Da die Anforderung durch das Architekturbüro Lechner erfolgte, bitten wir um Bestätigung durch den Auftraggeber bzw. dessen bevollmächtigten Vertreter.",
+     "evidence": [
+      "E-01",
+      "E-05"
+     ]
+    }
+   ]
+  }
+ ]
+}

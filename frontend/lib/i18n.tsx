@@ -1,0 +1,327 @@
+"use client";
+import { createContext, ReactNode, useContext, useEffect, useState } from "react";
+
+export type Lang = "de" | "en";
+
+/**
+ * UI-Übersetzung. Schlüssel = deutscher Originaltext, damit Deutsch ohne Wörterbuch funktioniert.
+ * Feste Texte aus der Engine (Fristen, Sphären-Begründungen, Auswirkungsketten …) werden ebenfalls übersetzt.
+ * Bewusst NICHT übersetzt: Schreiben an den AG (deutscher Vertrag, VOB/B) und Freitext aus Erfassungen.
+ */
+const EN: Record<string, string> = {
+  // Navigation / Shell
+  "Projekte": "Projects", "Dashboard": "Dashboard", "Erfassungen": "Captures", "Bauzeitenplan": "Schedule",
+  "Schreiben": "Notices", "Postfach": "Mailbox", "Vertrag / LV": "Contract / BoQ", "Export": "Export",
+  "Baustellen-Modus": "Site mode", "Container-Büro": "Site office", "Baustelle": "On site",
+  "Dashboard, Prüfung, Export": "Dashboard, review, export", "Sprachmemo, Foto, Notiz": "Voice memo, photo, note",
+  "KI-Assistent für die Bauleitung – Dokumentation, Tagesberichte, Anzeigen.": "AI assistant for site managers – documentation, daily reports, notices.",
+  "{n} fristgebundene Schreiben offen": "{n} time-critical notices open",
+  "Entwurf – keine Rechtsberatung, Prüfung durch Bauleitung/Unternehmen erforderlich":
+    "Draft – not legal advice, review by site management/company required",
+  "{n} AT": "{n} WD", "Vertragsfrist Rohbau EG": "Contractual deadline: shell EG", "ID": "ID",
+  "Fortschritt der Kolonne": "Crew progress", "lädt …": "loading …", "Schließen": "Close", "Sprache": "Language",
+  "API nicht erreichbar: {e}. Läuft das Backend (uvicorn backend.main:app)?": "API unreachable: {e}. Is the backend running (uvicorn backend.main:app)?",
+
+  // Dashboard
+  "1 Projektübersicht": "1 Project overview", "2 Heute": "2 Today", "3 Handlungsbedarf": "3 Action required",
+  "Projektübersicht": "Project overview", "Heute": "Today", "Handlungsbedarf": "Action required",
+  "Vertrag": "Contract", "Auswirkung:": "Impact:", "Gesamtlaufzeit": "Full duration", "Tagesziel": "daily target",
+  "Fortschritt": "Progress", "Soll": "Plan", "Ist": "Actual", "Verzug krit. Pfad": "Critical path delay",
+  "Nächste Vertragsfrist": "Next contractual deadline", "Prognose": "Forecast", "Rückstand": "Backlog",
+  "Gesamtfortschritt": "Overall progress",
+  "Gewichtet nach LV-Summen. Ist {a}, Soll laut Bauzeitenplan {b}.": "Weighted by BoQ value. Actual {a}, planned per schedule {b}.",
+  "Verzug kritischer Pfad": "Critical path delay",
+  "Fällig am {d} – in {n} Arbeitstagen. Prognose bei aktuellem Tempo: {f}": "Due {d} – in {n} working days. Forecast at current pace: {f}",
+  ", {n} AT Überschreitung": ", overrun {n} WD",
+  "Tagesziel erreicht": "Daily target reached", "Personal": "Workforce", "Wetter (DWD)": "Weather (DWD)", "üblich": "normal",
+  "Mit LV-Einheitspreisen gewichteter Anteil der heute geplanten Leistung:": "Share of today's planned output, weighted by BoQ unit prices:",
+  "{c}: {p} anwesend (Soll {s})": "{c}: {p} present (plan {s})", "Gesamt": "Total",
+  "Wetter (DWD via Bright Sky)": "Weather (DWD via Bright Sky)", "keine Daten": "no data",
+  "§ 6 Abs. 2 Nr. 2 VOB/B: übliche Witterung ist keine Behinderung.": "§ 6 (2) No. 2 VOB/B: normal weather is not an obstruction.",
+  "Niederschlag": "Precipitation", "Böen": "Gusts",
+  "Tagesleistung je Vorgang · Strich = Tagessoll": "Daily output per activity · line = daily target",
+  "{n} heute": "{n} today", "Tagessoll": "Daily target", "Ursache": "Cause",
+  "Tagesverlauf {a}–{b} Uhr · Symbole = Erfassungen": "Daily timeline {a}–{b} · icons = captures",
+  "Verknüpft mit": "Linked to", "In Erfassungen öffnen": "Open in captures", "Planmäßiger Einsatz.": "Planned operation.",
+  "{n} Schreiben offen": "{n} notices open", "Bautagesbericht exportieren": "Export daily site report",
+  "Review-Queue öffnen": "Open review queue", "Im Bauzeitenplan öffnen": "Open in schedule",
+  "kritischer Pfad": "critical path", "Vertragsfrist {d}": "Contractual deadline {d}", "(im Plan)": "(on schedule)",
+  "Gesamt {a} / {b}": "Total {a} / {b}", "Prognose Ende": "Forecast finish",
+  "Prognose bei aktuellem Tempo: Ø {r}/AT, Rest {x}": "Forecast at current pace: avg {r}/WD, remaining {x}",
+  "Puffer (Endtermin): {n} AT": "Float (finish): {n} WD", "Soll bis heute": "planned to date", "Heute:": "Today:",
+  "von": "of", "Erfassungen ": "Captures ",
+
+  // Legend / timeline
+  "Arbeit": "Working", "eingeschränkt": "restricted", "Stillstand": "Idle", "geplant, nicht begonnen": "planned, not started",
+  "Zusatzleistung": "Additional work", "nicht im LV": "not in BoQ", "LV prüfen": "check BoQ", "potenzieller Nachtrag": "potential claim",
+
+  // Events
+  "Materiallieferverzug": "Material delay", "Geräteausfall": "Equipment failure", "Witterung": "Weather",
+  "Personalmangel": "Worker shortage", "Behinderung durch Dritte": "Third-party interference",
+  "Planungsfehler": "Design error", "Qualitätsmangel": "Quality defect", "Zusätzliche Leistung": "Additional work",
+  "Planlieferverzug / fehlende Mitwirkung": "Late drawings / missing client cooperation",
+  "Leistungsänderung (AG-Anordnung)": "Change of scope (client order)",
+  "Behinderungsanzeige": "Notice of obstruction (Behinderungsanzeige)",
+  "Mehrkostenankündigung": "Notice of additional costs (Mehrkostenankündigung)",
+  "Nachtragsankündigung": "Notice of variation (Nachtragsankündigung)",
+  "Bedenkenanzeige": "Notice of concern (Bedenkenanzeige)", "Bautagebuch-Eintrag": "Site diary entry",
+  "Interne Warnung": "Internal warning",
+  "AG-Sphäre": "Client risk (AG)", "AN-Sphäre": "Contractor risk (AN)", "neutral": "neutral", "Vorschlag": "suggestion",
+  "von Bauleitung bestätigt": "confirmed by site management",
+  "Vorschlag – menschliche Bestätigung erforderlich": "Suggestion – human confirmation required",
+  "Vorschlag, menschliche Bestätigung erforderlich.": "Suggestion, human confirmation required.",
+  "Regel": "Rule", "KI-Einschätzung": "AI assessment", "{s} bestätigen": "Confirm {s}", "Empfehlung": "Recommendation",
+  "Auswirkung (Engine)": "Impact (engine)", "Konfidenz": "Confidence",
+  "Feld-Konfidenz (ohne LLM-Selbstauskunft)": "Field confidence (no LLM self-report)",
+  "Ereignistyp": "Event type", "Risikosphäre": "Risk sphere", "Beginn": "Start", "Betroffene Vorgänge": "Affected activities",
+  "Auswirkung (AT)": "Impact (WD)", "Belege": "Evidence", "ASR": "ASR", "Konsistenz": "Consistency", "Retrieval": "Retrieval",
+  "kein Schreiben an AG": "no notice to client", "nur Bautagebuch": "site diary only", "Entwurf erstellen": "Create draft",
+  "Entwurf bearbeiten": "Edit draft", "rot": "red", "seit {t}": "for {t}",
+  "Belege öffnen": "Open evidence", "Bearbeiten": "Edit",
+  "Konfidenz aus Belegen, ASR-Score, Sampling-Konsistenz, Retrieval und Regeln (keine LLM-Selbstauskunft)":
+    "Confidence from evidence, ASR score, sampling consistency, retrieval and rules (no LLM self-report)",
+
+  // Engine fixed texts
+  "unverzüglich schriftlich anzeigen": "notify in writing without delay",
+  "vor Ausführungsbeginn ankündigen": "announce before execution starts",
+  "Ausführung bereits begonnen – Ankündigung verspätet?": "Execution already started – announcement late?",
+  "möglichst vor Ausführung vereinbaren": "agree before execution if possible",
+  "unverzüglich, möglichst vor Beginn der Arbeiten": "without delay, ideally before work starts",
+  "keine Frist": "no deadline", "versendet": "sent",
+  "Beschaffungsrisiko liegt beim AN; bei AG-Beistellung AG": "Procurement risk lies with contractor; client if client-supplied",
+  "Eigene Geräte – Risiko des AN": "Own equipment – contractor's risk",
+  "Übliche Witterung ist einzukalkulieren (§ 6 Abs. 2 Nr. 2)": "Normal weather must be priced in (§ 6 (2) No. 2)",
+  "Eigene Personaldisposition – Risiko des AN": "Own staffing – contractor's risk",
+  "Nur Vorunternehmer des AG fallen in die AG-Sphäre": "Only the client's preceding contractors fall into the client's sphere",
+  "Planung wird vom AG geschuldet": "Design is owed by the client",
+  "Eigene Leistung AN; Vorleistung anderer Unternehmer → AG": "Own work → contractor; prior work by others → client",
+  "Vom AG geforderte, nicht vereinbarte Leistung": "Work requested by client, not in contract",
+  "Planbeistellung ist Mitwirkungspflicht des AG": "Providing drawings is the client's duty to cooperate",
+  "Anordnung des AG": "Client's order", "Vom AG beigestelltes Material": "Client-supplied material",
+  "DWD-Werte über den vereinbarten/üblichen Schwellen": "DWD values above agreed/normal thresholds",
+  "DWD-Werte im üblichen Rahmen – keine Behinderung (§ 6 Abs. 2 Nr. 2)": "DWD values within normal range – no obstruction (§ 6 (2) No. 2)",
+  "Vorunternehmer im Auftrag des AG": "Preceding contractor engaged by client", "Mangel einer Vorleistung": "Defect in prior work",
+  "Nur Dokumentation im Bautagebuch": "Site diary documentation only",
+  "Zusätzliche Leistung: Mehrkosten vor Ausführung ankündigen": "Additional work: announce extra costs before execution",
+  "Geänderte Leistung: neuen Preis vereinbaren": "Changed work: agree new price",
+  "Technische Bedenken schriftlich mitteilen (ggf. zusätzlich Behinderung)": "Raise technical concerns in writing (possibly also obstruction)",
+  "Bedenken gegen Vorleistung anderer Unternehmer": "Concerns about prior work by other contractors",
+  "Eigener Mangel: intern beseitigen (§ 4 Abs. 7)": "Own defect: fix internally (§ 4 (7))",
+  "AN-Risiko; AG kann bei unzureichender Besetzung Abhilfe verlangen (§ 5 Abs. 3)": "Contractor's risk; client may demand remedy if understaffed (§ 5 (3))",
+  "AN-Risiko: Bautagebuch + interne Warnung, kein Schreiben an AG": "Contractor's risk: site diary + internal warning, no notice to client",
+  "Behinderung aus AG-Sphäre bzw. unabwendbarer Umstand": "Obstruction from client's sphere or unavoidable circumstance",
+  "Behinderung möglich – Auswirkung prüfen": "Possible obstruction – check impact",
+  "Anordnung durch Architekt – Vollmacht prüfen, Ankündigung an AG richten": "Ordered by architect – check authority, address notice to client",
+  "Ausführung bereits begonnen – Ankündigung muss VOR Ausführung erfolgen": "Execution already started – announcement must be made BEFORE execution",
+  "Regelkonflikt: AN-Sphäre, aber Anzeige an AG vorgeschlagen": "Rule conflict: contractor's sphere, but notice to client suggested",
+  "im Rahmen der üblichen Witterung – keine Behinderung": "within normal weather – no obstruction",
+  "Eingangsgröße nur 'voraussichtlich' zugesagt": "input only 'expected', not confirmed",
+
+  // Letters list / editor
+  "Status: {s}. „Versendet“ setzt nur die Bauleitung nach eigenem Versand.": "Status: {s}. Only site management sets “Sent” after sending it themselves.",
+  "Entwurf": "Draft", "Geprüft": "Approved", "Versendet": "Sent", "Verworfen": "Rejected",
+  "erstellt {d}": "created {d}", "{n} nicht belegt": "{n} unsupported",
+  "Noch keine Schreiben. Entwürfe entstehen aus „Handlungsbedarf“ im Dashboard.": "No notices yet. Drafts are created from “Action required” on the dashboard.",
+  "Freigeben": "Approve", "Verwerfen": "Reject", "Übernehmen": "Accept",
+  "Review-Queue (unsicherste zuerst):": "Review queue (least certain first):",
+  "Felder · Farbe = Konfidenz": "Fields · colour = confidence",
+  "Empfänger": "Recipient", "Vertragsnummer": "Contract no.", "Beginn des Ereignisses": "Event start",
+  "Risikosphäre (Vorschlag)": "Risk sphere (suggestion)", "Voraussichtliche Auswirkung (AT)": "Expected impact (WD)",
+  "Rechtsgrundlage (aus Vorlage)": "Legal basis (from template)", "Zustellweg": "Delivery method",
+  "aus Vertragsstammdaten": "from contract master data", "berechnet von der Engine; Eingangsgrößen aus Belegen": "computed by engine; inputs from evidence",
+  "Normzitat ausschließlich aus Vorlage": "legal citation from template only", "Firmenstandard – bitte bestätigen": "company standard – please confirm",
+  "{n} Arbeitstage": "{n} working days",
+  "Schreibentext bleibt deutsch (an deutschen AG nach VOB/B).": "Letter text stays German (addressed to the German client under VOB/B).",
+  "[Vorlage]": "[template]", "KI-Text · jeder Satz belegt": "AI text · every sentence cited", "bearbeitet": "edited",
+  "bearbeiten": "edit", "Speichern & neu prüfen": "Save & re-check", "Abbrechen": "Cancel", "Bezug:": "Reference:",
+  "Faktenprüfung": "Fact check", "alle Werte belegt": "all values supported",
+  "{n} Zahlen/Daten/Namen geprüft": "{n} numbers/dates/names checked", "Satz {n}": "sentence {n}",
+  "belegt in {x}": "found in {x}", "andere Quelle": "other source", "manuell bestätigen": "confirm manually",
+  "Wodurch ist der Wert belegt? (geht ins Audit-Log)": "What supports this value? (goes into the audit log)",
+  "Datum in keinem Beleg gefunden": "date not found in any evidence", "Uhrzeit in keinem Beleg gefunden": "time not found in any evidence",
+  "Zahl in keinem Beleg gefunden": "number not found in any evidence", "Name in keinem Beleg gefunden": "name not found in any evidence",
+  "Satz ohne gültigen Beleg": "sentence without valid evidence",
+  "Normzitat im KI-Text – nur aus Vorlage zulässig": "legal citation in AI text – only allowed from template",
+  "Checkliste vor Freigabe": "Checklist before approval",
+  "Empfänger ist der Auftraggeber bzw. dessen bevollmächtigter Vertreter": "Recipient is the client or its authorised representative",
+  "Vertragsnummer korrekt": "Contract number correct",
+  "Tatsachen, Ursache und voraussichtliche Auswirkungen sind benannt": "Facts, cause and expected impact are stated",
+  "Zustellweg mit Nachweis festgelegt (E-Mail vorab + Einschreiben/Bote)": "Delivery method with proof set (email first + registered mail/courier)",
+  "Freigegeben von {a} am {d}": "Approved by {a} on {d}", "PDF n/v": "PDF n/a",
+  "LibreOffice (soffice) auf dem Server installieren": "Install LibreOffice (soffice) on the server",
+  "Outlook-Entwurf (.eml)": "Outlook draft (.eml)",
+  "SiteVox versendet nichts. Entwurf in Outlook öffnen, prüfen und selbst auf „Senden“ klicken.": "SiteVox sends nothing. Open the draft in Outlook, review it and click “Send” yourself.",
+  "E-Mail vorab + Einschreiben mit Rückschein": "Email first + registered mail with return receipt",
+  "E-Mail vorab + Bote mit Empfangsbestätigung": "Email first + courier with receipt", "Übergabe gegen Unterschrift": "Hand delivery against signature",
+  "Habe ich versendet": "I have sent it", "Versendet am {d}": "Sent on {d}", "Audit-Log ({n})": "Audit log ({n})",
+  "Belege zur Auswahl": "Evidence for selection", "Belege – Feld, Satz oder [E-xx] anklicken": "Evidence – click a field, sentence or [E-xx]",
+  "Kein Rohbeleg für diese Stelle.": "No raw evidence for this item.",
+  "Wert stammt aus Vorlage/Firmenstandard – bitte bewusst übernehmen.": "Value comes from template/company standard – accept deliberately.",
+  "Alle Belege": "All evidence", "Normzitat nur aus Vorlage": "citation from template only",
+  "Nicht belegt": "Unsupported", "Checkliste": "Checklist", "Feld": "Field",
+  "unsicher – bitte übernehmen, bearbeiten oder verwerfen": "uncertain – please accept, edit or reject", "Pflichtfeld": "Required field",
+
+  // Evidence
+  "Sprachmemo": "Voice memo", "Foto": "Photo", "E-Mail": "Email", "Notiz": "Note", "Dokument": "Document",
+  "Berechnung (Engine)": "Calculation (engine)", "ab {t}": "from {t}", "Abschnitt {a}–{b} s": "segment {a}–{b} s",
+  "ASR-Score {s}": "ASR score {s}", "Von {f} · {s}": "From {f} · {s}", "Originaltext": "Original text", "Seite {n}": "Page {n}",
+  "Retrieval-Relevanz {r}": "retrieval relevance {r}", "lädt {id} …": "loading {id} …", "Qwen3-VL-Beschreibung": "Qwen3-VL description",
+
+  // Other pages
+  "Bauzeitenplan · Stand {d}": "Schedule · as of {d}", "Vorgang": "Activity", "LV": "BoQ", "Verzug": "Delay", "Puffer": "Float", "Menge": "Quantity",
+  "Berechnung deterministisch (CPM auf Arbeitstagen, Prognose = Restmenge / Ø-Leistung der letzten 3 AT, Blockaden aus Ereignissen). Import: Excel-Bauzeitenplan.":
+    "Deterministic calculation (CPM on working days, forecast = remaining qty / avg output of last 3 WD, blockages from events). Import: Excel schedule.",
+  "Offene Punkte & Termine": "Open items & deadlines", "ohne Termin": "no date",
+  "Dem Projekt zugeordnete E-Mails (Mock: .eml-Ordner, später Graph mit Mail.ReadWrite)": "Emails assigned to this project (mock: .eml folder, later Graph with Mail.ReadWrite)",
+  "Von {f} · An {t}": "From {f} · To {t}", "KI-Zusammenfassung": "AI summary", "Verknüpfte Ereignisse": "Linked events", "E-Mail auswählen": "Select an email",
+  "Rechtsgrundlagen (VOB/B aktuelle Fassung)": "Legal basis (VOB/B current edition)", "Projektunterlagen": "Project documents",
+  "Normzitate in Schreiben stammen ausschließlich aus den Vorlagen. Die Wissensbasis dient dem Nachweis und der Suche (BM25 + BGE-M3, Rerank).":
+    "Legal citations in notices come only from templates. The knowledge base is for traceability and search (BM25 + BGE-M3, rerank).",
+  "z. B. Behinderung unverzüglich schriftlich": "e.g. Behinderung unverzüglich schriftlich", "Suchen": "Search", "Relevanz": "relevance",
+  "{n} S.": "{n} p.", "S. {n}": "p. {n}",
+  "Bautagesbericht": "Daily site report",
+  "Entwurf aus Erfassungen, Soll-Ist, Wetter (DWD), Ereignissen und Fotos (Gesichter automatisch verpixelt, mit Zeitstempel/GPS).":
+    "Draft from captures, plan vs. actual, weather (DWD), events and photos (faces blurred automatically, with timestamp/GPS).",
+  "Bautagesbericht {d} (DOCX)": "Daily site report {d} (DOCX)",
+  "Export erst nach Freigabe. Outlook-Entwurf als .eml (X-Unsent) – der Versand erfolgt durch Sie.": "Export only after approval. Outlook draft as .eml (X-Unsent) – you send it.",
+  "gesperrt bis Freigabe": "locked until approved",
+
+  // Bearbeiten / Löschen
+  "Ereignis bearbeiten": "Edit event", "Vorgang bearbeiten": "Edit activity", "Ist-Menge korrigieren": "Correct actual quantity",
+  "Ist heute": "Actual today", "Leer lassen = Eintrag löschen": "Leave empty = delete entry",
+  "Manuelle Korrektur der aus der Sprachnotiz übernommenen Menge (Audit-Log).": "Manual correction of the quantity taken from the voice memo (audit log).",
+  "Projekt-Stammdaten": "Project master data",
+  "Empfänger und Vertragsnummer neuer Schreiben werden aus diesen Stammdaten übernommen.": "Recipient and contract number of new notices are taken from this master data.",
+  "Bauvorhaben": "Project", "Adresse Baustelle": "Site address", "Vertragsdatum": "Contract date", "Vertragsgrundlage": "Contract basis",
+  "Auftraggeber": "Client (AG)", "Adresse AG": "Client address", "Bevollmächtigter Vertreter": "Authorised representative",
+  "Funktion": "Role", "E-Mail AG": "Client email",
+  "Risikosphäre, Empfehlung und Konfidenz werden nach dem Speichern regelbasiert neu berechnet.": "Risk sphere, recommendation and confidence are recomputed by the rules after saving.",
+  "Gantt, Soll-Ist, kritischer Pfad und Prognose werden aus dem geänderten Bauzeitenplan neu berechnet.": "Gantt, plan vs. actual, critical path and forecast are recomputed from the edited schedule.",
+  "Keine Änderungen": "No changes", "Gespeichert – Werte neu berechnet": "Saved – values recomputed",
+  "Speichern": "Save", "Löschen": "Delete", "Gelöscht": "Deleted",
+  "Wirklich löschen? (wird im Audit-Log protokolliert)": "Really delete? (recorded in the audit log)",
+  "Beschreibung": "Description", "Ende": "End", "Anfang": "Start", "Typ": "Type", "Einheit": "Unit",
+  "Kommagetrennt, z. B. Bewehrung BP, Betonage BP": "Comma-separated, e.g. Bewehrung BP, Betonage BP",
+  "Blockiert bis (für Prognose)": "Blocked until (for forecast)", "Tagesverlauf: Gerät/Kolonne": "Daily timeline: equipment/crew",
+  "Je Zeile: Ressource | work/restricted/idle/planned_not_started | Start | Ende": "One per line: resource | work/restricted/idle/planned_not_started | start | end",
+  "Ausführung bereits begonnen (Zusatzleistung)": "Execution already started (additional work)",
+  "Meilenstein (Vertragsfrist)": "Milestone (contractual deadline)", "LV-Position": "BoQ item", "LV-Summe (€)": "BoQ value (€)",
+  "Gewichtung für den Gesamtfortschritt": "Weight for overall progress", "Vorgänger": "Predecessors",
+  "z. B. A40FS-1; A30SS+4 (FS/SS, Lag in Arbeitstagen)": "e.g. A40FS-1; A30SS+4 (FS/SS, lag in working days)",
+  "Synonyme (für Spracherkennung)": "Aliases (for speech matching)", "Semikolon-getrennt": "Semicolon-separated",
+  "Neuer Vorgang": "New activity", "leer = automatisch": "empty = automatic",
+  "Kolonne": "Crew", "Kolonne hinzufügen": "Add crew",
+  "„Gesamt“ steuert die Kennzahl Personal; sonst Summe der Kolonnen.": "“Gesamt” (total) drives the workforce KPI; otherwise the sum of crews.",
+  "Erfassung bearbeiten": "Edit capture", "Titel": "Title", "Zusammenfassung": "Summary", "Transkript": "Transcript", "Text": "Text",
+  "Text korrigieren (z. B. Erkennungsfehler im Transkript) und optional neu auswerten lassen. Die Originaldatei bleibt erhalten.":
+    "Correct the text (e.g. recognition errors in the transcript) and optionally re-analyse. The original file is kept.",
+  "Nach dem Speichern neu auswerten (Ereignisse/Mengen neu ableiten)": "Re-analyse after saving (derive events/quantities again)",
+  "Erfassung inkl. Datei löschen? Abgeleitete Mengen, Belege und Ereignisse werden mit entfernt (Audit-Log).":
+    "Delete capture including file? Derived quantities, evidence and events are removed too (audit log).",
+  "„{x}“ löschen? Abgeleitete Mengen, Belege und Ereignisse werden mit entfernt (Audit-Log).":
+    "Delete “{x}”? Derived quantities, evidence and events are removed too (audit log).",
+  "„{x}“ löschen?": "Delete “{x}”?", "korrigiert": "corrected",
+  "Dokument hochladen": "Upload document", "Leistungsverzeichnis (LV)": "Bill of quantities (LV)", "Planlieferliste": "Drawing schedule",
+  "Protokoll": "Minutes", "Sonstiges": "Other", "PDF / DOCX / Bild wählen": "Choose PDF / DOCX / image",
+  "Ende liegt vor dem Anfang": "End is before start", "Rechtsgrundlagen sind schreibgeschützt": "Legal sources are read-only",
+  "Ereignis gehört zu einem freigegebenen/versendeten Schreiben": "Event belongs to an approved/sent notice",
+
+  // Mobile
+  "Stopp": "Stop", "z. B. „Bagger steht seit 10 Uhr, Hydraulikschlauch …“": "e.g. “Excavator idle since 10am, hydraulic hose …” (German or English)",
+  "Notiz / Stichworte": "Note / keywords", "Senden": "Upload", "Heute erfasst": "Captured today",
+  "Übertragen – wird ausgewertet": "Uploaded – being analysed", "Fehler: {e}": "Error: {e}",
+  "Mikrofon nicht verfügbar (HTTPS bzw. Berechtigung nötig)": "Microphone unavailable (HTTPS or permission required)",
+};
+
+// Muster für zusammengesetzte Engine-Texte (Auswirkungsketten, Wetter, Blocker)
+const EN_RULES: [RegExp, string][] = [
+  [/um (\d+) AT überschritten/g, "exceeded by $1 WD"],
+  [/\(statt ([^)]+)\)/g, "(instead of $1)"],
+  [/Vertragsfrist Rohbau EG/g, "Contractual deadline shell EG"],
+  [/^Sprachmemo (\d\d:\d\d)/, "Voice memo $1"],
+  [/^Foto (\d\d:\d\d)/, "Photo $1"],
+  [/^Mail (\d\d:\d\d)/, "Email $1"],
+  [/^Notiz (\d\d:\d\d)/, "Note $1"],
+  [/^Dokument (\d\d:\d\d)/, "Document $1"],
+  [/^Protokoll Baubesprechung Nr\. (\d+)/, "Site meeting minutes No. $1"],
+  [/ – Bewehrung unvollständig/, " – reinforcement incomplete"],
+  [/ · Bagger nach Reparatur/, " · excavator after repair"],
+  [/(\d+) AT\b/g, "$1 WD"],
+  [/^Nicht belegt: (\w+) „(.+)“ \((\w+) Satz (\d+)\)$/, "Unsupported: $1 “$2” ($3 sentence $4)"],
+  [/^Feld „(.+)“ unsicher – bitte übernehmen, bearbeiten oder verwerfen$/, "Field “$1” uncertain – please accept, edit or reject"],
+  [/^Pflichtfeld „(.+)“ verworfen$/, "Required field “$1” rejected"],
+  [/^Checkliste: (.+)$/, "Checklist: $1"],
+  [/^LLM-Einschätzung \((\w+)\) weicht von Regel \((\w+)\) ab – bitte prüfen$/, "LLM assessment ($1) differs from rule ($2) – please check"],
+  [/^manuell bestätigt: (.*)$/, "confirmed manually: $1"],
+  [/^Beleg wird in Schreiben (\S+) \((\S+)\) verwendet – Löschen nicht zulässig \(Nachweis\)$/, "Evidence is used in notice $1 ($2) – deletion not allowed (proof)"],
+  [/^Vorgänger (\S+) existiert nicht$/, "Predecessor $1 does not exist"],
+  [/^Zyklus im Terminplan bei (\S+)$/, "Cycle in schedule at $1"],
+  [/^Vorgang ist Vorgänger von (.+) – dort zuerst entfernen$/, "Activity is a predecessor of $1 – remove it there first"],
+  [/^ID (\S+) existiert bereits$/, "ID $1 already exists"],
+  [/Niederschlag ([\d.,]+) mm > ([\d.,]+) mm/, "Precipitation $1 mm > $2 mm"],
+  [/Böen ([\d.,]+) km\/h > ([\d.,]+) km\/h/, "Gusts $1 km/h > $2 km/h"],
+  [/Frost ([-\d.,]+) °C < ([-\d.,]+) °C/, "Frost $1 °C < $2 °C"],
+];
+
+type Ctx = { lang: Lang; setLang: (l: Lang) => void; t: (s: string, p?: Record<string, any>) => string };
+const LangCtx = createContext<Ctx>({ lang: "de", setLang: () => {}, t: (s) => s });
+
+let currentLang: Lang = "de";
+export const locale = () => (currentLang === "en" ? "en-GB" : "de-DE");
+
+function translate(lang: Lang, s: string, p?: Record<string, any>) {
+  let out = s;
+  if (lang === "en" && s) {
+    if (EN[s] !== undefined) out = EN[s];
+    else {
+      for (const [rx, rep] of EN_RULES) out = out.replace(rx, rep);
+      // Teilstücke der Checklisten-/Blocker-Texte ebenfalls nachschlagen
+      out = out.replace(/(“|„)([^“”„]+)(”|“)/g, (m, a, inner, b) => (EN[inner] ? `“${EN[inner]}”` : m));
+      const tail = out.match(/^(Checklist: )(.+)$/);
+      if (tail && EN[tail[2]]) out = tail[1] + EN[tail[2]];
+    }
+  }
+  if (p) for (const [k, v] of Object.entries(p)) out = out.split(`{${k}}`).join(String(v));
+  return out;
+}
+
+export function LangProvider({ children }: { children: ReactNode }) {
+  const [lang, setLangState] = useState<Lang>("de");
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("sitevox.lang");
+      const initial = saved === "en" || saved === "de" ? saved : navigator.language.startsWith("de") ? "de" : "en";
+      setLangState(initial as Lang);
+    } catch {}
+  }, []);
+  currentLang = lang;
+  useEffect(() => {
+    document.documentElement.lang = lang;
+  }, [lang]);
+  const setLang = (l: Lang) => {
+    setLangState(l);
+    try { localStorage.setItem("sitevox.lang", l); } catch {}
+  };
+  return (
+    <LangCtx.Provider value={{ lang, setLang, t: (s, p) => translate(lang, s, p) }}>
+      {/* key erzwingt Neuaufbau, damit auch Datums-/Zahlenformate sofort wechseln */}
+      <div key={lang} className="contents">{children}</div>
+    </LangCtx.Provider>
+  );
+}
+
+export const useT = () => useContext(LangCtx);
+
+export function LangToggle({ dark = false }: { dark?: boolean }) {
+  const { lang, setLang, t } = useT();
+  return (
+    <div className={`inline-flex overflow-hidden rounded-md border text-2xs font-semibold ${dark ? "border-slate-600" : "border-slate-300"}`} role="group" aria-label={t("Sprache")}>
+      {(["de", "en"] as Lang[]).map((l) => (
+        <button key={l} onClick={() => setLang(l)} aria-pressed={lang === l}
+          className={`px-2 py-0.5 uppercase ${lang === l ? (dark ? "bg-white text-slate-900" : "bg-slate-900 text-white") : dark ? "text-slate-300" : "text-slate-600 hover:bg-slate-100"}`}>
+          {l}
+        </button>
+      ))}
+    </div>
+  );
+}
