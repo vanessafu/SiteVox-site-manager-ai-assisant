@@ -141,6 +141,103 @@ def _sources(pid: str, day: str, caps: list[dict], events: list[dict], wx: dict,
     return sources, by_cap, by_ev
 
 
+# ------------------------------------------------------------------------------------------- Lieferungen
+OVERDUE_WINDOW_DAYS = 7
+
+
+def _mins(a: Optional[str], b: Optional[str]) -> Optional[int]:
+    return int(_hm(b) * 60 - _hm(a) * 60) if a and b else None
+
+
+def _same_material(a: Optional[str], b: Optional[str]) -> bool:
+    if not a or not b:
+        return False
+    x, y = a.lower(), b.lower()
+    if x in y or y in x:
+        return True
+    from difflib import SequenceMatcher
+
+    return SequenceMatcher(None, x[:12], y[:12]).ratio() >= 0.7
+
+
+def deliveries(project_id: str, day: str, refs) -> list[dict]:
+    """Lieferungen des Tages aus Tagesbuch-Einträgen, abgeglichen mit Ankündigungen aus Vortagen (Soll-Zeit,
+    Verzug) sowie offene/überfällige Ankündigungen und kumulierte Menge je Material bis heute."""
+    all_ = store.log_entries(project_id, kind="delivery")
+    arrived = [l for l in all_ if l["date"] == day and l.get("arrived") is not False]
+    announced = [l for l in all_ if l.get("arrived") is False and l.get("expected_date")]
+    due_today = [l for l in announced if l["expected_date"] == day]
+    used: set[str] = set()
+    rows = []
+
+    def total_to_date(material: Optional[str], unit: Optional[str]) -> Optional[float]:
+        qs = [l["quantity"] for l in all_ if l["date"] <= day and l.get("arrived") is not False
+              and l.get("quantity") is not None and l.get("unit") == unit and _same_material(l.get("material"), material)]
+        return round(sum(qs), 3) if qs else None
+
+    def last_before(material: Optional[str]) -> Optional[str]:
+        ds = [l["date"] for l in all_ if l["date"] < day and l.get("arrived") is not False
+              and _same_material(l.get("material"), material)]
+        return max(ds) if ds else None
+
+    for a in arrived:
+        m = next((x for x in due_today if x["log_id"] not in used and _same_material(x.get("material"), a.get("material"))),
+                 None)
+        if m is None and len(due_today) == 1 and due_today[0]["log_id"] not in used and not due_today[0].get("material"):
+            m = due_today[0]
+        if m:
+            used.add(m["log_id"])
+        ev = [a["evidence_id"]] + ([m["evidence_id"]] if m else [])
+        delay = _mins(m.get("expected_time"), a.get("time")) if m else None
+        rows.append({"material": a.get("material") or _clean(a.get("text"), 60), "quantity": a.get("quantity"),
+                     "unit": a.get("unit") or "", "supplier": a.get("supplier") or (m or {}).get("supplier"),
+                     "supplied_by": a.get("supplied_by") or (m or {}).get("supplied_by") or "AN",
+                     "planned_time": (m or {}).get("expected_time"), "actual_time": a.get("time"),
+                     "delay_minutes": max(delay, 0) if delay is not None else None,
+                     "delivery_note_no": a.get("delivery_note_no"), "status": "geliefert",
+                     "announced_on": (m or {}).get("date"), "previous_delivery": last_before(a.get("material")),
+                     "total_to_date": total_to_date(a.get("material"), a.get("unit")),
+                     "source_refs": refs(ev), "evidence_ids": ev, "log_ids": [a["log_id"]] + ([m["log_id"]] if m else [])})
+    lo = (date.fromisoformat(day).toordinal() - OVERDUE_WINDOW_DAYS)
+    for x in announced:
+        if x["log_id"] in used or x["date"] > day:
+            continue
+        exp = x["expected_date"]
+        if exp > day or date.fromisoformat(exp).toordinal() < lo:
+            continue
+        if exp < day:  # früher angekündigt: ist seitdem (bis heute) etwas Passendes gekommen?
+            came = any(l.get("arrived") is not False and exp <= l["date"] <= day
+                       and (_same_material(l.get("material"), x.get("material")) or not x.get("material"))
+                       for l in all_)
+            if came:
+                continue
+        status = "ausstehend" if exp == day else f"überfällig seit {date.fromisoformat(exp):%d.%m.}"
+        rows.append({"material": x.get("material") or _clean(x.get("text"), 60), "quantity": x.get("quantity"),
+                     "unit": x.get("unit") or "", "supplier": x.get("supplier"), "supplied_by": x.get("supplied_by") or "AN",
+                     "planned_time": x.get("expected_time"), "actual_time": None, "delay_minutes": None,
+                     "delivery_note_no": None, "status": status, "announced_on": x["date"],
+                     "previous_delivery": last_before(x.get("material")), "total_to_date": None,
+                     "source_refs": refs([x["evidence_id"]]), "evidence_ids": [x["evidence_id"]], "log_ids": [x["log_id"]]})
+    return rows
+
+
+def site_log(project_id: str, day: str, refs) -> list[dict]:
+    """Weitere Tagesbuch-Einträge (Prüfung, Besuch, erledigte Arbeit, Geräte-Befund) – Wortlaut + Beleg."""
+    from ..schemas import EQUIPMENT_STATE_LABELS, LOG_KIND_LABELS
+
+    out = []
+    for l in store.log_entries(project_id, day):
+        if l["kind"] == "delivery":
+            continue
+        detail = [x for x in (l.get("party"), l.get("result"), l.get("resource"),
+                              EQUIPMENT_STATE_LABELS.get(l.get("state") or "")) if x]
+        out.append({"log_id": l["log_id"], "kind": l["kind"], "label": LOG_KIND_LABELS.get(l["kind"], l["kind"]),
+                    "time": l.get("time"), "text": _clean(l.get("text"), 300), "detail": " · ".join(detail) or None,
+                    "activity_id": l.get("activity_id"), "source_refs": refs([l["evidence_id"]]),
+                    "evidence_ids": [l["evidence_id"]]})
+    return out
+
+
 # ------------------------------------------------------------------------------------------- build
 def build(project_id: str, day: str) -> dict[str, Any]:
     project = settings.project_cfg(project_id)
@@ -232,7 +329,10 @@ def build(project_id: str, day: str) -> dict[str, Any]:
         segs = row["segments"]
         operated = sum(_span(sg["start"], sg["end"]) for sg in segs if sg["status"] in ("work", "restricted"))
         down = [sg for sg in segs if sg["status"] in ("idle", "planned_not_started")]
-        if down and not operated:
+        if not segs and row.get("log_state"):  # nur gemeldet, ohne Uhrzeit: Status aus der Meldung, Stunden offen
+            status = {"idle": "Stillstand", "not_used": "nicht eingesetzt"}.get(row["log_state"], "im Einsatz")
+            operated = None
+        elif down and not operated:
             status = "nicht eingesetzt"
         elif any(sg["status"] == "idle" for sg in segs):
             ev = ev_by_id.get(next((sg["event_id"] for sg in down if sg.get("event_id")), ""), {})
@@ -244,25 +344,41 @@ def build(project_id: str, day: str) -> dict[str, Any]:
             ev = ev_by_id.get(sg.get("event_id") or "")
             if ev and ev["label"] not in causes:
                 causes.append(f"{ev['label']}: {ev.get('cause') or ev.get('description')}")
+        remarks = [_clean(x, 160) for x in row.get("remarks", []) if x]
+        if row.get("unplanned"):
+            remarks.insert(0, "nicht im Einsatzplan")
+        log_ev = row.get("log_evidence", [])
         equipment.append({"name": row["name"], "status": status, "activity_id": row.get("activity_id"),
+                          "unplanned": row.get("unplanned", False), "remarks": "; ".join(remarks) or None,
+                          "log_ids": row.get("log_ids", []),
                           "hours_planned": _span(res.get("from"), res.get("to")) or None, "hours_operated": operated,
                           "downtime": [{"from": sg["start"], "to": sg["end"]} for sg in down],
                           "downtime_cause": "; ".join(dict.fromkeys(causes)) or None,
-                          "source_refs": refs(e for sg in down for e in ev_by_id.get(sg.get("event_id") or "", {}).get("evidence", [])),
+                          "source_refs": refs([e for sg in down for e in ev_by_id.get(sg.get("event_id") or "", {}).get("evidence", [])]
+                                              + log_ev),
                           "evidence_ids": list(dict.fromkeys(
-                              e for sg in down for e in ev_by_id.get(sg.get("event_id") or "", {}).get("evidence", []))),
+                              [e for sg in down for e in ev_by_id.get(sg.get("event_id") or "", {}).get("evidence", [])]
+                              + log_ev)),
                           "event_ids": list(dict.fromkeys(sg["event_id"] for sg in down if sg.get("event_id")))})
 
     equipment = _apply_manual(equipment, store.report_rows(project_id, day, "equipment"), "name",
-                              {"status": "im Einsatz", "activity_id": None, "hours_planned": None, "hours_operated": None,
+                              {"status": "im Einsatz", "activity_id": None, "unplanned": False, "remarks": None,
+                               "log_ids": [], "hours_planned": None, "hours_operated": None,
                                "downtime": [], "downtime_cause": None, "source_refs": [], "evidence_ids": [],
                                "event_ids": []})
 
     # ---- Leistungen (Belege: heutige Mengenmeldung + verknüpfte Ereignisse)
     prog_ev: dict[str, list[str]] = {}
+    multi_reports = []
     for pr in store.progress(project_id):
-        if pr["date"] == day and pr.get("evidence_id"):
-            prog_ev.setdefault(pr["activity_id"], []).append(pr["evidence_id"])
+        if pr["date"] == day:
+            prog_ev.setdefault(pr["activity_id"], []).extend(
+                e for e in pr.get("evidence_ids") or [pr.get("evidence_id")] if e and not e.startswith("manual:"))
+            if pr.get("n_reports", 0) > 1:
+                name = acts.get(pr["activity_id"], {}).get("name", pr["activity_id"])
+                multi_reports.append(f"Leistung {name}: {pr['n_reports']} Meldungen summiert ("
+                                     + " + ".join(f"{x['qty']:g}" for x in pr["reports"]) + f" = {pr['qty']:g}) – prüfen, "
+                                     "ob eine davon bereits die Tagessumme war.")
     work = []
     for r in a["activities"]:
         if not (r["today"]["soll"] or r["today"]["ist"]):
@@ -395,6 +511,12 @@ def build(project_id: str, day: str) -> dict[str, Any]:
             questions.append(f"Risikosphäre {ev.get('sphere')} für {ev['event_id']} ({ev.get('label')}) bestätigen?")
         for w in ev.get("warnings", []):
             questions.append(f"{ev['event_id']}: {w}")
+    uncertain += multi_reports
+    for crew in {r["crew"] for r in store.staffing(project_id, day)}:
+        reps = store.staffing_reports(project_id, day, crew)
+        if len({r["present"] for r in reps}) > 1:
+            uncertain.append(f"Personal {crew}: abweichende Meldungen ({', '.join(str(r['present']) for r in reps)}) "
+                             f"– letzte Meldung ({reps[-1]['present']}) übernommen.")
     if ai_open:
         uncertain.append(f"{len(ai_open)} KI-Beobachtung(en) aus Fotos nicht bestätigt – gelten nicht als Beleg.")
     for c in caps:
@@ -417,7 +539,8 @@ def build(project_id: str, day: str) -> dict[str, Any]:
                                                                project["client"].get("representative_role")] if x)},
             "author": signer, "working_hours": {"start": start, "end": end},
         },
-        "weather": weather, "workforce": workforce, "equipment": equipment, "deliveries": [],
+        "weather": weather, "workforce": workforce, "equipment": equipment,
+        "deliveries": deliveries(project_id, day, refs), "site_log": site_log(project_id, day, refs),
         "work_performed": work, "deviations": deviations, "milestones_at_risk": milestones,
         "impact_chains": impact_chains, "incidents": incidents, "photos": photos, "sources": sources,
         "review": {"status": "KI-Entwurf", "ai_generated": True, "unsupported_statements": unsupported,

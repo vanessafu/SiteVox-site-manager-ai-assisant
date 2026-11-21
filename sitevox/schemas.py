@@ -131,11 +131,49 @@ class LLMOpenItem(BaseModel):
     quote: str
 
 
+LogKind = Literal["delivery", "equipment_use", "inspection", "visit", "work_done"]
+EquipmentState = Literal["in_operation", "checked_ok", "restricted", "idle", "not_used"]
+LOG_KIND_LABELS: dict[str, str] = {"delivery": "Lieferung", "equipment_use": "Geräteeinsatz", "inspection": "Prüfung",
+                                   "visit": "Besuch", "work_done": "Erledigte Arbeit"}
+EQUIPMENT_STATE_LABELS: dict[str, str] = {"in_operation": "im Einsatz", "checked_ok": "geprüft, in Ordnung",
+                                          "restricted": "eingeschränkt", "idle": "Stillstand",
+                                          "not_used": "nicht eingesetzt"}
+
+
+class LLMLogEntry(BaseModel):
+    """Tagesbuch-Eintrag ohne Störungscharakter (normaler Ablauf) – geht nur in den Bautagesbericht,
+    nicht durch das Risikosphären-Regelwerk. Felder je Art; was nicht genannt wird, bleibt null."""
+    kind: LogKind
+    text: str = Field(description="Ein sachlicher Satz, was festgehalten wird")
+    time: Optional[str] = Field(None, description="HH:MM, falls genannt")
+    quote: str = Field(description="Wörtliches Zitat aus der Eingabe")
+    # delivery
+    material: Optional[str] = Field(None, description="Lieferung: was (z. B. 'Betonstahl B500B', 'Transportbeton C30/37')")
+    quantity: Optional[float] = None
+    unit: Optional[str] = None
+    supplier: Optional[str] = Field(None, description="Lieferant/Firma")
+    supplied_by: Optional[Literal["AN", "AG"]] = Field(None, description="AG = vom Bauherrn beigestellt")
+    delivery_note_no: Optional[str] = Field(None, description="Lieferschein-Nr., falls genannt")
+    arrived: Optional[bool] = Field(None, description="true = heute angekommen; false = nur angekündigt/erwartet")
+    expected_date: Optional[str] = Field(None, description="ISO-Datum einer angekündigten Lieferung")
+    expected_time: Optional[str] = Field(None, description="HH:MM der angekündigten/geplanten Anlieferung")
+    # equipment_use
+    resource: Optional[str] = Field(None, description="Gerät, z. B. 'Bagger', 'Radlader', 'Kran'")
+    state: Optional[EquipmentState] = None
+    start_time: Optional[str] = Field(None, description="HH:MM Einsatzbeginn")
+    end_time: Optional[str] = Field(None, description="HH:MM Einsatzende")
+    # inspection / visit / work_done
+    party: Optional[str] = Field(None, description="Prüfer/Besucher/Firma, z. B. 'Prüfstatiker', 'Bauherr'")
+    result: Optional[str] = Field(None, description="Ergebnis einer Prüfung/Abnahme, z. B. 'ohne Beanstandung'")
+    activity: Optional[str] = Field(None, description="Betroffener Vorgang, falls erkennbar")
+
+
 class Extraction(BaseModel):
     summary: str = ""
     events: list[LLMEvent] = Field(default_factory=list)
     progress: list[LLMProgress] = Field(default_factory=list)
     staffing: list[LLMStaffing] = Field(default_factory=list)
+    log_entries: list[LLMLogEntry] = Field(default_factory=list)
     open_items: list[LLMOpenItem] = Field(default_factory=list)
 
 

@@ -30,6 +30,16 @@ CREATE TABLE IF NOT EXISTS audit      (id INTEGER PRIMARY KEY AUTOINCREMENT, ts 
 CREATE TABLE IF NOT EXISTS counters   (name TEXT PRIMARY KEY, value INTEGER);
 CREATE TABLE IF NOT EXISTS report_rows (project_id TEXT, date TEXT, section TEXT, key TEXT, doc TEXT NOT NULL,
                                         PRIMARY KEY(project_id, date, section, key));
+-- Einzelmeldungen (eine Zeile je Beleg). progress/staffing oben = wirksamer Tageswert daraus:
+-- Leistung = Summe der Meldungen, Personal = letzte Meldung (Kopfzahl doppelt melden ≠ doppelt so viele Leute)
+CREATE TABLE IF NOT EXISTS progress_reports (project_id TEXT, activity_id TEXT, date TEXT, evidence_id TEXT NOT NULL,
+                                             qty REAL, ts TEXT, PRIMARY KEY(project_id, activity_id, date, evidence_id));
+CREATE TABLE IF NOT EXISTS staffing_reports (project_id TEXT, date TEXT, crew TEXT, evidence_id TEXT NOT NULL,
+                                             present INTEGER, planned INTEGER, ts TEXT,
+                                             PRIMARY KEY(project_id, date, crew, evidence_id));
+-- Tagesbuch-Einträge ohne Störungscharakter (Lieferung, Geräteeinsatz, Prüfung, Besuch, erledigte Arbeit)
+CREATE TABLE IF NOT EXISTS log_entries (id TEXT PRIMARY KEY, project_id TEXT, date TEXT, kind TEXT, doc TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS ix_log_pd ON log_entries(project_id, date);
 CREATE INDEX IF NOT EXISTS ix_captures_pd ON captures(project_id, date);
 CREATE INDEX IF NOT EXISTS ix_events_pd ON events(project_id, date);
 """
@@ -49,8 +59,22 @@ def connect(path: Optional[Path] = None) -> sqlite3.Connection:
         c.row_factory = sqlite3.Row
         c.execute("PRAGMA journal_mode=WAL")
         c.executescript(SCHEMA)
+        _migrate(c)
         conns[key] = c
     return conns[key]
+
+
+def _migrate(c: sqlite3.Connection) -> None:
+    """Einmalig: bestehende Tageswerte mit Beleg als Einzelmeldung übernehmen (sonst ginge eine ältere Meldung
+    verloren, sobald am selben Tag eine zweite dazukommt)."""
+    if c.execute("SELECT 1 FROM counters WHERE name='migr:reports_v1'").fetchone():
+        return
+    c.execute("INSERT OR IGNORE INTO progress_reports SELECT project_id, activity_id, date, evidence_id, qty, NULL "
+              "FROM progress WHERE evidence_id IS NOT NULL")
+    c.execute("INSERT OR IGNORE INTO staffing_reports SELECT project_id, date, crew, evidence_id, present, planned, "
+              "NULL FROM staffing WHERE evidence_id IS NOT NULL")
+    c.execute("INSERT OR REPLACE INTO counters(name, value) VALUES('migr:reports_v1', 1)")
+    c.commit()
 
 
 def reset(path: Optional[Path] = None) -> None:
@@ -128,10 +152,122 @@ def save_progress(project_id: str, activity_id: str, date: str, qty: float, evid
 
 
 def progress(project_id: str) -> list[dict]:
+    """Wirksame Tagesmengen. evidence_ids/n_reports aus den Einzelmeldungen (n_reports > 1 → summiert)."""
     rows = connect().execute(
         "SELECT activity_id, date, qty, evidence_id FROM progress WHERE project_id=? ORDER BY date", (project_id,)
     )
-    return [dict(r) for r in rows.fetchall()]
+    reps: dict[tuple, list[dict]] = {}
+    for r in progress_reports(project_id):
+        reps.setdefault((r["activity_id"], r["date"]), []).append(r)
+    out = []
+    for r in rows.fetchall():
+        d = dict(r)
+        rs = reps.get((d["activity_id"], d["date"]), [])
+        d["evidence_ids"] = [x["evidence_id"] for x in rs] or ([d["evidence_id"]] if d["evidence_id"] else [])
+        d["n_reports"] = len(rs)
+        d["reports"] = [{"qty": x["qty"], "evidence_id": x["evidence_id"]} for x in rs]
+        out.append(d)
+    return out
+
+
+def progress_reports(project_id: str, activity_id: Optional[str] = None, date: Optional[str] = None) -> list[dict]:
+    sql, params = "SELECT * FROM progress_reports WHERE project_id=?", [project_id]
+    if activity_id:
+        sql, params = sql + " AND activity_id=?", params + [activity_id]
+    if date:
+        sql, params = sql + " AND date=?", params + [date]
+    return [dict(r) for r in connect().execute(sql + " ORDER BY date, ts, rowid", params).fetchall()]
+
+
+def _recompute_progress(project_id: str, activity_id: str, date: str) -> Optional[float]:
+    rs = progress_reports(project_id, activity_id, date)
+    if not rs:
+        execute("DELETE FROM progress WHERE project_id=? AND activity_id=? AND date=?", (project_id, activity_id, date))
+        return None
+    total = round(sum(r["qty"] or 0 for r in rs), 6)
+    save_progress(project_id, activity_id, date, total, rs[0]["evidence_id"])
+    return total
+
+
+def add_progress_report(project_id: str, activity_id: str, date: str, qty: float, evidence_id: str) -> dict:
+    """Neue Mengenmeldung; Tageswert = Summe aller Meldungen. Gibt {total, n, previous} zurück."""
+    before = progress_reports(project_id, activity_id, date)
+    execute("INSERT OR REPLACE INTO progress_reports VALUES(?,?,?,?,?,?)",
+            (project_id, activity_id, date, evidence_id, qty, now_iso()))
+    total = _recompute_progress(project_id, activity_id, date)
+    return {"total": total, "n": len(before) + 1, "previous": [r["qty"] for r in before]}
+
+
+def staffing_reports(project_id: str, date: str, crew: Optional[str] = None) -> list[dict]:
+    sql, params = "SELECT * FROM staffing_reports WHERE project_id=? AND date=?", [project_id, date]
+    if crew:
+        sql, params = sql + " AND crew=?", params + [crew]
+    return [dict(r) for r in connect().execute(sql + " ORDER BY ts, rowid", params).fetchall()]
+
+
+def _recompute_staffing(project_id: str, date: str, crew: str) -> Optional[dict]:
+    rs = staffing_reports(project_id, date, crew)
+    if not rs:
+        execute("DELETE FROM staffing WHERE project_id=? AND date=? AND crew=?", (project_id, date, crew))
+        return None
+    last = rs[-1]
+    save_staffing(project_id, date, crew, last["present"], last["planned"], last["evidence_id"])
+    return last
+
+
+def add_staffing_report(project_id: str, date: str, crew: str, present: int, planned: int, evidence_id: str) -> dict:
+    """Neue Personalmeldung; wirksam ist die LETZTE Meldung (keine Summe). Gibt {n, previous} zurück."""
+    before = staffing_reports(project_id, date, crew)
+    execute("INSERT OR REPLACE INTO staffing_reports VALUES(?,?,?,?,?,?,?)",
+            (project_id, date, crew, evidence_id, present, planned, now_iso()))
+    _recompute_staffing(project_id, date, crew)
+    return {"n": len(before) + 1, "previous": [r["present"] for r in before]}
+
+
+def delete_reports_by_evidence(ids: Iterable[str]) -> tuple[int, int]:
+    """Meldungen zu gelöschten Belegen entfernen und betroffene Tageswerte neu berechnen."""
+    ids = list(ids)
+    if not ids:
+        return 0, 0
+    q = ",".join("?" * len(ids))
+    c = connect()
+    pk = c.execute(f"SELECT DISTINCT project_id, activity_id, date FROM progress_reports WHERE evidence_id IN ({q})",
+                   ids).fetchall()
+    sk = c.execute(f"SELECT DISTINCT project_id, date, crew FROM staffing_reports WHERE evidence_id IN ({q})",
+                   ids).fetchall()
+    n_p = execute(f"DELETE FROM progress_reports WHERE evidence_id IN ({q})", ids)
+    n_s = execute(f"DELETE FROM staffing_reports WHERE evidence_id IN ({q})", ids)
+    for r in pk:
+        _recompute_progress(r["project_id"], r["activity_id"], r["date"])
+    for r in sk:
+        _recompute_staffing(r["project_id"], r["date"], r["crew"])
+    # Tageswerte ohne Einzelmeldung (Altbestand) direkt am Beleg
+    n_p += execute(f"DELETE FROM progress WHERE evidence_id IN ({q})", ids)
+    n_s += execute(f"DELETE FROM staffing WHERE evidence_id IN ({q})", ids)
+    return n_p, n_s
+
+
+# ---------------------------------------------------------------------------- Tagesbuch-Einträge
+def save_log_entry(d: dict) -> None:
+    put("log_entries", d, id=d["log_id"], project_id=d["project_id"], date=d["date"], kind=d["kind"])
+
+
+def log_entries(project_id: str, date: Optional[str] = None, kind: Optional[str] = None) -> list[dict]:
+    where, params = "project_id=?", [project_id]
+    if date:
+        where, params = where + " AND date=?", params + [date]
+    if kind:
+        where, params = where + " AND kind=?", params + [kind]
+    return query("log_entries", where, params, order="date, id")
+
+
+def delete_log_entries_by_evidence(ids: Iterable[str]) -> int:
+    ids = set(ids)
+    n = 0
+    for d in query("log_entries"):
+        if d.get("evidence_id") in ids:
+            n += execute("DELETE FROM log_entries WHERE id=?", (d["log_id"],))
+    return n
 
 
 def save_staffing(project_id: str, date: str, crew: str, present: int, planned: int, evidence_id: str | None):
@@ -297,6 +433,7 @@ def evidence_by_capture(capture_id: str) -> list[dict]:
 def delete_activity(project_id: str, activity_id: str) -> None:
     execute("DELETE FROM activities WHERE project_id=? AND id=?", (project_id, activity_id))
     execute("DELETE FROM progress WHERE project_id=? AND activity_id=?", (project_id, activity_id))
+    execute("DELETE FROM progress_reports WHERE project_id=? AND activity_id=?", (project_id, activity_id))
 
 
 # ---------------------------------------------------------------------------- Projekte anlegen/löschen, Verlauf

@@ -250,18 +250,29 @@ def _extract_into(cap: dict, body: str, acts: list[dict], fixture_key: Optional[
     main, samples = res["main"], res["samples"]
     cap["summary"] = main.summary
     cap["progress_found"] = bool(main.progress)
+    hints = cap.setdefault("hints", [])
+    names = {a["id"]: a["name"] for a in acts}
     for p in main.progress:
         aid = extract.match_activity(p.activity, acts)
         if aid:
             ev = _quote_evidence(cap, p.quote, body)
-            store.save_progress(project_id, aid, day, p.quantity, ev.evidence_id)
+            r = store.add_progress_report(project_id, aid, day, p.quantity, ev.evidence_id)
             cap["evidence_ids"].append(ev.evidence_id)
+            if r["n"] > 1:  # Mehrfachmeldung am selben Tag → summiert, aber sichtbar machen
+                prev = " + ".join(_num(q) for q in r["previous"])
+                hints.append(f"{names.get(aid, aid)}: heute bereits {prev} {p.unit} gemeldet – Meldungen werden "
+                             f"addiert (Tagessumme {_num(r['total'])} {p.unit}). War eine Tagessumme gemeint, "
+                             "bitte im Bericht korrigieren.")
     crews = {c["name"]: c["planned_staff"] for c in settings.project_cfg(project_id).get("crews", [])}
     for s in main.staffing:
         ev = _quote_evidence(cap, s.quote, body)
-        store.save_staffing(project_id, day, s.crew, s.present, crews.get(s.crew, s.present + (s.absent or 0)),
-                            ev.evidence_id)
+        r = store.add_staffing_report(project_id, day, s.crew, s.present, crews.get(s.crew, s.present + (s.absent or 0)),
+                                      ev.evidence_id)
         cap["evidence_ids"].append(ev.evidence_id)
+        if r["n"] > 1 and any(x != s.present for x in r["previous"]):
+            hints.append(f"{s.crew}: heute bereits mit {', '.join(map(str, r['previous']))} Personen gemeldet – "
+                         f"die neueste Meldung ({s.present}) gilt (Kopfzahlen werden nicht addiert).")
+    _save_log_entries(cap, main.log_entries, body, acts)
     touched = []
     for le in main.events:
         same = [next((e for e in smp.events if e.type == le.type), None) for smp in samples]
@@ -270,6 +281,44 @@ def _extract_into(cap: dict, body: str, acts: list[dict], fixture_key: Optional[
         if ev_id not in cap["event_ids"]:
             cap["event_ids"].append(ev_id)
     return touched
+
+
+def _num(x: float) -> str:
+    return (f"{x:.2f}".rstrip("0").rstrip(".") if x is not None else "–").replace(".", ",")
+
+
+def _save_log_entries(cap: dict, entries: list, body: str, acts: list[dict]) -> None:
+    """Tagesbuch-Einträge (normaler Ablauf) mit Zitat-Beleg ablegen – ohne Regelwerk/Risikosphäre."""
+    from .engine import timeline
+
+    pid, day = cap["project_id"], cap["date"]
+    resources = settings.project_cfg(pid).get("resources", [])
+    cap["log_ids"] = []
+    for le in entries:
+        ev = _quote_evidence(cap, le.quote, body)
+        cap["evidence_ids"].append(ev.evidence_id)
+        d = le.model_dump()
+        aid = extract.match_activity(le.activity, acts) if le.activity else None
+        res = next((r for r in resources if le.resource and timeline._match(r, le.resource)), None)
+        d.update(log_id=store.next_id(f"LOG-{day.replace('-', '')}-", 2), project_id=pid, date=day,
+                 capture_id=cap["capture_id"], evidence_id=ev.evidence_id, captured_at=cap["captured_at"],
+                 activity_id=aid, resource_id=res["id"] if res else None,
+                 time=le.time or (cap["captured_at"][11:16] if le.kind != "delivery" or le.arrived is not False else None))
+        store.save_log_entry(d)
+        cap["log_ids"].append(d["log_id"])
+    from .schemas import EQUIPMENT_STATE_LABELS, LOG_KIND_LABELS
+
+    def short(d: dict) -> str:  # Kurzzeile für die Handy-Liste
+        if d["kind"] == "delivery":
+            q = f" {_num(d['quantity'])} {d.get('unit') or ''}".rstrip() if d.get("quantity") is not None else ""
+            when = "" if d.get("arrived") is not False else f" – erwartet {d.get('expected_date') or ''} {d.get('expected_time') or ''}".rstrip()
+            return f"{d.get('material') or 'Material'}{q}{when}"
+        if d["kind"] == "equipment_use":
+            return f"{d.get('resource')}: {EQUIPMENT_STATE_LABELS.get(d.get('state') or '', d.get('state') or '')}"
+        return " · ".join(x for x in (d.get("party"), d.get("result"), d.get("activity")) if x) or d["text"][:60]
+
+    cap["logs"] = [{"log_id": x["log_id"], "kind": x["kind"], "label": LOG_KIND_LABELS.get(x["kind"], x["kind"]),
+                    "text": short(x)} for x in (store.get("log_entries", i) for i in cap["log_ids"]) if x]
 
 
 def _link_to_events(cap: dict, evidence_ids: list[str], text: str) -> None:

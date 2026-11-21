@@ -335,27 +335,46 @@ def story(d: dict, photo_files: dict[str, Path]) -> list:
     # 3 Geräte
     out += H("Geräteeinsatz")
     if d["equipment"]:
-        rows = [[P(h, "th") for h in ["Gerät", "Status", "Soll h", "Ist h", "Ausfallzeit", "Ursache"]]]
+        rows = [[P(h, "th") for h in ["Gerät", "Status", "Soll h", "Ist h", "Ausfallzeit", "Ursache / Bemerkung"]]]
         for r in d["equipment"]:
             down = "<br/>".join(e(tspan(x)) for x in r.get("downtime", [])) or "–"
-            rows.append([P(r["name"]), P(r["status"], "cellb" if r["status"] != "im Einsatz" else "cell"),
+            why = "; ".join(x for x in (r.get("downtime_cause"), r.get("remarks")) if x) or None
+            rows.append([P(r["name"] + (" *" if r.get("unplanned") else "")),
+                         P(r["status"], "cellb" if r["status"] != "im Einsatz" else "cell"),
                          P(numsmart(r.get("hours_planned")), "cellr"), P(numsmart(r.get("hours_operated")), "cellr"),
-                         PX(down), P(r.get("downtime_cause"))])
+                         PX(down), P(why)])
         out.append(grid(rows, [30 * mm, 24 * mm, 13 * mm, 13 * mm, 27 * mm, W - 107 * mm]))
+        if any(r.get("unplanned") for r in d["equipment"]):
+            out.append(P("* nicht im Einsatzplan – nur aus Meldungen bekannt.", "smallg"))
     else:
         out.append(P("Kein Großgerät im Tagesverlauf erfasst.", "smallg"))
 
     # 4 Lieferungen
     out += H("Lieferungen")
     if d.get("deliveries"):
-        rows = [[P(h, "th") for h in ["Material", "Menge", "Lieferant", "durch", "Soll", "Ist", "Verzug", "Lieferschein"]]]
+        rows = [[P(h, "th") for h in ["Material", "Menge", "Lieferant", "durch", "Soll", "Ist", "Verzug", "Status",
+                                      "bisher ges."]]]
         for r in d["deliveries"]:
-            rows.append([P(r["material"]), P(f"{numsmart(r['quantity'])} {r['unit']}", "cellr"), P(r.get("supplier")),
-                         P(r["supplied_by"]), P(r.get("planned_time")), P(r.get("actual_time")),
-                         P(f"{r.get('delay_minutes', 0)} min", "cellr"), P(r.get("delivery_note_no"))])
-        out.append(grid(rows, [40 * mm, 17 * mm, 27 * mm, 11 * mm, 12 * mm, 12 * mm, 15 * mm, W - 134 * mm]))
+            qty = f"{numsmart(r['quantity'])} {r['unit']}" if r.get("quantity") is not None else "–"
+            tot = f"{numsmart(r['total_to_date'])} {r['unit']}" if r.get("total_to_date") is not None else "–"
+            st = r.get("status") or "geliefert"
+            if r.get("announced_on"):
+                st += f" (angek. {date.fromisoformat(r['announced_on']):%d.%m.})"
+            rows.append([P(r["material"]), P(qty, "cellr"), P(r.get("supplier")), P(r.get("supplied_by")),
+                         P(r.get("planned_time")), P(r.get("actual_time")),
+                         P(f"{r['delay_minutes']} min" if r.get("delay_minutes") is not None else "–", "cellr"),
+                         P(st, "cell" if st.startswith("geliefert") else "cellb"), P(tot, "cellr")])
+        out.append(grid(rows, [34 * mm, 16 * mm, 24 * mm, 10 * mm, 11 * mm, 11 * mm, 13 * mm, W - 137 * mm, 18 * mm]))
     else:
         out.append(P("Keine Lieferungen erfasst.", "smallg"))
+
+    # 4b Tagesbuch (Prüfungen, Besuche, Geräte-Befunde, erledigte Arbeiten)
+    if d.get("site_log"):
+        out += H("Prüfungen, Besuche und weitere Feststellungen")
+        rows = [[P(h, "th") for h in ["Zeit", "Art", "Feststellung", "Details"]]]
+        for r in d["site_log"]:
+            rows.append([P(r.get("time")), P(r["label"]), P(r["text"]), P(r.get("detail"))])
+        out.append(grid(rows, [13 * mm, 26 * mm, W - 89 * mm, 50 * mm]))
 
     # 5 Leistungen
     out += H("Ausgeführte Arbeiten und Leistungsstand")

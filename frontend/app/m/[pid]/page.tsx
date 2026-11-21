@@ -30,6 +30,8 @@ export default function MobileCapture() {
   const [sheet, setSheet] = useState<PhotoSheet | null>(null);
   const [sheetMode, setSheetMode] = useState<"choose" | "note">("choose");
   const [sheetText, setSheetText] = useState("");
+  const [sheetError, setSheetError] = useState<string | null>(null);
+  const stopFallback = useRef<(() => void) | null>(null);
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const chunks = useRef<Blob[]>([]);
@@ -53,6 +55,7 @@ export default function MobileCapture() {
     setSheet(sh);
     setSheetMode("choose");
     setSheetText("");
+    setSheetError(null);
   };
   const closeSheet = () => {
     if (sheetRef.current?.file) URL.revokeObjectURL(sheetRef.current.url);
@@ -111,6 +114,8 @@ export default function MobileCapture() {
       closeSheet();
       setTimeout(() => { reload(); reloadEvents(); }, 1500);
     } catch (e: any) {
+      console.error("savePhoto", e);
+      setSheetError(t("Fehler: {e}", { e: e.message }));
       flash(t("Fehler: {e}", { e: e.message }));
     } finally {
       setBusy(false);
@@ -143,50 +148,95 @@ export default function MobileCapture() {
   };
 
   const start = async (target: RecTarget) => {
+    setSheetError(null);
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
+      const msg = t("Mikrofon nicht verfügbar – Seite über HTTPS öffnen (https://…:3443) und Mikrofon erlauben.");
+      setSheetError(msg);
+      flash(msg);
+      return;
+    }
+    let stream: MediaStream;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
-      const mime = ["audio/webm;codecs=opus", "audio/mp4", "audio/webm"].find((m) => MediaRecorder.isTypeSupported(m)) || "";
-      const r = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
-      chunks.current = [];
-      r.ondataavailable = (e) => e.data.size && chunks.current.push(e.data);
-      r.onstop = () => {
-        stream.getTracks().forEach((t) => t.stop());
-        const type = r.mimeType || "audio/webm";
-        const blob = new Blob(chunks.current, { type });
-        const hhmm = new Date().toTimeString().slice(0, 5).replace(":", "");
-        const name = `rec_${hhmm}_${Date.now() % 100000}.${type.includes("mp4") ? "m4a" : "webm"}`;
-        const sh = sheetRef.current;
-        if (target.kind === "photo" && sh) savePhoto(sh, "audio", { blob, filename: name, text: hintRef.current || undefined });
-        else upload("audio", blob, name, undefined, hintRef.current || undefined);
-      };
-      r.start(1000);
-      setRec(r);
-      setRecFor(target);
-      setSecs(0);
-      setHint("");
-      hintRef.current = "";
-      // Optional: Live-Text des Browsers nur als Vorschau/Fallback im Demo-Modus; maßgeblich ist Whisper auf dem Server
-      const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      if (SR) {
-        const s = new SR();
-        s.lang = lang === "en" ? "en-GB" : "de-DE";
-        s.continuous = true;
-        s.interimResults = true;
-        s.onresult = (ev: any) => {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+    } catch (e: any) {
+      console.error("getUserMedia", e);
+      const msg = e?.name === "NotAllowedError"
+        ? t("Mikrofon-Zugriff verweigert – in den Browser-Einstellungen erlauben.")
+        : t("Mikrofon nicht verfügbar: {e}", { e: `${e?.name || ""} ${e?.message || ""}`.trim() });
+      setSheetError(msg);
+      flash(msg);
+      return;
+    }
+    let r: MediaRecorder;
+    try {
+      const mime = ["audio/mp4", "audio/webm;codecs=opus", "audio/webm"].find((m) => MediaRecorder.isTypeSupported?.(m)) || "";
+      r = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+    } catch (e: any) {
+      console.error("MediaRecorder", e);
+      stream.getTracks().forEach((x) => x.stop());
+      const msg = t("Aufnahme nicht möglich: {e}", { e: e?.message || String(e) });
+      setSheetError(msg);
+      flash(msg);
+      return;
+    }
+    chunks.current = [];
+    let finished = false;
+    const finish = () => {  // einmalig – auch wenn onstop ausbleibt (Safari)
+      if (finished) return;
+      finished = true;
+      stream.getTracks().forEach((x) => x.stop());
+      const type = r.mimeType || "audio/mp4";
+      const blob = new Blob(chunks.current, { type });
+      if (!blob.size) {
+        const msg = t("Aufnahme leer – bitte erneut versuchen.");
+        setSheetError(msg);
+        flash(msg);
+        return;
+      }
+      const hhmm = new Date().toTimeString().slice(0, 5).replace(":", "");
+      const name = `rec_${hhmm}_${Date.now() % 100000}.${type.includes("mp4") ? "m4a" : "webm"}`;
+      const sh = sheetRef.current;
+      if (target.kind === "photo" && sh) savePhoto(sh, "audio", { blob, filename: name, text: hintRef.current || undefined });
+      else upload("audio", blob, name, undefined, hintRef.current || undefined);
+    };
+    r.ondataavailable = (e) => { if (e.data?.size) chunks.current.push(e.data); };
+    r.onstop = finish;
+    r.onerror = (e: any) => { console.error("MediaRecorder error", e); finish(); };
+    stopFallback.current = () => setTimeout(finish, 1500);
+    r.start(1000);
+    setRec(r);
+    setRecFor(target);
+    setSecs(0);
+    setHint("");
+    hintRef.current = "";
+    // Live-Text des Browsers nur als Vorschau; eigener try – darf die Aufnahme nie abbrechen.
+    // Auf iOS konkurriert er mit dem Rekorder ums Mikrofon → dort weglassen.
+    const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (SR && !ios) {
+      try {
+        const sr = new SR();
+        sr.lang = lang === "en" ? "en-GB" : "de-DE";
+        sr.continuous = true;
+        sr.interimResults = true;
+        sr.onresult = (ev: any) => {
           const txt = Array.from(ev.results).map((x: any) => x[0].transcript).join(" ");
           hintRef.current = txt;
           setHint(txt);
         };
-        s.start();
-        speech.current = s;
+        sr.onerror = () => {};
+        sr.start();
+        speech.current = sr;
+      } catch (e) {
+        console.warn("SpeechRecognition", e);
       }
-    } catch {
-      flash(t("Mikrofon nicht verfügbar (HTTPS bzw. Berechtigung nötig)"));
     }
   };
   const stop = () => {
-    speech.current?.stop();
-    rec?.stop();
+    try { speech.current?.stop(); } catch { /* egal */ }
+    speech.current = null;
+    try { rec?.requestData?.(); rec?.stop(); } catch (e) { console.error("stop", e); }
+    stopFallback.current?.();
     setRec(null);
     setRecFor(null);
   };
@@ -226,7 +276,7 @@ export default function MobileCapture() {
       </div>
       {recMemo && hint && <p className="rounded-lg bg-slate-800 p-2 text-sm text-slate-300">{hint}</p>}
 
-      {toast && <div className="rounded-lg bg-slate-700 px-3 py-2 text-sm">{toast}</div>}
+      {toast && <div className="fixed inset-x-4 top-4 z-[60] mx-auto max-w-md rounded-lg bg-slate-700 px-3 py-2 text-sm shadow-lg">{toast}</div>}
 
       <section>
         <div className="mb-2 text-xs text-slate-500">{t("Heute erfasst")}</div>
@@ -234,6 +284,8 @@ export default function MobileCapture() {
           {(caps || []).slice().reverse().map((c) => {
             const Icon = SOURCE_ICON[c.kind] || SOURCE_ICON.note;
             const waiting = c.kind === "photo" && c.status === "awaiting_answer";
+            // Foto ohne Beschreibung (übersprungen): kann nachträglich beschrieben werden
+            const undescribed = c.kind === "photo" && c.status === "done" && !(c.text || "").trim();
             const evs = (c.event_ids || []).map((id: string) => evById[id]).filter(Boolean);
             return (
               <li key={c.capture_id} className="rounded-lg bg-slate-800 p-2 text-sm">
@@ -244,10 +296,22 @@ export default function MobileCapture() {
                   {waiting ? (
                     <button onClick={() => openSheet({ cid: c.capture_id, url: `/files/${c.file}`, question: c.followup?.question, at: c.captured_at })}
                       className="rounded bg-yellow-400 px-2 py-0.5 text-xs font-semibold text-slate-900">{t("Beschreiben")}</button>
+                  ) : undescribed ? (
+                    <button onClick={() => openSheet({ cid: c.capture_id, url: `/files/${c.file}`, at: c.captured_at })}
+                      className="rounded bg-slate-600 px-2 py-0.5 text-xs font-semibold">{t("Beschreiben")}</button>
                   ) : c.status === "done" ? <Check className="h-[18px] w-[18px] text-ok" /> : c.status === "error" ? <span className="text-xs text-bad" title={c.error}>{t("Fehler")}</span> : <Loader2 className="h-[18px] w-[18px] animate-spin" />}
                   <button onClick={() => remove(c)} className="rounded p-1 text-slate-400 hover:bg-slate-700 hover:text-bad" aria-label={t("Löschen")}><Trash2 className="h-[18px] w-[18px]" /></button>
                 </div>
                 {(c.hints || []).map((h: string) => <p key={h} className="mt-1 pl-6 text-xs text-sky-300">{t(h)}</p>)}
+                {c.status === "done" && (c.logs || []).length > 0 && (
+                  <div className="mt-1.5 flex flex-wrap gap-1 pl-6">
+                    {c.logs.map((l: any) => (
+                      <span key={l.log_id} className="rounded bg-slate-900 px-2 py-0.5 text-xs text-slate-300" title={t("Ins Bautagebuch übernommen – keine Bestätigung nötig")}>
+                        <Check className="mr-1 inline h-3 w-3 text-ok" />{t(l.label)}: {t(l.text)}
+                      </span>
+                    ))}
+                  </div>
+                )}
                 {c.status === "done" && evs.map((e: any) => (
                   <div key={e.event_id} className="mt-1.5 flex items-center gap-2 rounded bg-slate-900 px-2 py-1.5 pl-6 text-xs">
                     <div className="min-w-0 flex-1">
@@ -277,6 +341,8 @@ export default function MobileCapture() {
             <img src={sheet.url} alt="" className="max-h-64 w-full rounded-lg bg-slate-900 object-contain" />
             <p className="text-sm leading-snug text-slate-300">{sheet.question ? t(sheet.question) : t("Was ist zu sehen – und warum? Wer, seit wann, welche Arbeiten, wie viel?")}</p>
 
+            {sheetError && <p className="rounded-lg bg-bad/20 p-2 text-sm text-red-200">{sheetError}</p>}
+            {busy && <p className="flex items-center gap-2 text-sm text-slate-300"><Loader2 className="h-4 w-4 animate-spin" />{t("Wird übertragen …")}</p>}
             {sheetMode === "choose" && (
               <>
                 <button onClick={recPhoto ? stop : () => start({ kind: "photo" })} disabled={busy || !!recMemo}

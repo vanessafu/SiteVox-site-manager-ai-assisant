@@ -43,7 +43,13 @@ def report_days(project_id: str) -> list[dict]:
         caps = store.captures(project_id, d)
         evs = [e for e in store.events(project_id, d) if e["status"] != "dismissed"]
         wx = store.weather(project_id, d) or {}
-        out.append({"date": d, "captures": len(caps), "events": len(evs),
+        logs = store.log_entries(project_id, d, "delivery")
+        arrived = [l for l in logs if l.get("arrived") is not False]
+        due = [l for l in store.log_entries(project_id, kind="delivery")
+               if l.get("arrived") is False and l.get("expected_date") == d]
+        out.append({"date": d, "captures": len(caps), "events": len(evs), "deliveries": len(arrived),
+                    "delivery_materials": [l.get("material") or "?" for l in arrived],
+                    "deliveries_open": max(len(due) - len(arrived), 0),
                     "open_letters": sum(1 for e in evs if e["recommended_document"]["requires_letter"]
                                         and e["status"] in ACTIONABLE),
                     "weather": (wx.get("summary") or {}).get("condition"),

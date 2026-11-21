@@ -2,7 +2,7 @@
 /** Verlauf: alle Berichtstage des Projekts. Klick öffnet das komplette Dashboard dieses Tages (nicht nur das PDF). */
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { AlertTriangle, Camera, ChevronRight, CloudRain, FileDown, History, Mic } from "lucide-react";
+import { AlertTriangle, Camera, ChevronRight, CloudRain, FileDown, History, Mic, Truck } from "lucide-react";
 import { dLong, num, useApi } from "@/lib/api";
 import { useT } from "@/lib/i18n";
 
@@ -27,6 +27,8 @@ export default function Verlauf() {
               <span className="w-44 text-base font-semibold tabular-nums">{dLong(x.date)}</span>
               {x.captures > 0 && <span className="inline-flex items-center gap-1 text-xs text-slate-600"><Mic className="h-3.5 w-3.5" />{t("{n} Erfassungen", { n: x.captures })}</span>}
               {x.photos > 0 && <span className="inline-flex items-center gap-1 text-xs text-slate-600"><Camera className="h-3.5 w-3.5" />{x.photos}</span>}
+              {x.deliveries > 0 && <span className="inline-flex items-center gap-1 text-xs text-slate-600" title={x.delivery_materials?.join(", ")}><Truck className="h-3.5 w-3.5" />{t("{n} Lieferungen", { n: x.deliveries })}</span>}
+              {x.deliveries_open > 0 && <span className="pill bg-warn-soft text-warn-text">{t("{n} Lieferung offen", { n: x.deliveries_open })}</span>}
               {x.events > 0 && <span className="inline-flex items-center gap-1 text-xs text-warn-text"><AlertTriangle className="h-3.5 w-3.5" />{t("{n} Ereignisse", { n: x.events })}</span>}
               {x.open_letters > 0 && <span className="pill bg-bad-soft text-bad-text">{t("{n} Schreiben offen", { n: x.open_letters })}</span>}
               {x.weather && <span className="inline-flex items-center gap-1 text-xs text-slate-600"><CloudRain className="h-3.5 w-3.5" />{t(x.weather)}{x.temp_max != null ? ` · ${num(x.temp_max)} °C` : ""}</span>}

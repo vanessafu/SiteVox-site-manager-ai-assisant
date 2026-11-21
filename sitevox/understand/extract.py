@@ -12,7 +12,7 @@ from typing import Any, Optional
 
 from .. import llm, settings
 from ..prompts import EXTRACT_PHOTO_CONTEXT, EXTRACT_USER, MINUTES_SYSTEM, extract_system
-from ..schemas import Extraction, LLMEvent, LLMProgress, LLMStaffing, MinutesSummary
+from ..schemas import Extraction, LLMEvent, LLMLogEntry, LLMProgress, LLMStaffing, MinutesSummary
 
 # ----------------------------------------------------------------------------- activity matching
 def match_activity(name: str, acts: list[dict], threshold: float = 0.55) -> Optional[str]:
@@ -75,7 +75,122 @@ def _attr_cues(text: str) -> dict[str, bool]:
     return out
 
 
-def heuristic(text: str, acts: list[dict], hint_subtypes: Optional[list[str]] = None) -> Extraction:
+# ----------------------------------------------------------------------------- Tagesbuch (normaler Ablauf)
+EQUIPMENT_WORDS = ["minibagger", "bagger", "radlader", "kran", "turmdrehkran", "betonpumpe", "pumpe", "walze",
+                   "rüttelplatte", "dumper", "teleskoplader", "lkw", "excavator", "crane", "loader", "pump"]
+OK_RE = re.compile(r"in ordnung|alles (gut|ok)|\bok\b|dicht|hält|läuft( wieder)?\b|funktioniert|einsatzbereit|"
+                   r"keine (probleme|auffälligkeiten)|all good|works fine|no issues", re.I)
+FAIL_RE = re.compile(r"defekt|kaputt|ausgefallen|geplatzt|undicht|verliert öl|steht still|broken|leak", re.I)
+NOT_USED_RE = re.compile(r"(heute )?nicht (gebraucht|eingesetzt|im einsatz)|abgestellt|not used", re.I)
+IN_OP_RE = re.compile(r"im einsatz|gearbeitet|arbeitet|läuft seit|in betrieb|working|in operation", re.I)
+DELIVERY_RE = re.compile(r"lieferung|geliefert|angeliefert|anlieferung|lkw mit|delivered|delivery", re.I)
+EXPECT_RE = re.compile(r"kommt|kommen|erwartet|angekündigt|soll(en)? .*(kommen|geliefert)|morgen|übermorgen|"
+                       r"expected|tomorrow|will arrive", re.I)
+INSPECTION_RE = re.compile(r"abnahme|prüfstatiker|prüfingenieur|bewehrungsabnahme|kontrolle|geprüft|begehung|"
+                           r"inspection|inspected", re.I)
+VISIT_RE = re.compile(r"besuch|war (heute )?(da|vor ort|auf der baustelle)|kam vorbei|visit", re.I)
+WEEKDAYS_DE = ["montag", "dienstag", "mittwoch", "donnerstag", "freitag", "samstag", "sonntag"]
+PARTY_RE = re.compile(r"(prüfstatiker|prüfingenieur|bauherr\w*|architekt\w*|bauleiter\w*|gutachter\w*|"
+                      r"sigeko|ordnungsamt|berufsgenossenschaft|bg bau|statiker\w*)", re.I)
+MATERIAL_RE = re.compile(r"(?:lieferung|anlieferung|lkw)\s+(?:mit|von|vom|für)?\s*(?:den|dem|der|die|das)?\s*"
+                         r"([\wäöüß][\wäöüß\-/ ]{2,40}?)(?=\s+(?:ist|sind|kam|kommt|wurde|auf|heute|um|für|steht)\b|[,.]|$)",
+                         re.I)
+
+
+def _expected_date(sentence: str, day: Optional[str]) -> Optional[str]:
+    if not day:
+        return None
+    from datetime import date as _d, timedelta
+
+    d0, low = _d.fromisoformat(day), sentence.lower()
+    if "übermorgen" in low:
+        return (d0 + timedelta(days=2)).isoformat()
+    if "morgen" in low or "tomorrow" in low:
+        return (d0 + timedelta(days=1)).isoformat()
+    for i, wd in enumerate(WEEKDAYS_DE):
+        if re.search(rf"\b{wd}\b", low):
+            ahead = (i - d0.weekday()) % 7 or 7
+            return (d0 + timedelta(days=ahead)).isoformat()
+    m = re.search(r"\b(\d{1,2})\.(\d{1,2})\.(\d{4})?", sentence)
+    if m:
+        y = int(m.group(3) or d0.year)
+        try:
+            return _d(y, int(m.group(2)), int(m.group(1))).isoformat()
+        except ValueError:
+            return None
+    return None
+
+
+def _hhmm(s: str) -> Optional[str]:
+    tm = TIME_RE.search(s)
+    if not tm:
+        return None
+    h, m = (tm.group(1), tm.group(2)) if tm.group(1) else (tm.group(3), tm.group(4))
+    return f"{int(h):02d}:{int(m or 0):02d}"
+
+
+def log_heuristic(text: str, acts: list[dict], resources: Optional[list[str]] = None,
+                  day: Optional[str] = None) -> list[LLMLogEntry]:
+    """Normale Tagesbuch-Einträge per Schlüsselwort (Demo/Fallback). Gerät aus dem Satz oder dem Satz davor
+    ("Bagger angeschaut … Mit der Maschine ist alles in Ordnung")."""
+    out: list[LLMLogEntry] = []
+    names = sorted({*(r.lower() for r in resources or []), *EQUIPMENT_WORDS}, key=len, reverse=True)
+    last_res: Optional[str] = None
+    seen_res: set[str] = set()
+    for s in _sentences(text):
+        low = s.lower()
+        res = next((n for n in names if re.search(rf"\b{re.escape(n)}", low)), None)
+        res_name = None
+        if res:
+            res_name = next((r for r in resources or [] if r.lower() == res), res.capitalize())
+            last_res = res_name
+        elif re.search(r"\b(maschine|gerät|machine)\b", low):
+            res_name = last_res
+        t = _hhmm(s)
+        # Lieferung (angekommen oder angekündigt) – Verzug/Fehlmenge bleibt Ereignis (material_delay)
+        if DELIVERY_RE.search(low) and not re.search(r"nicht geliefert|versp(ä|ae)t|fehlt|kommt nicht|ausgeblieben", low):
+            expected = bool(EXPECT_RE.search(low)) and not re.search(r"angekommen|ist da|gekommen|abgeladen|geliefert", low)
+            qm = QTY_RE.search(s)
+            mm = MATERIAL_RE.search(s)
+            unit = qm.group(2).lower() if qm else None
+            supplied_by = "AG" if re.search(r"beigestellt|bauherrenmaterial|vom (bauherrn|ag)", low) else None
+            note = re.search(r"lieferschein(?:-?nr\.?| nummer)?\s*([A-Z0-9\-/]{3,})", s, re.I)
+            out.append(LLMLogEntry(kind="delivery", text=s, quote=s, time=None if expected else t,
+                                   material=(mm.group(1).strip() if mm else None),
+                                   quantity=float(qm.group(1).replace(",", ".")) if qm else None,
+                                   unit=UNIT.get(unit, qm.group(2)) if qm else None, supplied_by=supplied_by,
+                                   delivery_note_no=note.group(1) if note else None, arrived=not expected,
+                                   expected_date=_expected_date(s, day) if expected else None,
+                                   expected_time=t if expected else None))
+            continue
+        if INSPECTION_RE.search(low):
+            pm = PARTY_RE.search(s)
+            result = "ohne Beanstandung" if re.search(r"ohne (beanstandung|mängel)|in ordnung|abgenommen|freigegeben", low) else None
+            act = match_activity(s, acts, 0.99)
+            out.append(LLMLogEntry(kind="inspection", text=s, quote=s, time=t, party=pm.group(1) if pm else None,
+                                   result=result, activity=next((a["name"] for a in acts if a["id"] == act), None)))
+            continue
+        if VISIT_RE.search(low):
+            pm = PARTY_RE.search(s)
+            out.append(LLMLogEntry(kind="visit", text=s, quote=s, time=t, party=pm.group(1) if pm else None))
+            continue
+        if res_name and not FAIL_RE.search(low):
+            state = ("not_used" if NOT_USED_RE.search(low) else "checked_ok" if OK_RE.search(low)
+                     else "in_operation" if IN_OP_RE.search(low) else None)
+            if state:
+                if res_name in seen_res:  # gleicher Befund in Folgesatz → an vorhandenen Eintrag anhängen
+                    e = next(x for x in out if x.kind == "equipment_use" and x.resource == res_name)
+                    e.quote, e.text = f"{e.quote} {s}", f"{e.text} {s}"
+                    if state == "checked_ok":
+                        e.state = state
+                    continue
+                seen_res.add(res_name)
+                out.append(LLMLogEntry(kind="equipment_use", text=s, quote=s, time=t, resource=res_name, state=state))
+    return out
+
+
+def heuristic(text: str, acts: list[dict], hint_subtypes: Optional[list[str]] = None,
+              resources: Optional[list[str]] = None, day: Optional[str] = None) -> Extraction:
     events, progress, staffing = [], [], []
     attrs = _attr_cues(text)
     for s in _sentences(text):
@@ -119,7 +234,11 @@ def heuristic(text: str, acts: list[dict], hint_subtypes: Optional[list[str]] = 
         events.append(LLMEvent(type=typ, description=text.strip()[:200], cause=text.strip()[:120], quotes=[quote],
                                responsible_party_guess=GUESS.get(typ, "unklar"),
                                responsible_rationale="Heuristik (Demo-Modus, Fotobefund + Antwort)", **attrs))
-    return Extraction(summary=text[:200], events=events, progress=progress, staffing=staffing)
+    logs = log_heuristic(text, acts, resources, day)
+    # Ein Satz wird entweder Ereignis oder Tagesbuch-Eintrag, nicht beides
+    ev_quotes = {q for e in events for q in e.quotes}
+    logs = [l for l in logs if l.quote not in ev_quotes]
+    return Extraction(summary=text[:200], events=events, progress=progress, staffing=staffing, log_entries=logs)
 
 
 # ----------------------------------------------------------------------------- API
@@ -153,7 +272,8 @@ def extract(text: str, *, project_id: str, date: str, time: str, source: str, ac
     ]
     client = llm.get("extractor")
     fx = (project_id, f"extract_{fixture_key}") if fixture_key else None
-    fb = lambda: heuristic(text, acts, hint_subtypes)  # noqa: E731
+    fb = lambda: heuristic(text, acts, hint_subtypes,  # noqa: E731
+                           [r["name"] for r in pcfg.get("resources", [])], date)
     main = client.structured(Extraction, msgs, n=1, temperature=cfg["temperature"], fixture=fx, fallback=fb)[0]
     samples = client.structured(Extraction, msgs, n=cfg["n_samples"], temperature=cfg["sample_temperature"],
                                 fixture=fx, fallback=fb)

@@ -16,6 +16,17 @@ Regeln:
 - "responsible_party_guess" ist nur eine Vermutung (AG = Auftraggeber/Bauherr inkl. dessen Planer und
   Vorunternehmer, AN = wir selbst inkl. unserer Geräte, Lieferanten, Nachunternehmer, neutral = höhere Gewalt,
   außergewöhnliche Witterung, Streik). Begründe kurz in "responsible_rationale".
+- "events" NUR für Störungen/Abweichungen. Normaler Ablauf gehört in "log_entries" (Bautagebuch, kein Ereignis):
+    delivery      Anlieferung (material, quantity, unit, supplier, supplied_by, delivery_note_no; arrived=true)
+                  oder angekündigte Lieferung (arrived=false, expected_date, expected_time)
+    equipment_use Geräteeinsatz/-zustand, auch wenn alles in Ordnung ist (resource, state: in_operation |
+                  checked_ok | restricted | idle | not_used, start_time, end_time)
+    inspection    Prüfung/Abnahme/Kontrolle (party, result)
+    visit         Besuch auf der Baustelle (party)
+    work_done     erledigte Arbeit ohne Mengenangabe (activity); mit Menge zusätzlich in "progress"
+  Beispiel: "Bagger angeschaut, Hydraulik dicht, alles in Ordnung" → log_entries equipment_use, resource "Bagger",
+  state "checked_ok" – KEIN Ereignis. Ein Gerätedefekt ist dagegen ein Ereignis (equipment_failure).
+  Jeder Eintrag braucht ein wörtliches Zitat in "quote".
 - Keine Rechtsbewertung, keine Paragraphen.
 Antworte ausschließlich mit JSON nach dem vorgegebenen Schema."""
 

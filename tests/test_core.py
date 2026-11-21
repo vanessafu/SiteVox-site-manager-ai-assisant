@@ -991,3 +991,46 @@ def test_dashboard_defaults_to_today_and_carries_open_letters(monkeypatch):
     assert all(e["carried_from"] == "2026-11-20" for e in d["actions"]["events"])
     assert all(e["recommended_document"]["requires_letter"] for e in d["actions"]["events"])
     assert not d["today"]["extra_work"]
+
+
+def test_normal_reports_become_log_entries_not_events():
+    from sitevox.understand.extract import heuristic
+
+    acts = [{"id": "A20", "name": "Aushub BA1"}]
+    x = heuristic("Hab mir den Bagger nochmal angeschaut, die Hydraulik ist dicht, der neue Schlauch vom Freitag hält. "
+                  "Mit der Maschine ist alles in Ordnung. Morgen kommt die Lieferung Betonstahl um 7 Uhr.",
+                  acts, None, ["Bagger"], "2026-11-20")
+    assert not x.events
+    eq = [l for l in x.log_entries if l.kind == "equipment_use"]
+    assert len(eq) == 1 and eq[0].resource == "Bagger" and eq[0].state == "checked_ok"
+    dl = [l for l in x.log_entries if l.kind == "delivery"][0]
+    assert dl.arrived is False and dl.expected_date == "2026-11-21" and dl.expected_time == "07:00"
+
+
+def test_delivery_matched_to_announcement_unplanned_equipment_and_summed_progress():
+    from sitevox import store
+    from sitevox.export import daily_report
+    from sitevox.pipeline import ingest
+
+    P = "BV-RIEM"
+    ingest(P, "note", text="Übermorgen kommt die Lieferung Kantholz um 8 Uhr. Teleskoplader von Firma Huber ist im Einsatz.",
+           captured_at="2026-11-23T16:00:00+01:00")
+    ingest(P, "note", text="Die Lieferung Kantholz ist um 8:30 Uhr angekommen, 6 m.", captured_at="2026-11-25T09:00:00+01:00")
+    c1 = ingest(P, "note", text="Bewehrung BP heute 4 t verlegt.", captured_at="2026-11-25T11:00:00+01:00")
+    c2 = ingest(P, "note", text="Bewehrung BP heute 3 t verlegt.", captured_at="2026-11-25T16:00:00+01:00")
+    assert any("addiert" in h for h in c2["hints"])
+    r = daily_report.build(P, "2026-11-25")
+    d = [x for x in r["deliveries"] if x["material"] == "Kantholz"][0]
+    assert d["planned_time"] == "08:00" and d["actual_time"] == "08:30" and d["delay_minutes"] == 30
+    assert d["announced_on"] == "2026-11-23"
+    pr = [p for p in store.progress(P) if p["date"] == "2026-11-25" and p["activity_id"] == "A40"][0]
+    assert pr["qty"] == 7 and pr["n_reports"] == 2
+    r23 = daily_report.build(P, "2026-11-23")
+    tl = [e for e in r23["equipment"] if e["name"] == "Teleskoplader"]
+    assert tl and tl[0]["unplanned"]
+    # Erfassung löschen → Meldung raus, Summe neu
+    from sitevox import editing
+
+    editing.delete_capture(c1["capture_id"], "test")
+    pr = [p for p in store.progress(P) if p["date"] == "2026-11-25" and p["activity_id"] == "A40"][0]
+    assert pr["qty"] == 3 and pr["n_reports"] == 1

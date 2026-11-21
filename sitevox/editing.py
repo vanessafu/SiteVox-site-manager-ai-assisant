@@ -115,12 +115,18 @@ def delete_activity(project_id: str, activity_id: str, actor: str) -> None:
 
 
 def set_progress(project_id: str, activity_id: str, day: str, qty: Optional[float], actor: str) -> None:
+    """Manuelle Korrektur = neuer Tageswert; ersetzt alle Einzelmeldungen des Tages (Belege bleiben verknüpft)."""
     prev = [p for p in store.progress(project_id) if p["activity_id"] == activity_id and p["date"] == day]
+    store.execute("DELETE FROM progress_reports WHERE project_id=? AND activity_id=? AND date=?",
+                  (project_id, activity_id, day))
     if qty is None:
         store.execute("DELETE FROM progress WHERE project_id=? AND activity_id=? AND date=?",
                       (project_id, activity_id, day))
     else:
-        store.save_progress(project_id, activity_id, day, float(qty), prev[0]["evidence_id"] if prev else None)
+        # als eine Meldung ablegen, damit spätere Meldungen desselben Tages darauf aufaddiert werden
+        store.add_progress_report(project_id, activity_id, day, float(qty),
+                                  (prev[0]["evidence_id"] if prev and prev[0]["evidence_id"] else None)
+                                  or f"manual:{store.now_iso()}")
     store.audit(actor, "progress", f"{project_id}/{activity_id}/{day}", "edit",
                 before=prev[0]["qty"] if prev else None, after=qty, note="manuelle Korrektur Ist-Menge")
 
@@ -128,11 +134,13 @@ def set_progress(project_id: str, activity_id: str, day: str, qty: Optional[floa
 def set_staffing(project_id: str, day: str, crew: str, present: Optional[int], planned: Optional[int],
                  actor: str) -> None:
     prev = [s for s in store.staffing(project_id, day) if s["crew"] == crew]
+    store.execute("DELETE FROM staffing_reports WHERE project_id=? AND date=? AND crew=?", (project_id, day, crew))
     if present is None:
         store.execute("DELETE FROM staffing WHERE project_id=? AND date=? AND crew=?", (project_id, day, crew))
     else:
-        store.save_staffing(project_id, day, crew, int(present), int(planned if planned is not None else present),
-                            prev[0]["evidence_id"] if prev else None)
+        store.add_staffing_report(project_id, day, crew, int(present), int(planned if planned is not None else present),
+                                  (prev[0]["evidence_id"] if prev and prev[0]["evidence_id"] else None)
+                                  or f"manual:{store.now_iso()}")
     store.audit(actor, "staffing", f"{project_id}/{day}/{crew}", "edit", before=prev[0] if prev else None,
                 after={"present": present, "planned": planned})
 
@@ -245,8 +253,8 @@ def _purge_derived(cap: dict, actor: str, *, keep_source: bool, keep: Optional[s
     summary = {"evidence": len(remove), "progress": 0, "staffing": 0, "events_deleted": [], "letters_rechecked": []}
     if remove:
         q = ",".join("?" * len(remove))
-        summary["progress"] = store.execute(f"DELETE FROM progress WHERE evidence_id IN ({q})", list(remove))
-        summary["staffing"] = store.execute(f"DELETE FROM staffing WHERE evidence_id IN ({q})", list(remove))
+        summary["progress"], summary["staffing"] = store.delete_reports_by_evidence(remove)
+        summary["log_entries"] = store.delete_log_entries_by_evidence(remove)
     for e in store.events(cap["project_id"]):
         if not remove & set(e["evidence"]):
             continue

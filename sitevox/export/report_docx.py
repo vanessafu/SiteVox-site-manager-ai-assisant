@@ -291,23 +291,38 @@ def render(d: dict, out: Path, photo_files: Optional[dict[str, Path]] = None) ->
     # 3 Geräte
     H("Geräteeinsatz")
     if d["equipment"]:
-        grid(doc, ["Gerät", "Status", "Soll h", "Ist h", "Ausfallzeit", "Ursache"],
-             [[r["name"], r["status"], numsmart(r.get("hours_planned")), numsmart(r.get("hours_operated")),
-               "\n".join(tspan(x) for x in r.get("downtime", [])) or "–", r.get("downtime_cause")] for r in d["equipment"]],
+        grid(doc, ["Gerät", "Status", "Soll h", "Ist h", "Ausfallzeit", "Ursache / Bemerkung"],
+             [[r["name"] + (" *" if r.get("unplanned") else ""), r["status"], numsmart(r.get("hours_planned")),
+               numsmart(r.get("hours_operated")), "\n".join(tspan(x) for x in r.get("downtime", [])) or "–",
+               "; ".join(x for x in (r.get("downtime_cause"), r.get("remarks")) if x) or None] for r in d["equipment"]],
              [30, 24, 13, 13, 27, W_MM - 107], align="llrrll",
              strong=[[False, r["status"] != "im Einsatz", False, False, False, False] for r in d["equipment"]])
+        if any(r.get("unplanned") for r in d["equipment"]):
+            note(doc, "* nicht im Einsatzplan – nur aus Meldungen bekannt.")
     else:
         note(doc, "Kein Großgerät im Tagesverlauf erfasst.")
 
     # 4 Lieferungen
     H("Lieferungen")
     if d.get("deliveries"):
-        grid(doc, ["Material", "Menge", "Lieferant", "durch", "Soll", "Ist", "Verzug", "Lieferschein"],
-             [[r["material"], f"{numsmart(r['quantity'])} {r['unit']}", r.get("supplier"), r["supplied_by"],
-               r.get("planned_time"), r.get("actual_time"), f"{r.get('delay_minutes', 0)} min", r.get("delivery_note_no")]
-              for r in d["deliveries"]], [40, 17, 27, 11, 12, 12, 15, W_MM - 134], align="lrllllrl")
+        def _st(r):
+            st = r.get("status") or "geliefert"
+            return st + (f" (angek. {date.fromisoformat(r['announced_on']):%d.%m.})" if r.get("announced_on") else "")
+        grid(doc, ["Material", "Menge", "Lieferant", "durch", "Soll", "Ist", "Verzug", "Status", "bisher ges."],
+             [[r["material"], f"{numsmart(r['quantity'])} {r['unit']}" if r.get("quantity") is not None else "–",
+               r.get("supplier"), r.get("supplied_by"), r.get("planned_time"), r.get("actual_time"),
+               f"{r['delay_minutes']} min" if r.get("delay_minutes") is not None else "–", _st(r),
+               f"{numsmart(r['total_to_date'])} {r['unit']}" if r.get("total_to_date") is not None else "–"]
+              for r in d["deliveries"]], [34, 16, 24, 10, 11, 11, 13, W_MM - 137, 18], align="lrllllrlr")
     else:
         note(doc, "Keine Lieferungen erfasst.")
+
+    # 4b Tagesbuch
+    if d.get("site_log"):
+        H("Prüfungen, Besuche und weitere Feststellungen")
+        grid(doc, ["Zeit", "Art", "Feststellung", "Details"],
+             [[r.get("time"), r["label"], r["text"], r.get("detail")] for r in d["site_log"]],
+             [13, 26, W_MM - 89, 50], align="llll")
 
     # 5 Leistungen
     H("Ausgeführte Arbeiten und Leistungsstand")

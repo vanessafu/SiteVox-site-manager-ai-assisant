@@ -10,7 +10,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import {
   AlertCircle, AlertTriangle, ArrowRight, Building2, CalendarDays, Camera, ChevronLeft, ChevronRight, History, CloudRain, FileDown, FolderOpen, HardHat, ListChecks, Mic,
-  Pencil, TrendingUp, Truck, Users, Wrench,
+  NotebookPen, Pencil, TrendingUp, Truck, Users, Wrench,
 } from "lucide-react";
 import { dLong, dShort, num, pct, useApi } from "@/lib/api";
 import { LangToggle, locale, useT } from "@/lib/i18n";
@@ -332,6 +332,8 @@ export default function DashboardView({ day }: { day?: string }) {
             { key: "downtime", label: "Ausfallzeit", type: "spans",
               show: (r) => <span className="whitespace-nowrap tabular-nums">{r.downtime?.length ? r.downtime.map((s: any) => span(s, t)).join(", ") : "–"}</span> },
             { key: "downtime_cause", label: "Ursache", type: "text", show: (r) => <span className="text-xs">{r.downtime_cause || "–"}</span> },
+            { key: "remarks", label: "Bemerkung", type: "text",
+              show: (r) => <span className="text-xs">{r.unplanned && <span className="pill mr-1 bg-warn-soft text-warn-text">{t("nicht im Einsatzplan")}</span>}{r.remarks ? t(r.remarks.replace(/^nicht im Einsatzplan;? ?/, "")) : (r.unplanned ? "" : "–")}</span> },
           ]} />
       </Section>
 
@@ -343,15 +345,22 @@ export default function DashboardView({ day }: { day?: string }) {
               <thead className="text-left text-xs text-slate-600"><tr>
                 <th className={th}>{t("Lieferant")}</th><th className={th}>{t("Material")}</th><th className={`${th} text-right`}>{t("Menge")}</th>
                 <th className={th}>{t("geplant")}</th><th className={th}>{t("tatsächlich")}</th><th className={th}>{t("pünktlich")}</th>
+                <th className={th}>{t("Status")}</th><th className={`${th} text-right`}>{t("bisher gesamt")}</th>
                 <th className={th}>{t("Lieferschein")}</th><th className={`${th} text-right`}>{t("Belege")}</th>
               </tr></thead>
               <tbody>
                 {rep.deliveries.map((r: any, i: number) => (
                   <tr key={i} className="border-t border-slate-100">
                     <td className={td}>{r.supplier || "–"}</td><td className={td}>{r.material}</td>
-                    <td className={`${td} text-right tabular-nums`}>{num(r.quantity)} {r.unit}</td>
+                    <td className={`${td} text-right tabular-nums`}>{r.quantity != null ? `${num(r.quantity)} ${r.unit}` : "–"}</td>
                     <td className={td}>{r.planned_time || "–"}</td><td className={td}>{r.actual_time || "–"}</td>
-                    <td className={td}>{r.delay_minutes ? t("{n} min Verzug", { n: r.delay_minutes }) : t("ja")}</td>
+                    <td className={td}>{!r.actual_time ? "–" : r.delay_minutes ? t("{n} min Verzug", { n: r.delay_minutes }) : r.planned_time ? t("ja") : "–"}</td>
+                    <td className={td}>
+                      <span className={r.status === "geliefert" ? "" : "font-semibold text-bad-text"}>{t(r.status?.startsWith("überfällig") ? "überfällig" : r.status || "geliefert")}</span>
+                      {r.announced_on && <span className="block text-2xs text-slate-500">{t("angekündigt am {d}", { d: dShort(r.announced_on) })}</span>}
+                      {r.previous_delivery && <span className="block text-2xs text-slate-500">{t("zuletzt {d}", { d: dShort(r.previous_delivery) })}</span>}
+                    </td>
+                    <td className={`${td} text-right tabular-nums`}>{r.total_to_date != null ? `${num(r.total_to_date)} ${r.unit}` : "–"}</td>
                     <td className={td}>{r.delivery_note_no || "–"}</td>
                     <td className={`${td} text-right`}><EvidenceBtn ids={r.evidence_ids || []} title={r.material} /></td>
                   </tr>
@@ -361,6 +370,25 @@ export default function DashboardView({ day }: { day?: string }) {
           </div>
         ) : <p className="text-sm text-slate-600">{t("Keine Lieferungen erfasst.")}</p>}
       </Section>
+
+      {/* Tagesbuch: Prüfungen, Besuche, Geräte-Befunde, erledigte Arbeiten (kein Ereignis, kein Regelwerk) */}
+      {(rep.site_log || []).length > 0 && (
+        <Section icon={NotebookPen} title={t("Prüfungen, Besuche und weitere Feststellungen")}>
+          <ul className="divide-y divide-slate-100 text-sm">
+            {rep.site_log.map((r: any) => (
+              <li key={r.log_id} className="flex items-start gap-3 py-2">
+                <span className="w-12 shrink-0 font-mono text-xs text-slate-500">{r.time || "–"}</span>
+                <span className="pill shrink-0 bg-slate-100 text-slate-700">{t(r.label)}</span>
+                <div className="min-w-0 flex-1">
+                  <div>{r.text}</div>
+                  {r.detail && <div className="text-xs text-slate-600">{t(r.detail)}</div>}
+                </div>
+                <EvidenceBtn ids={r.evidence_ids || []} title={t(r.label)} />
+              </li>
+            ))}
+          </ul>
+        </Section>
+      )}
 
       {/* B9 Handlungsbedarf (§ 7) */}
       <section>
