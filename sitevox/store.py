@@ -237,6 +237,12 @@ def save_weather(project_id: str, date: str, w: dict) -> None:
     put("weather", w, project_id=project_id, date=date)
 
 
+def delete_weather(project_id: str) -> None:
+    c = connect()
+    c.execute("DELETE FROM weather WHERE project_id=?", (project_id,))
+    c.commit()
+
+
 def weather(project_id: str, date: str) -> Optional[dict]:
     row = connect().execute("SELECT doc FROM weather WHERE project_id=? AND date=?", (project_id, date)).fetchone()
     return json.loads(row["doc"]) if row else None
@@ -291,3 +297,26 @@ def evidence_by_capture(capture_id: str) -> list[dict]:
 def delete_activity(project_id: str, activity_id: str) -> None:
     execute("DELETE FROM activities WHERE project_id=? AND id=?", (project_id, activity_id))
     execute("DELETE FROM progress WHERE project_id=? AND activity_id=?", (project_id, activity_id))
+
+
+# ---------------------------------------------------------------------------- Projekte anlegen/löschen, Verlauf
+PROJECT_TABLES = ("activities", "progress", "staffing", "captures", "evidence", "events", "letters", "emails",
+                  "documents", "weather", "report_rows")
+
+
+def delete_project(project_id: str) -> dict[str, int]:
+    """Projekt mit allen Daten aus der DB entfernen (Rohdateien unter data/ bleiben liegen). Audit bleibt erhalten."""
+    c = connect()
+    counts = {t: c.execute(f"DELETE FROM {t} WHERE project_id=?", (project_id,)).rowcount for t in PROJECT_TABLES}
+    counts["projects"] = c.execute("DELETE FROM projects WHERE id=?", (project_id,)).rowcount
+    c.commit()
+    return counts
+
+
+def report_days(project_id: str) -> list[str]:
+    """Alle Tage, für die ein Bautagesbericht Inhalt hat (Erfassung, Ereignis, Wetter, Personal, Leistung, Korrektur)."""
+    sql = " UNION ".join(f"SELECT date FROM {t} WHERE project_id=?" for t in
+                         ("captures", "events", "weather", "staffing", "progress", "report_rows"))
+    rows = connect().execute(f"SELECT DISTINCT date FROM ({sql}) WHERE date IS NOT NULL ORDER BY date DESC",
+                             (project_id,) * 6)
+    return [r["date"] for r in rows.fetchall()]

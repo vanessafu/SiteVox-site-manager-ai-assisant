@@ -109,8 +109,6 @@ def _sources(pid: str, day: str, caps: list[dict], events: list[dict], wx: dict,
     by_ev: dict[str, str] = {}
     docs: dict[str, str] = {}
     ev_ids = list(dict.fromkeys(e for ev in events for e in ev.get("evidence", [])))
-    if wx.get("evidence_id"):
-        ev_ids.append(wx["evidence_id"])
     for eid in ev_ids:
         d = store.evidence(eid) or {}
         if d.get("capture_id") in by_cap:
@@ -149,7 +147,9 @@ def build(project_id: str, day: str) -> dict[str, Any]:
     company = settings.baseline()["company"]
     a = deviation.analyze(project_id, date.fromisoformat(day))
     acts = {r["id"]: r for r in a["activities"]}
-    wx = store.weather(project_id, day) or {}
+    from ..pipeline import ensure_weather
+
+    wx = ensure_weather(project_id, date.fromisoformat(day)) or {}
     caps = store.captures(project_id, day)
     events = [e for e in store.events(project_id, day) if e.get("status") != "dismissed"]
     letters = {l["letter_id"]: l for l in store.letters(project_id)}
@@ -182,7 +182,7 @@ def build(project_id: str, day: str) -> dict[str, Any]:
                    "wind": f"Böen bis {s['gust_max']:.0f} km/h",
                    "work_possible": not wx.get("assessment", {}).get("exceptional", False),
                    "impact_note": "; ".join(wx.get("assessment", {}).get("reasons", [])) or None,
-                   "source_refs": ["WEATHER-DWD"], "evidence_ids": [wx["evidence_id"]] if wx.get("evidence_id") else []}
+                   "source": "DWD via Bright Sky (automatisch)", "fetched_at": wx.get("fetched_at")}
 
     # ---- Personal: Ist je Kolonne aus Erfassung; nicht einzeln erfasste Kolonnen nur, wenn die Gesamtzahl aufgeht
     tl_rows = {r["name"]: r for r in tl["rows"]}
@@ -407,6 +407,7 @@ def build(project_id: str, day: str) -> dict[str, Any]:
         "meta": {
             "schema": SCHEMA, "generated_at": store.now_iso(),
             "report_id": f"TB-{day}", "date": day, "report_no": a.get("today_idx"),
+            "has_coords": project.get("lat") is not None and project.get("lon") is not None,
             "project": {"name": project.get("title") or project.get("name"), "project_no": project["id"],
                         "contract_no": project.get("contract_no"), "address": project.get("address")},
             "contractor": {"company": company["name"], "bauleiter": signer.split(",")[0].strip(),

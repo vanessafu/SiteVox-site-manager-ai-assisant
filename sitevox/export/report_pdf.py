@@ -304,7 +304,7 @@ def story(d: dict, photo_files: dict[str, Path]) -> list:
                  P("gegeben" if w["work_possible"] else "nicht gegeben"), P(w.get("impact_note"))]]
         out.append(grid(rows, [20 * mm, 30 * mm, 21 * mm, 24 * mm, 24 * mm, W - 119 * mm]))
     else:
-        out.append(P("Keine Wetterdaten erfasst.", "smallg"))
+        out.append(P("Keine Wetterdaten verfügbar (Koordinaten der Baustelle fehlen oder Wetterdienst nicht erreichbar).", "smallg"))
 
     # 2 Personal
     out += H("Personaleinsatz")

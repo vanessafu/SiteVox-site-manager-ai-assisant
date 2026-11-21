@@ -259,7 +259,7 @@ def render(d: dict, out: Path, photo_files: Optional[dict[str, Path]] = None) ->
                "gegeben" if w["work_possible"] else "nicht gegeben", w.get("impact_note")]],
              [20, 30, 21, 24, 24, W_MM - 119])
     else:
-        note(doc, "Keine Wetterdaten erfasst.")
+        note(doc, "Keine Wetterdaten verfügbar (Koordinaten der Baustelle fehlen oder Wetterdienst nicht erreichbar).")
 
     # 2 Personal
     H("Personaleinsatz")

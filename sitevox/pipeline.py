@@ -146,6 +146,13 @@ def _ingest_body(cap, project_id, kind, captured_at, day, file, text, title, met
             doc.update(kind="lv", gaeb=parsed["gaeb"], lv_items=parsed["lv_items"])
         store.save_document(doc)
         rag.index(rebuild=True)
+        if doc["kind"] == "vertrag":  # Vertragsnummer, AG, Vertreter, Fristen … in leere Stammdatenfelder
+            from .understand import contract_info
+
+            try:
+                cap["contract_info_applied"] = contract_info.apply(project_id, actor="ai")
+            except Exception as exc:  # noqa: BLE001 – Upload darf daran nicht scheitern
+                log.warning("Vertragsangaben nicht übernommen: %s", exc)
         if meta.get("doc_type") == "protokoll":
             summ = extract.summarize_minutes(body, project_id=project_id, fixture_key=fixture_key)
             cap["minutes"] = summ.model_dump()
@@ -646,24 +653,60 @@ def _score_event(e: dict, analysis: dict, wx: Optional[dict]) -> dict:
     return e
 
 
+_wx_failed: dict[tuple[str, str], float] = {}  # (Projekt, Tag) → Zeitpunkt des letzten Fehlschlags
+WX_MAX_AGE_MIN = 60  # heutiges Wetter höchstens so alt
+WX_RETRY_MIN = 10  # nach Fehler (offline, Server) frühestens wieder
+
+
+def ensure_weather(project_id: str, day: date) -> Optional[dict]:
+    """Wetter automatisch holen (DWD über Bright Sky) – niemand muss es eintragen.
+
+    Vergangene Tage: einmal holen, sobald der Tag abgeschlossen ist, danach fest. Heute: höchstens WX_MAX_AGE_MIN
+    alt (Werte des Tages kommen stündlich nach). Zukünftige Tage und Projekte ohne Koordinaten: nichts.
+    """
+    import time as _time
+
+    key = day.isoformat()
+    wx = store.weather(project_id, key)
+    today = date.today()
+    if day > today:
+        return wx
+    if wx and wx.get("fetched_at"):
+        fetched = datetime.fromisoformat(wx["fetched_at"])
+        final = fetched.date() > day  # nach Tagesende geholt → vollständig
+        if final or (datetime.now().astimezone() - fetched).total_seconds() < WX_MAX_AGE_MIN * 60:
+            return wx
+    elif wx and day < today:
+        return wx  # ältere Einträge (Seed/Fixture) ohne Zeitstempel bleiben stehen
+    p = settings.project_cfg(project_id)
+    if p.get("lat") is None or p.get("lon") is None:
+        return wx
+    if _time.time() - _wx_failed.get((project_id, key), 0) < WX_RETRY_MIN * 60:
+        return wx
+    try:
+        raw = weather.fetch(p["lat"], p["lon"], day, project_id)
+    except Exception as exc:  # noqa: BLE001 – Wetter ist optional, Bericht geht auch ohne
+        _wx_failed[(project_id, key)] = _time.time()
+        log.warning("Wetter nicht verfügbar: %s", exc)
+        return wx
+    s = weather.summarize(raw)
+    new = {"summary": s, "assessment": weather.assess(s), "fetched_at": now_iso(),
+           "evidence_id": (wx or {}).get("evidence_id")}
+    text = _weather_text(s)
+    ev = store.evidence(new["evidence_id"]) if new["evidence_id"] else None
+    if ev:  # Messwerte des Tages aktualisieren, Beleg-ID bleibt (Schreiben verweisen darauf)
+        ev.update(quote=text, full_text=text, meta=s)
+        store.save_evidence(ev)
+    else:
+        new["evidence_id"] = new_evidence(project_id=project_id, source="weather", title=f"DWD / Bright Sky {day:%d.%m.%Y}",
+                                          quote=text, full_text=text, captured_at=f"{day}T17:00:00", meta=s).evidence_id
+    store.save_weather(project_id, key, new)
+    return new
+
+
 def refresh_day(project_id: str, day: date) -> dict[str, Any]:
     """Wetter + Soll-Ist + Prognose neu rechnen und Ereignisse neu bewerten."""
-    wx = store.weather(project_id, day.isoformat())
-    if wx is None:
-        p = settings.project_cfg(project_id)
-        try:
-            raw = weather.fetch(p["lat"], p["lon"], day, project_id)
-            s = weather.summarize(raw)
-            wx = {"summary": s, "assessment": weather.assess(s)}
-            store.save_weather(project_id, day.isoformat(), wx)
-            ev = new_evidence(project_id=project_id, source="weather", title=f"DWD / Bright Sky {day:%d.%m.%Y}",
-                              quote=_weather_text(s), full_text=_weather_text(s), captured_at=f"{day}T17:00:00",
-                              meta=s)
-            wx["evidence_id"] = ev.evidence_id
-            store.save_weather(project_id, day.isoformat(), wx)
-        except Exception as exc:  # noqa: BLE001 – Wetter ist optional
-            log.warning("Wetter nicht verfügbar: %s", exc)
-            wx = None
+    wx = ensure_weather(project_id, day)
     analysis = deviation.analyze(project_id, day)
     for e in store.events(project_id, day.isoformat()):
         if e["type"] == "weather_interruption" and wx and wx.get("evidence_id") not in e["evidence"]:
@@ -731,3 +774,29 @@ def reset_sphere(event_id: str, actor: str) -> dict:
 
 def now_iso() -> str:
     return datetime.now().astimezone().isoformat(timespec="seconds")
+
+
+def start_weather_auto(interval_min: float = WX_MAX_AGE_MIN) -> bool:
+    """Hintergrund: stündlich das heutige Wetter aller Projekte mit Koordinaten holen und die Ereignisse neu bewerten
+    (Wetter entscheidet bei Witterungs-Behinderungen über die Sphäre). Aus mit SITEVOX_WEATHER_ONLINE=0."""
+    import os
+    import threading
+    import time as _time
+
+    if os.environ.get("SITEVOX_WEATHER_ONLINE", "1") == "0":
+        return False
+
+    def loop() -> None:
+        while True:
+            for p in store.list_projects():
+                cfg = settings.project_cfg(p["id"])
+                if cfg.get("lat") is None or cfg.get("lon") is None:
+                    continue
+                try:
+                    refresh_day(p["id"], date.today())
+                except Exception as exc:  # noqa: BLE001 – nächster Durchlauf versucht es erneut
+                    log.warning("Wetter-Aktualisierung %s: %s", p["id"], exc)
+            _time.sleep(interval_min * 60)
+
+    threading.Thread(target=loop, name="weather-auto", daemon=True).start()
+    return True

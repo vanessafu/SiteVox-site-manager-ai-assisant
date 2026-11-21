@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import os
 from datetime import date, timedelta
 from typing import Any, Optional
 
@@ -17,6 +18,8 @@ def fetch(lat: float, lon: float, day: date, project_id: Optional[str] = None) -
         fx = settings.demo_dir(project_id or "BV-RIEM") / "fixtures" / "weather" / f"{day.isoformat()}.json"
         if fx.exists():
             return json.loads(fx.read_text(encoding="utf-8"))
+    if os.environ.get("SITEVOX_WEATHER_ONLINE", "1") == "0":
+        raise RuntimeError("Wetterabruf online abgeschaltet (SITEVOX_WEATHER_ONLINE=0)")
     r = settings.rules()["weather"]
     resp = httpx.get(r["api_url"], params={"lat": lat, "lon": lon, "date": day.isoformat(),
                                             "last_date": (day + timedelta(days=1)).isoformat(),

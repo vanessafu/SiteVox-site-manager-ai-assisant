@@ -252,6 +252,11 @@ def recipient_email_field(pid: str) -> tuple[LetterField, Optional[str]]:
 
     hit = contacts.find_client_email(pid)
     if not hit:
+        client = settings.project_cfg(pid).get("client") or {}
+        if client.get("email") and client.get("email_source") == "manual":
+            return _field("recipient_email", EMAIL_LABEL, client["email"], 0.6, [],
+                          "von der Bauleitung in den Projekt-Stammdaten eingetragen – in den Unterlagen nicht belegt, "
+                          "bitte prüfen"), None
         return _field("recipient_email", EMAIL_LABEL, None, 0.0, [], EMAIL_MISSING), None
     ev = new_evidence(project_id=pid, source=hit["source"], title=hit.get("title") or "", quote=hit["quote"],
                       full_text=hit["quote"], capture_id=hit.get("capture_id"),

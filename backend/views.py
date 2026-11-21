@@ -34,6 +34,24 @@ def projects() -> list[dict]:
     return out
 
 
+def report_days(project_id: str) -> list[dict]:
+    """Verlauf: Berichtstage (neueste zuerst) mit Erfassungen, Ereignissen und Wetter."""
+    today = date.today().isoformat()
+    out = []
+    for d in store.report_days(project_id):
+        if d > today:
+            continue
+        caps = store.captures(project_id, d)
+        evs = [e for e in store.events(project_id, d) if e["status"] != "dismissed"]
+        wx = store.weather(project_id, d) or {}
+        out.append({"date": d, "captures": len(caps), "events": len(evs),
+                    "open_letters": sum(1 for e in evs if e["recommended_document"]["requires_letter"]
+                                        and e["status"] in ACTIONABLE),
+                    "weather": (wx.get("summary") or {}).get("condition"),
+                    "temp_max": (wx.get("summary") or {}).get("temp_max"), "photos": sum(1 for c in caps if c["kind"] == "photo")})
+    return out
+
+
 def _bullet_color(ratio: Optional[float]) -> str:
     r = settings.rules()["bullet"]
     if ratio is None:
@@ -96,7 +114,7 @@ def dashboard(project_id: str, day: str) -> dict[str, Any]:
         "overview": {"kpis": a["kpis"], "window": a["window"], "today_idx": a["today_idx"],
                      "activities": a["activities"], "impact": a["impact"], "milestones": a["milestones"]},
         "today": {
-            "kpis": {"day_target_ratio": a["kpis"]["day_target_ratio"],
+            "kpis": {"day_target_ratio": a["kpis"].get("day_target_ratio"),
                      "staff": {"present": present, "planned": planned, "detail": staff},
                      "weather": wx},
             "bullets": bullets, "extra_work": extra, "timeline": tl,
