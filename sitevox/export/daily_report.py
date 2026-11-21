@@ -71,6 +71,10 @@ def _sources(pid: str, day: str, caps: list[dict], events: list[dict], wx: dict,
             m = emails.get(c["capture_id"]) or {}
             author = _name(m.get("from")) or author
             text = (f"Betreff: {m['subject']}. " if m.get("subject") else "") + _clean(m.get("body"), 600)
+        elif c["kind"] == "photo":  # Inhalt = Antwort des Poliers; sonst gekennzeichnete KI-Beobachtung
+            text = c.get("text") or c.get("summary") or c.get("title")
+            ans_tr = (c.get("answer") or {}).get("transcript") or {}
+            lang = ans_tr.get("language") or lang
         elif tr.get("segments"):
             text = " ".join(s["text"] for s in tr["segments"])
         else:
@@ -289,16 +293,34 @@ def build(project_id: str, day: str) -> dict[str, Any]:
         })
 
     # ---- Fotos
-    photos = []
+    # Beleg ist das Foto; die VLM-Beschreibung steht nur als gekennzeichnete "KI-Beobachtung" daneben.
+    photos, ai_open = [], []
     for c in caps:
         if c["kind"] != "photo":
             continue
-        ev = store.evidence(c["evidence_ids"][0]) if c.get("evidence_ids") else {}
-        gps = (ev or {}).get("meta", {}).get("gps")
-        photos.append({"photo_id": by_cap[c["capture_id"]], "file": _posix((ev or {}).get("file") or c.get("file")),
+        ph = c.get("photo") or {}
+        ev = store.evidence(ph.get("evidence_id") or (c["evidence_ids"][0] if c.get("evidence_ids") else "")) or {}
+        gps = ev.get("meta", {}).get("gps")
+        ai = [d for d in store.evidence_many(r["ai_evidence_id"] for r in ph.get("observations", []))
+              if d["meta"].get("status") != "rejected"]
+        answer = (c.get("text") or "").strip()
+        parts = [f"Polier: „{_clean(answer, 300)}“"] if answer else []
+        if ai:
+            tag = {"confirmed": "bestätigt", "corroborated": "durch Antwort gestützt"}
+            parts.append("KI-Beobachtung: " + "; ".join(
+                f"{d['quote']} ({tag.get(d['meta'].get('status'), 'nicht geprüft')})" for d in ai))
+            ai_open += [d for d in ai if d["meta"].get("status") == "ai"]
+        elif not answer:
+            summary = ((c.get("vision") or {}).get("analysis") or {}).get("summary")
+            parts.append(f"KI-Beobachtung (nicht geprüft): {summary}" if summary else (c.get("title") or ""))
+        photos.append({"photo_id": by_cap[c["capture_id"]], "file": _posix(ev.get("file") or c.get("file")),
                        "timestamp": c["captured_at"],
                        "location": f"GPS {gps['lat']:.5f}, {gps['lon']:.5f}" if gps else None,
-                       "caption_de": (ev or {}).get("quote") or c.get("summary") or c.get("title"),
+                       "caption_de": " · ".join(p for p in parts if p),
+                       "question": (c.get("followup") or {}).get("question"),
+                       "ai_observations": [{"text": d["quote"], "category": d["meta"].get("category"),
+                                            "subtype": d["meta"].get("subtype"), "status": d["meta"].get("status"),
+                                            "visual_conf": d["meta"].get("visual_conf")} for d in ai],
                        "related_ids": c.get("event_ids", [])})
 
     # ---- Prüfung (Human in the loop)
@@ -308,7 +330,7 @@ def build(project_id: str, day: str) -> dict[str, Any]:
         if letter:
             kind = DOC_KIND_LABELS.get(letter["kind"], letter["kind"])
             for iss in letter.get("issues", []):
-                if iss.get("status") == "unverified":
+                if iss.get("status") in ("unverified", "needs_confirmation"):
                     unsupported.append(f"{kind} {letter['letter_id']}: „{iss['value']}“ – {iss.get('message') or 'ohne Beleg'}")
             if letter["status"] == "Entwurf":
                 dl = (ev.get("deadline") or {}).get("label")
@@ -322,6 +344,11 @@ def build(project_id: str, day: str) -> dict[str, Any]:
             questions.append(f"Risikosphäre {ev.get('sphere')} für {ev['event_id']} ({ev.get('label')}) bestätigen?")
         for w in ev.get("warnings", []):
             questions.append(f"{ev['event_id']}: {w}")
+    if ai_open:
+        uncertain.append(f"{len(ai_open)} KI-Beobachtung(en) aus Fotos nicht bestätigt – gelten nicht als Beleg.")
+    for c in caps:
+        if c["kind"] == "photo" and c.get("status") == "awaiting_answer":
+            questions.append(f"{by_cap[c['capture_id']]}: {(c.get('followup') or {}).get('question')}")
     if any(w.get("derived") for w in workforce):
         uncertain.append("Personal: nicht einzeln erfasste Kolonnen aus der Gesamtzahl abgeleitet (Ist = Soll angenommen).")
 

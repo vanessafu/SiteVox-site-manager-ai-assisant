@@ -137,6 +137,79 @@ def speech_mls(rows, lang, cfg):
     _()
 
 
+# Common Voice 17 (CC0) über den Community-Mirror fsicoli/common_voice_17_0 – das offizielle HF-Repo ist seit
+# 10/2025 leer (nur noch Mozilla Data Collective). Deutsch hat ein freies Feld "accents"; wir nehmen ALLE Clips mit
+# L2-Akzent aus dev+test (~120 Clips, ~30 Sprecher:innen) plus eine kleine L1-Stichprobe als Vergleich.
+CV_REPO = "https://huggingface.co/datasets/fsicoli/common_voice_17_0/resolve/main"
+CV_L2 = {  # Sprachkürzel -> Teilstring im accents-Feld (kleingeschrieben)
+    "pl": "polnisch", "tr": "türkisch", "ru": "russisch", "ro": "rumänisch", "hu": "ungarisch", "cs": "tschechisch",
+    "sk": "slowakisch", "bg": "bulgarisch", "hr": "kroatisch", "sr": "serbisch", "uk": "ukrainisch", "ar": "arabisch",
+}
+CV_N_NATIVE = 20   # L1-Vergleich: "Deutschland Deutsch", höchstens 2 Clips je Sprecher:in
+
+
+def cv_accent(raw):
+    a = raw.lower()
+    for k, v in CV_L2.items():
+        if v in a:
+            return f"{k}-L1"
+    if a.strip() in ("deutschland deutsch", "hochdeutsch", "deutschland deutsch,hochdeutsch"):
+        return "de-L1"
+    return None
+
+
+@task("Speech Common Voice 17 de: accented German (dev+test, CC0)")
+def speech_commonvoice_de(rows):
+    import hashlib
+    import tarfile
+    import librosa
+    import soundfile as sf
+    folder = SPEECH / "de_cv"
+    folder.mkdir(parents=True, exist_ok=True)
+    got = {}
+    for split in ("test", "dev"):
+        tsv = urllib.request.urlopen(f"{CV_REPO}/transcript/de/{split}.tsv").read().decode("utf-8")
+        want, native_per_spk = {}, {}
+        for r in csv.DictReader(io.StringIO(tsv), delimiter="\t", quoting=csv.QUOTE_NONE):
+            acc = cv_accent(r.get("accents", ""))
+            if acc is None:
+                continue
+            if acc == "de-L1":
+                n_nat = sum(1 for v in got.values() if v["accent"] == "de-L1") + \
+                        sum(1 for v in want.values() if v["accent"] == "de-L1")
+                if n_nat >= CV_N_NATIVE or native_per_spk.get(r["client_id"], 0) >= 2:
+                    continue
+                native_per_spk[r["client_id"]] = native_per_spk.get(r["client_id"], 0) + 1
+            want[r["path"]] = {"accent": acc, "accent_raw": r["accents"], "text": r["sentence"],
+                               "speaker": "cv_" + hashlib.sha1(r["client_id"].encode()).hexdigest()[:8],
+                               "gender": r.get("gender", ""), "split": split}
+        say(f"  {split}: {len(want)} clips selected, streaming tar (~700 MB) ...")
+        with urllib.request.urlopen(f"{CV_REPO}/audio/de/{split}/de_{split}_0.tar") as resp, \
+                tarfile.open(fileobj=resp, mode="r|*") as tar:
+            for m in tar:
+                base = Path(m.name).name
+                if base not in want:
+                    continue
+                with open(folder / "_tmp.mp3", "wb") as f:
+                    f.write(tar.extractfile(m).read())
+                y, _ = librosa.load(str(folder / "_tmp.mp3"), sr=SR, mono=True)
+                meta = want[base]
+                name = f"de_cv_{meta['accent']}_{len(got):03d}.wav"
+                sf.write(folder / name, y, SR)
+                got[base] = meta
+                rows.append({"file": f"speech/de_cv/{name}", "language": "de", "source": "commonvoice17",
+                             "text": meta["text"], "seconds": round(len(y) / SR, 1), "license": "CC0",
+                             "accent": meta["accent"], "accent_raw": meta["accent_raw"],
+                             "speaker": meta["speaker"], "gender": meta["gender"]})
+        (folder / "_tmp.mp3").unlink(missing_ok=True)
+    if not got:
+        raise RuntimeError("no Common Voice clips found")
+    by = {}
+    for v in got.values():
+        by[v["accent"]] = by.get(v["accent"], 0) + 1
+    return ", ".join(f"{k}: {v}" for k, v in sorted(by.items()))
+
+
 # ----------------------------------------------------------------- noise
 @task("Noise open-noise: roadwork (3 x 10 min)")
 def noise_roadwork():
@@ -229,7 +302,7 @@ MANUAL = """
 
 | What | Where | Note |
 |---|---|---|
-| Mozilla Common Voice (all languages, CC-0) | https://datacollective.mozillafoundation.org | whole language packs, several GB |
+| Mozilla Common Voice (full packs, newer releases) | https://datacollective.mozillafoundation.org | official source since 10/2025; de accented subset of v17 is downloaded automatically |
 | Golos (Russian, 1240 h) | https://github.com/sberdevices/golos / https://openslr.org/114 | 18 GB |
 | BIGOS (Polish ASR benchmark) | https://huggingface.co/datasets/amu-cai/pl-asr-bigos-v2 | needs HF login + accept terms |
 | STT4SG-350 (Swiss German) | https://swissnlp.org/datasets/ | request access |
@@ -245,7 +318,8 @@ MANUAL = """
 def write_docs(rows):
     if rows:
         with open(OUT / "transcripts.csv", "w", newline="", encoding="utf-8-sig") as f:
-            w = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
+            keys = list(dict.fromkeys(k for r in rows for k in r))  # Common Voice hat Zusatzspalten (accent, speaker)
+            w = csv.DictWriter(f, fieldnames=keys, restval="")
             w.writeheader()
             w.writerows(rows)
     lines = ["# data/raw - ASR-Testdaten (Sprache + Lärm)\n",
@@ -254,6 +328,7 @@ def write_docs(rows):
     lines += [f"| {t} | {s} | {d.replace('|', '/')} |" for t, s, d in RESULTS]
     lines += ["\n## Licenses of downloaded data\n",
               "- FLEURS, MediaSpeech, Multilingual LibriSpeech: CC BY 4.0 (credit the authors)",
+              "- Common Voice 17 (de, accented subset; mirror fsicoli/common_voice_17_0): CC0",
               "- open-noise (roadwork): non-commercial, share-alike (research/evaluation only)",
               "- DEMAND: CC BY", "- UrbanSound8K: CC BY-NC (non-commercial only)",
               "\nAll audio is 16 kHz mono WAV. Reference texts are in transcripts.csv.", MANUAL]
@@ -272,6 +347,7 @@ def main():
     speech_mediaspeech(rows, "ar")
     speech_mls(rows, "de", "german")
     speech_mls(rows, "pl", "polish")
+    speech_commonvoice_de(rows)
     noise_roadwork()
     noise_demand()
     noise_urbansound()

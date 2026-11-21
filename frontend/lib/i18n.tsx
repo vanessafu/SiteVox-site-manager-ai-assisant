@@ -188,6 +188,41 @@ const EN: Record<string, string> = {
   "ASR-Score {s}": "ASR score {s}", "Von {f} · {s}": "From {f} · {s}", "Originaltext": "Original text", "Seite {n}": "Page {n}",
   "Retrieval-Relevanz {r}": "retrieval relevance {r}", "lädt {id} …": "loading {id} …", "Qwen3-VL-Beschreibung": "Qwen3-VL description",
 
+  // Foto: KI-Beobachtung, Rückfrage, Antwort
+  "KI-Beobachtung": "AI observation", "KI-Beobachtung – kein Beleg": "AI observation – not evidence",
+  "durch Antwort gestützt": "supported by answer", "verworfen": "rejected",
+  "visuelle Sicherheit {c}": "visual confidence {c}", "bestätigen": "confirm", "verwerfen": "reject", "zurücksetzen": "reset",
+  "Ausschnitt aus dem Originalfoto": "Crop of the original photo", "Detailfoto": "Detail photo", "Originalfoto": "Original photo",
+  "nur KI-Beobachtung": "AI observation only", "Beobachtung bestätigen": "Confirm observation",
+  "Satz stützt sich nur auf eine KI-Beobachtung (kein Beleg) – bitte bestätigen": "Sentence relies only on an AI observation (not evidence) – please confirm",
+  "Haben Sie den Befund vor Ort bzw. auf dem Foto geprüft? Kurze Notiz (Audit-Log):": "Did you check the finding on site / on the photo? Short note (audit log):",
+  "Rückfrage zum Foto {t}": "Question about photo {t}", "{n} offen": "{n} open", "Antwort sprechen": "Answer by voice",
+  "… oder als Notiz antworten": "… or answer as a note", "Detailfoto mit Maßstab anhängen (optional)": "Attach detail photo with scale (optional)",
+  "Ohne Antwort ablegen": "File without answer", "Später": "Later", "Rückfrage": "Question", "Fehler": "Error",
+  "Die KI beschreibt nur, was zu sehen ist. Wer es verursacht hat und welches Schreiben nötig ist, ergibt sich aus Ihrer Antwort und dem Regelwerk.":
+    "The AI only describes what is visible. Who caused it and which notice is needed follows from your answer and the rule set.",
+  "Foto übertragen – KI wertet aus, danach eine Rückfrage": "Photo uploaded – AI is analysing, then one question",
+  "Antwort übertragen – wird ausgewertet": "Answer uploaded – processing", "Foto ohne Antwort abgelegt": "Photo filed without answer",
+  "{d} als Entwurf angelegt – Prüfung im Büro": "{d} created as draft – review in the office", "Im Bautagebuch dokumentiert": "Logged in the site diary",
+  "Bestätigen": "Confirm", "bestätigt": "confirmed", "Rückfrage offen": "Question open", "in Arbeit": "processing",
+  "Rückfrage:": "Question:", "Antwort:": "Answer:", "ohne Antwort abgelegt": "filed without answer",
+  "Zugang/Zufahrt blockiert": "Access blocked", "stehendes Wasser": "Standing water", "Material auf der Arbeitsfläche": "Material on work area",
+  "Gerät steht still": "Equipment idle", "Riss": "Crack", "Oberflächenfehler": "Surface defect", "Beschädigung": "Damage",
+  "Bauzustand / Fortschritt": "Construction stage / progress", "Sicherheitsmangel": "Safety hazard",
+  "Was ist hier passiert?": "What happened here?",
+  "Wessen Material ist das, und seit wann ist der Zugang blockiert?": "Whose material is this, and since when has access been blocked?",
+  "Wer blockiert den Zugang (Firma/Gewerk, im Auftrag des Bauherrn?), seit wann, und welche Arbeiten sind betroffen?":
+    "Who is blocking access (company/trade, on behalf of the client?), since when, and which work is affected?",
+  "Seit wann steht das Wasser, und welche Arbeiten können deshalb nicht ausgeführt werden?": "Since when has the water been standing, and which work cannot be carried out?",
+  "Wessen Gerät ist das, warum steht es, und seit wann?": "Whose equipment is this, why is it idle, and since when?",
+  "Ist das unsere Leistung oder eine Vorleistung? Bitte Detailfoto mit Maßstab.": "Is this our work or a previous trade's work? Please add a detail photo with scale.",
+  "Ist das unsere Leistung oder eine Vorleistung? Wer hat es beschädigt? Bitte Detailfoto mit Maßstab.":
+    "Is this our work or a previous trade's work? Who damaged it? Please add a detail photo with scale.",
+  "Welche Menge wurde heute erledigt (z. B. t, m², m³), und für welchen Vorgang?": "What quantity was completed today (e.g. t, m², m³), and for which activity?",
+  "Was ist hier passiert, und ist die Gefahrenstelle bereits gesichert?": "What happened here, and has the hazard already been secured?",
+  "Foto zeigt Arbeitsfortschritt – Menge bitte per Sprache oder Notiz nachtragen (wird nicht aus dem Foto geschätzt).":
+    "Photo shows progress – please add the quantity by voice or note (never estimated from the photo).",
+
   // Other pages
   "Bauzeitenplan · Stand {d}": "Schedule · as of {d}", "Vorgang": "Activity", "LV": "BoQ", "Verzug": "Delay", "Puffer": "Float", "Menge": "Quantity",
   "Berechnung deterministisch (CPM auf Arbeitstagen, Prognose = Restmenge / Ø-Leistung der letzten 3 AT, Blockaden aus Ereignissen). Import: Excel-Bauzeitenplan.":

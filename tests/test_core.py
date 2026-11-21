@@ -254,3 +254,168 @@ def test_sphere_reset_returns_to_rule_suggestion():
     r = c.post(f"/api/events/{ev['event_id']}/sphere/reset").json()
     assert r["sphere"] == "AN" and not r["sphere_confirmed"]  # wieder Regel-Vorschlag
     assert any(a["action"] == "reset_sphere" for a in c.get("/api/audit").json())
+
+
+# ----------------------------------------------------------------------------- Foto: sehen → fragen → verstehen
+def test_photo_analysis_schema_is_lenient_on_bbox_and_conf():
+    from sitevox.schemas import PhotoAnalysis
+
+    a = PhotoAnalysis.model_validate({"observations": [
+        {"category": "defect", "subtype": "crack", "description": "Riss", "bbox": [900, 100, 100, 50],
+         "visual_conf": 1.7},
+        {"category": "obstruction", "subtype": "standing_water", "description": "Wasser", "bbox": [1, 2, 3],
+         "visual_conf": "x"}]})
+    assert a.observations[0].bbox == [100, 50, 900, 100] and a.observations[0].visual_conf == 1.0
+    assert a.observations[1].bbox is None and a.observations[1].visual_conf == 0.5
+
+
+def test_followup_prefers_p0_and_asks_what_rules_need():
+    from sitevox.understand import vision
+
+    an = {"observations": [
+        {"category": "progress", "subtype": "stage_change", "description": "", "severity": "high", "visual_conf": .9},
+        {"category": "defect", "subtype": "crack", "description": "", "severity": "medium", "visual_conf": .6}]}
+    f = vision.followup(an)
+    assert f["subtype"] == "crack" and "Vorleistung" in f["question"] and f["wants_detail_photo"]
+    assert vision.followup({"observations": []})["question"] == "Was ist hier passiert?"
+
+
+def test_verify_ai_observation_is_not_evidence_until_promoted():
+    from sitevox.verify import blocking, verify_sentences
+
+    ai = {"source": "ai_vision", "quote": "Riss am Wandfuß, etwa 40 cm lang.", "meta": {"status": "ai"}}
+    sec = {"sachverhalt": [{"text": "Am Wandfuß ist ein Riss von 40 cm Länge sichtbar.", "evidence": ["E-01"]}]}
+    issues = verify_sentences(sec, {"E-01": "EV-AI"}, {"EV-AI": ai})
+    kinds = {(i.kind, i.status) for i in issues}
+    assert ("ai_only", "needs_confirmation") in kinds and ("number", "unverified") in kinds
+    assert len(blocking(issues)) == 2  # gelb und rot sperren die Freigabe
+    ai["meta"]["status"] = "corroborated"  # Sprachantwort stützt die Beobachtung → Beleg
+    issues = verify_sentences(sec, {"E-01": "EV-AI"}, {"EV-AI": ai})
+    assert not blocking(issues)
+
+
+def _demo_jpg(tmp_path, name: str):
+    from PIL import Image
+
+    p = tmp_path / name
+    Image.new("RGB", (800, 600), (150, 150, 150)).save(p, quality=80)
+    return p
+
+
+def test_photo_defect_answer_drives_rules_and_evidence(tmp_path):
+    from fastapi.testclient import TestClient
+
+    from backend.main import app
+
+    c = TestClient(app)
+    img = _demo_jpg(tmp_path, "IMG_1530.jpg")
+    with open(img, "rb") as f:
+        r = c.post("/api/projects/BV-RIEM/captures", data={"kind": "photo", "captured_at": "2026-11-20T15:30:00+01:00"},
+                   files={"file": ("IMG_1530.jpg", f, "image/jpeg")})
+    assert r.status_code == 200
+    cap = [x for x in c.get("/api/projects/BV-RIEM/captures", params={"date": "2026-11-20"}).json()
+           if x["kind"] == "photo"][-1]
+    assert cap["status"] == "awaiting_answer" and not cap["event_ids"]
+    assert cap["followup"]["subtype"] == "crack" and "Vorleistung" in cap["followup"]["question"]
+    full = c.get(f"/api/captures/{cap['capture_id']}").json()
+    by_src = {}
+    for e in full["evidence"]:
+        by_src.setdefault(e["source"], []).append(e)
+    assert len(by_src["ai_vision"]) == 2 and all(e["meta"]["status"] == "ai" for e in by_src["ai_vision"])
+    assert len(by_src["photo"]) == 3  # Original + 2 bbox-Ausschnitte (Beleg ist das Bild)
+    assert all(e["quote"] == "" for e in by_src["photo"])  # keine KI-Beschreibung im Fotobeleg
+
+    r = c.post(f"/api/captures/{cap['capture_id']}/answer",
+               data={"mode": "note", "text": "Das ist eine Vorleistung vom Rohbauer, nicht unsere Leistung. "
+                                             "Der Riss ist seit heute Morgen zu sehen."})
+    assert r.status_code == 200
+    cap = c.get(f"/api/captures/{cap['capture_id']}").json()
+    assert cap["status"] == "done" and len(cap["event_ids"]) == 1
+    ev = c.get(f"/api/events/{cap['event_ids'][0]}").json()
+    assert ev["type"] == "quality_defect" and ev["attrs"]["own_work"] is False
+    assert ev["sphere"] == "AG" and ev["recommended_document"]["kind"] == "bedenkenanzeige"
+    ai = {e["meta"]["subtype"]: e for e in ev["evidence_docs"] if e["source"] == "ai_vision"}
+    assert ai["crack"]["meta"]["status"] == "corroborated"  # Antwort nennt den Riss
+    assert ai["damage"]["meta"]["status"] == "ai"  # Abplatzung nicht erwähnt → bleibt Hinweis
+    r = c.post(f"/api/evidence/{ai['damage']['evidence_id']}/review", json={"action": "confirm"})
+    assert r.json()["meta"]["status"] == "confirmed"
+
+    # Entwurf: KI-Beobachtungen hinten nummeriert, unbestätigte nicht als Sachverhalt zitiert
+    letter = c.post(f"/api/events/{ev['event_id']}/draft").json()
+    srcs = [e["source"] for e in letter["evidence"]]
+    assert "ai_vision" in srcs and srcs.index("engine") < srcs.index("ai_vision")
+
+    # Löschen entfernt Ausschnitte und das Ereignis samt Entwurf
+    crops = [e["file"] for e in by_src["photo"] if e["meta"].get("role") == "crop"]
+    r = c.delete(f"/api/captures/{cap['capture_id']}")
+    assert r.status_code == 200 and set(crops) <= set(r.json().get("derived_files_deleted", []))
+
+
+def test_photo_obstruction_owner_contractor_suggests_behinderungsanzeige(tmp_path):
+    from fastapi.testclient import TestClient
+
+    from backend.main import app
+
+    c = TestClient(app)
+    img = _demo_jpg(tmp_path, "IMG_1545.jpg")
+    with open(img, "rb") as f:
+        c.post("/api/projects/BV-RIEM/captures", data={"kind": "photo", "captured_at": "2026-11-20T15:45:00+01:00"},
+               files={"file": ("IMG_1545.jpg", f, "image/jpeg")})
+    cap = [x for x in c.get("/api/projects/BV-RIEM/captures", params={"date": "2026-11-20"}).json()
+           if x["kind"] == "photo"][-1]
+    assert cap["followup"]["question"].startswith("Wessen Material")
+    c.post(f"/api/captures/{cap['capture_id']}/answer",
+           data={"mode": "note", "text": "Die Steine gehören der Maurerfirma, die im Auftrag des Bauherrn arbeitet. "
+                                         "Seit 14 Uhr kommt kein Lkw mehr zur Bodenplatte."})
+    cap = c.get(f"/api/captures/{cap['capture_id']}").json()
+    ev = c.get(f"/api/events/{cap['event_ids'][0]}").json()
+    assert ev["type"] == "third_party_interference" and ev["attrs"]["predecessor_by_owner"] is True
+    assert ev["sphere"] == "AG" and ev["recommended_document"]["kind"] == "behinderungsanzeige"
+    # Korrigierte Antwort neu auswerten: Foto + KI-Beobachtungen bleiben, Ereignis entsteht neu
+    r = c.patch(f"/api/captures/{cap['capture_id']}",
+                json={"text": "Das ist unser eigenes Material, Lieferung kam zu früh.", "reanalyze": True}).json()
+    assert r["photo"]["evidence_id"] in r["evidence_ids"] and len(r["photo"]["observations"]) == 2
+    assert c.get(f"/api/events/{ev['event_id']}").status_code == 404  # hing nur noch am Foto
+    new = c.get(f"/api/events/{r['event_ids'][0]}").json()
+    assert new["sphere"] == "AN" and new["recommended_document"]["kind"] == "bautagebuch"
+    assert any("im Auftrag des AG" in w for w in new["warnings"])  # Verursacher unklar → Rückfrage im Dashboard
+
+
+def test_demo_photos_skipped_are_attachments_and_marked_in_report():
+    from sitevox import store
+    from sitevox.export import daily_report
+
+    caps = [x for x in store.captures("BV-RIEM", "2026-11-20") if x["kind"] == "photo" and x["title"].startswith("Foto 07:31")]
+    assert caps and caps[0]["status"] == "done" and caps[0]["answer"]["mode"] == "skip"
+    plan = next(e for e in store.events("BV-RIEM", "2026-11-20") if e["type"] == "planlieferverzug")
+    assert caps[0]["photo"]["evidence_id"] in plan["evidence"]
+    rep = daily_report.build("BV-RIEM", "2026-11-20")
+    ph = next(p for p in rep["photos"] if "07:31" in p["timestamp"])
+    assert "KI-Beobachtung" in ph["caption_de"] and "nicht geprüft" in ph["caption_de"]
+
+
+def test_vision_uses_structured_llm_with_retry(tmp_path, monkeypatch):
+    """GPU-Pfad ohne GPU: Bild geht als data-URI an llm.structured; Schemaverletzung → Retry mit Fehler-Feedback."""
+    import json as _json
+
+    from sitevox import llm, settings
+    from sitevox.understand import vision
+
+    calls = []
+
+    def fake_complete(self, schema, msgs, *, n, temperature):
+        calls.append(msgs)
+        if len(calls) == 1:
+            return ['{"observations": [{"category": "defect"}]}']  # subtype/description fehlen
+        return [_json.dumps({"summary": "Riss sichtbar.", "observations": [
+            {"category": "defect", "subtype": "crack", "description": "Riss", "bbox": [100, 100, 400, 500],
+             "severity": "high", "visual_conf": 0.9}]})]
+
+    monkeypatch.setattr(settings, "is_demo", lambda: False)
+    monkeypatch.setattr(llm.LLM, "_complete", fake_complete)
+    img = _demo_jpg(tmp_path, "real.jpg")
+    out = vision.analyze(img, "BV-RIEM", activities_today=["Wände EG"])
+    assert out["analysis"]["observations"][0]["subtype"] == "crack" and len(calls) == 2
+    first = calls[0][0]["content"]
+    assert first[0]["type"] == "image_url" and first[0]["image_url"]["url"].startswith("data:image/jpeg;base64,")
+    assert "Wände EG" in first[1]["text"] and "ungültig" in calls[1][-1]["content"]

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Any, Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 Sphere = Literal["AG", "AN", "neutral"]
 EventType = Literal[
@@ -26,7 +26,10 @@ DocKind = Literal[
     "bautagebuch",
     "interne_warnung",
 ]
-EvidenceSource = Literal["audio", "photo", "email", "note", "document", "contract", "weather", "plan", "engine"]
+# "ai_vision" = KI-Beobachtung aus einem Foto (Qwen-VL). Ausdrücklich KEIN Beleg, nur Hinweis – zählt erst als
+# Beleg, wenn die Bauleitung sie bestätigt oder die Sprach-/Textantwort sie stützt (meta.status, siehe verify.py).
+EvidenceSource = Literal["audio", "photo", "email", "note", "document", "contract", "weather", "plan", "engine",
+                         "ai_vision"]
 ResourceStatus = Literal["work", "restricted", "idle", "planned_not_started"]
 
 EVENT_TYPE_LABELS: dict[str, str] = {
@@ -137,6 +140,76 @@ class MinutesSummary(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# VLM-Ausgabe: Fotoanalyse (Qwen3-VL). Das VLM sagt NUR, was zu sehen ist – nie wer es verursacht hat.
+# Ursache/Verantwortliche/Mengen kommen aus der Sprach-/Textantwort, Sphäre und Schreiben aus dem Regelwerk.
+# Wertebereiche werden per Validator geklemmt statt per JSON-Schema-Grenzen (guided decoding bleibt robust).
+# ---------------------------------------------------------------------------
+ObservationCategory = Literal["obstruction", "defect", "progress", "safety"]
+ObservationSubtype = Literal[
+    "blocked_access", "standing_water", "material_storage", "equipment_idle",  # obstruction
+    "crack", "surface_defect", "damage",                                       # defect
+    "stage_change",                                                            # progress
+    "safety_hazard",                                                           # safety
+    "other",
+]
+OBSERVATION_LABELS: dict[str, str] = {
+    "blocked_access": "Zugang/Zufahrt blockiert", "standing_water": "stehendes Wasser",
+    "material_storage": "Material auf der Arbeitsfläche", "equipment_idle": "Gerät steht still",
+    "crack": "Riss", "surface_defect": "Oberflächenfehler", "damage": "Beschädigung",
+    "stage_change": "Bauzustand / Fortschritt", "safety_hazard": "Sicherheitsmangel", "other": "Sonstiges",
+}
+
+
+class PhotoScene(BaseModel):
+    bauteil: Optional[str] = Field(None, description="Sichtbares Bauteil, z. B. 'Bodenplatte', 'Wand EG'")
+    stage: Optional[str] = Field(None, description="Bauzustand, z. B. 'untere Bewehrungslage verlegt'")
+    activity_guess: Optional[str] = Field(None, description="Vermutlich laufende Arbeit, z. B. 'Bewehrung'")
+
+
+class PhotoObservation(BaseModel):
+    category: ObservationCategory
+    subtype: ObservationSubtype
+    description: str = Field(description="Ein sachlicher Satz, was zu sehen ist – ohne Ursache, ohne Schuld")
+    bbox: Optional[list[int]] = Field(None, description="[x1, y1, x2, y2], relativ 0–1000")
+    severity: Literal["low", "medium", "high"] = "medium"
+    visual_conf: float = Field(0.5, description="Sicherheit der visuellen Erkennung 0–1")
+
+    @field_validator("visual_conf", mode="before")
+    @classmethod
+    def _clamp_conf(cls, v: Any) -> float:
+        try:
+            return min(1.0, max(0.0, float(v)))
+        except (TypeError, ValueError):
+            return 0.5
+
+    @field_validator("bbox", mode="before")
+    @classmethod
+    def _norm_bbox(cls, v: Any) -> Optional[list[int]]:
+        """Ungültige Boxen verwerfen statt die ganze Analyse abzulehnen (Box ist optional)."""
+        if not isinstance(v, (list, tuple)) or len(v) != 4:
+            return None
+        try:
+            x1, y1, x2, y2 = (min(1000, max(0, int(round(float(c))))) for c in v)
+        except (TypeError, ValueError):
+            return None
+        x1, x2 = sorted((x1, x2))
+        y1, y2 = sorted((y1, y2))
+        return [x1, y1, x2, y2] if x2 - x1 >= 10 and y2 - y1 >= 10 else None
+
+
+class PhotoAnalysis(BaseModel):
+    summary: str = Field("", description="2–3 sachliche Sätze für das Bautagebuch (was ist zu sehen)")
+    scene: PhotoScene = Field(default_factory=PhotoScene)
+    observations: list[PhotoObservation] = Field(default_factory=list)
+    followup_question: str = Field("Was ist hier passiert?", description="Eine kurze Rückfrage an den Polier")
+
+    @field_validator("observations", mode="after")
+    @classmethod
+    def _limit(cls, v: list[PhotoObservation]) -> list[PhotoObservation]:
+        return v[:6]
+
+
+# ---------------------------------------------------------------------------
 # Interne Datensätze
 # ---------------------------------------------------------------------------
 class Evidence(BaseModel):
@@ -220,9 +293,10 @@ class VerificationIssue(BaseModel):
     issue_id: str
     section: str
     sentence: int
-    kind: Literal["number", "date", "time", "entity", "citation", "legal_ref", "uncited"]
+    kind: Literal["number", "date", "time", "entity", "citation", "legal_ref", "uncited", "ai_only"]
     value: str
-    status: Literal["verified", "unverified", "confirmed"]
+    # needs_confirmation (gelb): Satz stützt sich nur auf KI-Beobachtungen – Freigabe erst nach Bestätigung
+    status: Literal["verified", "unverified", "needs_confirmation", "confirmed"]
     found_in: Optional[str] = None
     message: str = ""
 

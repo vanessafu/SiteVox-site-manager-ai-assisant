@@ -1,13 +1,46 @@
 {
- "description": "Bodenplatte Achse C: untere Bewehrungslage nur teilweise verlegt, obere Lage fehlt. Zwei Arbeiter stehen am Rand, es finden keine Verlegearbeiten statt. Leichter Regen, Pfützen auf der Sauberkeitsschicht.",
- "gps": {
-  "lat": 48.13052,
-  "lon": 11.69548
+ "exif": {
+  "gps": {
+   "lat": 48.13052,
+   "lon": 11.69548
+  },
+  "taken_at": "2026-11-20T07:31:00+01:00"
  },
- "taken_at": "2026-11-20T07:31:00+01:00",
- "tags": [
-  "Bewehrung",
-  "Achse C",
-  "Personen wartend"
- ]
+ "base": {
+  "summary": "Bodenplatte Achse C: untere Bewehrungslage nur teilweise verlegt, obere Lage fehlt. Zwei Arbeiter stehen am Rand, es finden keine Verlegearbeiten statt. Leichter Regen, Pfützen auf der Sauberkeitsschicht.",
+  "scene": {
+   "bauteil": "Bodenplatte Achse C",
+   "stage": "untere Bewehrungslage teilweise verlegt",
+   "activity_guess": "Bewehrung Bodenplatte"
+  },
+  "observations": [
+   {
+    "category": "progress",
+    "subtype": "stage_change",
+    "description": "Untere Bewehrungslage nur teilweise verlegt, obere Lage fehlt.",
+    "bbox": [
+     0,
+     672,
+     1000,
+     1000
+    ],
+    "severity": "medium",
+    "visual_conf": 0.82
+   },
+   {
+    "category": "obstruction",
+    "subtype": "standing_water",
+    "description": "Pfützen auf der Sauberkeitsschicht.",
+    "bbox": [
+     520,
+     700,
+     980,
+     990
+    ],
+    "severity": "low",
+    "visual_conf": 0.61
+   }
+  ],
+  "followup_question": "Warum ruhen die Bewehrungsarbeiten?"
+ }
 }

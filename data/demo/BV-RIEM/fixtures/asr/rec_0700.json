@@ -1,230 +1,230 @@
 {
  "language": "de",
- "duration": 12.91,
+ "duration": 15.77,
  "segments": [
   {
    "start": 0.3,
-   "end": 1.99,
+   "end": 2.38,
    "text": "Guten Morgen, Freitag, 20.",
    "words": [
     {
      "word": "Guten",
      "start": 0.3,
-     "end": 0.64,
+     "end": 0.72,
      "score": 0.978
     },
     {
      "word": "Morgen,",
-     "start": 0.7,
-     "end": 1.14,
+     "start": 0.8,
+     "end": 1.33,
      "score": 0.953
     },
     {
      "word": "Freitag,",
-     "start": 1.2,
-     "end": 1.68,
+     "start": 1.41,
+     "end": 2.0,
      "score": 0.965
     },
     {
      "word": "20.",
-     "start": 1.74,
-     "end": 1.99,
+     "start": 2.08,
+     "end": 2.38,
      "score": 0.936
     }
    ]
   },
   {
-   "start": 2.05,
-   "end": 2.58,
+   "start": 2.46,
+   "end": 3.11,
    "text": "November.",
    "words": [
     {
      "word": "November.",
-     "start": 2.05,
-     "end": 2.58,
+     "start": 2.46,
+     "end": 3.11,
      "score": 0.919
     }
    ]
   },
   {
-   "start": 2.64,
-   "end": 4.86,
+   "start": 3.19,
+   "end": 5.92,
    "text": "Personal heute 14 Mann statt 16.",
    "words": [
     {
      "word": "Personal",
-     "start": 2.64,
-     "end": 3.12,
+     "start": 3.19,
+     "end": 3.78,
      "score": 0.971
     },
     {
      "word": "heute",
-     "start": 3.19,
-     "end": 3.53,
+     "start": 3.86,
+     "end": 4.28,
      "score": 0.938
     },
     {
      "word": "14",
-     "start": 3.59,
-     "end": 3.79,
+     "start": 4.35,
+     "end": 4.6,
      "score": 0.924
     },
     {
      "word": "Mann",
-     "start": 3.85,
-     "end": 4.15,
+     "start": 4.68,
+     "end": 5.04,
      "score": 0.905
     },
     {
      "word": "statt",
-     "start": 4.21,
-     "end": 4.55,
+     "start": 5.12,
+     "end": 5.54,
      "score": 0.976
     },
     {
      "word": "16.",
-     "start": 4.61,
-     "end": 4.86,
+     "start": 5.62,
+     "end": 5.92,
      "score": 0.941
     }
    ]
   },
   {
-   "start": 4.93,
-   "end": 10.19,
+   "start": 6.0,
+   "end": 12.48,
    "text": "Bei der Kolonne Müller fehlen zwei Mann krank, die sind heute nur zu sechst.",
    "words": [
     {
      "word": "Bei",
-     "start": 4.93,
-     "end": 5.17,
+     "start": 6.0,
+     "end": 6.31,
      "score": 0.913
     },
     {
      "word": "der",
-     "start": 5.24,
-     "end": 5.48,
+     "start": 6.38,
+     "end": 6.69,
      "score": 0.952
     },
     {
      "word": "Kolonne",
-     "start": 5.55,
-     "end": 5.98,
+     "start": 6.76,
+     "end": 7.3,
      "score": 0.962
     },
     {
      "word": "Müller",
-     "start": 6.04,
-     "end": 6.43,
+     "start": 7.38,
+     "end": 7.85,
      "score": 0.973
     },
     {
      "word": "fehlen",
-     "start": 6.49,
-     "end": 6.88,
+     "start": 7.93,
+     "end": 8.41,
      "score": 0.975
     },
     {
      "word": "zwei",
-     "start": 6.94,
-     "end": 7.24,
+     "start": 8.49,
+     "end": 8.85,
      "score": 0.915
     },
     {
      "word": "Mann",
-     "start": 7.3,
-     "end": 7.59,
+     "start": 8.93,
+     "end": 9.29,
      "score": 0.905
     },
     {
      "word": "krank,",
-     "start": 7.66,
-     "end": 8.04,
+     "start": 9.37,
+     "end": 9.84,
      "score": 0.929
     },
     {
      "word": "die",
-     "start": 8.11,
-     "end": 8.36,
+     "start": 9.92,
+     "end": 10.23,
      "score": 0.916
     },
     {
      "word": "sind",
-     "start": 8.42,
-     "end": 8.71,
+     "start": 10.3,
+     "end": 10.67,
      "score": 0.96
     },
     {
      "word": "heute",
-     "start": 8.77,
-     "end": 9.12,
+     "start": 10.74,
+     "end": 11.16,
      "score": 0.938
     },
     {
      "word": "nur",
-     "start": 9.18,
-     "end": 9.43,
+     "start": 11.24,
+     "end": 11.55,
      "score": 0.921
     },
     {
      "word": "zu",
-     "start": 9.49,
-     "end": 9.69,
+     "start": 11.62,
+     "end": 11.87,
      "score": 0.98
     },
     {
      "word": "sechst.",
-     "start": 9.75,
-     "end": 10.19,
+     "start": 11.95,
+     "end": 12.48,
      "score": 0.91
     }
    ]
   },
   {
-   "start": 10.25,
-   "end": 12.55,
+   "start": 12.56,
+   "end": 15.39,
    "text": "Wetter Regen, so um die 4 Grad.",
    "words": [
     {
      "word": "Wetter",
-     "start": 10.25,
-     "end": 10.64,
+     "start": 12.56,
+     "end": 13.04,
      "score": 0.968
     },
     {
      "word": "Regen,",
-     "start": 10.7,
-     "end": 11.09,
+     "start": 13.11,
+     "end": 13.59,
      "score": 0.974
     },
     {
      "word": "so",
-     "start": 11.15,
-     "end": 11.35,
+     "start": 13.67,
+     "end": 13.92,
      "score": 0.924
     },
     {
      "word": "um",
-     "start": 11.41,
-     "end": 11.61,
+     "start": 13.99,
+     "end": 14.24,
      "score": 0.905
     },
     {
      "word": "die",
-     "start": 11.68,
-     "end": 11.92,
+     "start": 14.32,
+     "end": 14.63,
      "score": 0.916
     },
     {
      "word": "4",
-     "start": 11.99,
-     "end": 12.14,
+     "start": 14.7,
+     "end": 14.89,
      "score": 0.924
     },
     {
      "word": "Grad.",
-     "start": 12.2,
-     "end": 12.55,
+     "start": 14.97,
+     "end": 15.39,
      "score": 0.955
     }
    ]

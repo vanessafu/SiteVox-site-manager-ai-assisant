@@ -1,0 +1,41 @@
+{
+ "exif": {
+  "gps": {
+   "lat": 48.13052,
+   "lon": 11.69548
+  },
+  "taken_at": "2026-11-20T15:45:00+01:00"
+ },
+ "base": {
+  "summary": "Paletten mit Mauersteinen stehen auf der Zufahrt zur Bodenplatte, Durchfahrt für Lkw versperrt.",
+  "scene": {
+   "bauteil": "Zufahrt Bodenplatte",
+   "stage": null,
+   "activity_guess": "Betonage Bodenplatte"
+  },
+  "observations": [
+   {
+    "category": "obstruction",
+    "subtype": "material_storage",
+    "description": "Paletten mit Mauersteinen stehen auf der Zufahrt.",
+    "bbox": [
+     90,
+     380,
+     760,
+     950
+    ],
+    "severity": "high",
+    "visual_conf": 0.88
+   },
+   {
+    "category": "obstruction",
+    "subtype": "blocked_access",
+    "description": "Durchfahrt für Lkw versperrt.",
+    "bbox": null,
+    "severity": "high",
+    "visual_conf": 0.7
+   }
+  ],
+  "followup_question": "Wem gehört das Material?"
+ }
+}

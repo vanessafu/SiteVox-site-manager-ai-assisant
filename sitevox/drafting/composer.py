@@ -96,8 +96,8 @@ def engine_facts(event: dict, analysis: dict) -> tuple[list[str], str]:
 def _fallback_body(ev_list: list[tuple[str, dict]], engine_ref: str, facts: list[str]) -> DraftBody:
     sv = []
     for ref, d in ev_list:
-        if d["source"] in ("engine", "contract", "weather"):
-            continue
+        if d["source"] in ("engine", "contract", "weather") or not verify.counts_as_evidence(d):
+            continue  # KI-Beobachtungen sind kein Beleg → nicht als Sachverhalt zitieren
         when = _de_dt(d["captured_at"]) if d.get("captured_at") else ""
         q = re.sub(r"\s+", " ", d.get("quote", "")).strip().rstrip(".")
         if q:
@@ -108,11 +108,18 @@ def _fallback_body(ev_list: list[tuple[str, dict]], engine_ref: str, facts: list
                      auswirkungen=aw[:5])
 
 
+def _ev_line(ref: str, d: dict) -> str:
+    head = (f"[{ref}] {d['title']} ({d['source']}{', ' + _de_dt(d['captured_at']) if d.get('captured_at') else ''}"
+            f"{', S. ' + str(d['page']) if d.get('page') else ''})")
+    if verify.is_ai_observation(d) and not verify.counts_as_evidence(d):
+        head += " [KI-Beobachtung, KEIN Beleg – nicht als Tatsache darstellen]"
+    elif d["source"] == "photo":
+        head += " [Fotodatei – Anlage]"
+    return f"{head}: {d.get('quote') or d.get('full_text', '')[:400]}"
+
+
 def _llm_body(event: dict, kind: str, ev_list: list[tuple[str, dict]], engine_ref: str, facts: list[str]) -> DraftBody:
-    ev_txt = "\n".join(
-        f"[{ref}] {d['title']} ({d['source']}{', ' + _de_dt(d['captured_at']) if d.get('captured_at') else ''}"
-        f"{', S. ' + str(d['page']) if d.get('page') else ''}): {d.get('quote') or d.get('full_text', '')[:400]}"
-        for ref, d in ev_list)
+    ev_txt = "\n".join(_ev_line(ref, d) for ref, d in ev_list)
     msgs = [{"role": "system", "content": DRAFT_SYSTEM},
             {"role": "user", "content": DRAFT_USER.format(
                 kind_label=DOC_KIND_LABELS[kind], event_label=EVENT_TYPE_LABELS[event["type"]],
@@ -155,7 +162,7 @@ def reverify(letter: dict) -> dict:
     issues = verify.verify_sentences(letter["sections"]["llm"], letter["evidence_map"], _evidence_docs(letter))
     for i in issues:
         p = prev.get((i.section, i.sentence, i.kind, i.value))
-        if p and p["status"] == "confirmed" and i.status == "unverified":
+        if p and p["status"] == "confirmed" and i.status in ("unverified", "needs_confirmation"):
             i.status = "confirmed"
             i.message = p.get("message", "")
     letter["issues"] = [i.model_dump() for i in issues]
@@ -186,12 +193,19 @@ def create_letter(event_id: str, actor: str = "ai", kind: Optional[str] = None) 
     eng = new_evidence(project_id=pid, source="engine", title="Terminplan-Berechnung (SiteVox-Engine)",
                        quote=facts_text, full_text=facts_text, captured_at=analysis["date"] + "T17:00:00")
 
-    # Beleg-Nummerierung E-01 ...
-    ev_ids = [i for i in event["evidence"]]
+    # Beleg-Nummerierung E-01 ...: Kernbelege, Stammdaten, Engine; danach Foto-Ableitungen
+    # (Ausschnitte, Detailfoto, KI-Beobachtungen) – so bleibt die Nummerierung der Kernbelege stabil.
+    def _derived(eid: str) -> bool:
+        d = store.evidence(eid) or {}
+        return d.get("source") == "ai_vision" or (d.get("meta") or {}).get("role") in ("crop", "detail")
+
+    core = [i for i in event["evidence"] if not _derived(i)]
+    derived = [i for i in event["evidence"] if _derived(i)]
+    ev_ids = core + derived
     master = [e for e in store.project_evidence(pid) if e["source"] == "contract" and e["meta"].get("master")]
     legal_hits = rag.index().search(event["recommended_document"]["basis"] or kind, collection="legal", k=1)
     evidence_map: dict[str, str] = {}
-    for i, eid in enumerate(ev_ids + [m["evidence_id"] for m in master] + [eng.evidence_id], start=1):
+    for i, eid in enumerate(core + [m["evidence_id"] for m in master] + [eng.evidence_id] + derived, start=1):
         evidence_map[f"E-{i:02d}"] = eid
     inv = {v: k for k, v in evidence_map.items()}
     engine_ref = inv[eng.evidence_id]
@@ -328,7 +342,9 @@ def set_checklist(letter_id: str, key: str, value: bool, actor: str) -> dict:
 def release_blockers(letter: dict) -> list[str]:
     b = []
     for i in verify.blocking(letter["issues"]):
-        b.append(f"Nicht belegt: {i['kind']} „{i['value']}“ ({i['section']} Satz {i['sentence'] + 1})")
+        where = f"({i['section']} Satz {i['sentence'] + 1})"
+        b.append(f"KI-Beobachtung bestätigen: {i['value']} {where}" if i["status"] == "needs_confirmation"
+                 else f"Nicht belegt: {i['kind']} „{i['value']}“ {where}")
     for k, f in letter["fields"].items():
         if f["status"] == "pending" and conf.band(f["confidence"]) == "red":
             b.append(f"Feld „{f['label']}“ unsicher – bitte übernehmen, bearbeiten oder verwerfen")
@@ -420,10 +436,12 @@ def review_queue(letter: dict) -> list[dict]:
     """Unsicherste Stellen zuerst: (1 − Konfidenz) × Wichtigkeit; rote Faktenprüfung immer oben."""
     q = []
     for i in letter["issues"]:
-        if i["status"] == "unverified":
-            q.append({"type": "fact", "id": i["issue_id"], "label": f"{i['kind']}: {i['value']}",
-                      "section": i["section"], "sentence": i["sentence"], "priority": 2.0, "band": "red",
-                      "message": i["message"]})
+        if i["status"] in ("unverified", "needs_confirmation"):
+            red = i["status"] == "unverified"
+            q.append({"type": "fact", "id": i["issue_id"],
+                      "label": f"{i['kind']}: {i['value']}" if red else f"KI-Beobachtung: {i['value']}",
+                      "section": i["section"], "sentence": i["sentence"], "priority": 2.0 if red else 1.8,
+                      "band": "red" if red else "yellow", "message": i["message"]})
     for k, f in letter["fields"].items():
         if f["status"] == "pending":
             q.append({"type": "field", "id": k, "label": f["label"], "priority": conf.priority(f["confidence"], k),

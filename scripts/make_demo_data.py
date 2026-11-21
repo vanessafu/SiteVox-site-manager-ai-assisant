@@ -9,6 +9,8 @@ Ausgabe unter data/demo/BV-RIEM/:
 
   python scripts/make_demo_data.py            # Stille-WAVs als Audio-Platzhalter
   python scripts/make_demo_data.py --tts      # echte Sprachdateien mit macOS `say` (Stimme Anna)
+  # Linux/Cluster: erst scripts/data/audio/tts_synthesize.py --demo (XTTS), dann dieses Skript ohne --tts –
+  # vorhandene, nicht stille rec_*.wav werden behalten und die ASR-Fixture-Zeiten an ihre Dauer angepasst.
 """
 from __future__ import annotations
 
@@ -97,6 +99,18 @@ def asr_fixture(key: str, text: str, duration: float | None) -> dict:
     return {"language": "de", "duration": round(t + 0.3, 2), "segments": segs}
 
 
+def _has_speech(path: Path) -> bool:
+    if not path.exists():
+        return False
+    import array
+
+    with wave.open(str(path)) as w:
+        if w.getsampwidth() != 2:
+            return True
+        a = array.array("h", w.readframes(w.getnframes()))
+    return bool(a) and max(abs(min(a)), max(a)) > 30
+
+
 def write_audio(key: str, text: str, tts: bool) -> float:
     out = INP / f"{key}.wav"
     if tts and shutil.which("say") and shutil.which("afconvert"):
@@ -104,6 +118,8 @@ def write_audio(key: str, text: str, tts: bool) -> float:
         subprocess.run(["say", "-v", "Anna", "-r", "165", "-o", str(aiff), text], check=True)
         subprocess.run(["afconvert", "-f", "WAVE", "-d", "LEI16@16000", str(aiff), str(out)], check=True)
         aiff.unlink()
+    elif _has_speech(out):  # z. B. von scripts/data/audio/tts_synthesize.py --demo (XTTS) – nicht überschreiben
+        print(f"behalte vorhandene Sprachaufnahme {out.name}")
     else:
         secs = len(text.split()) / 2.6 + 0.6
         with wave.open(str(out), "wb") as w:
@@ -146,17 +162,64 @@ def write_mail(key: str, m: dict) -> None:
 
 
 # ----------------------------------------------------------------------------- Fotos
+# "analysis" = Replay der Qwen3-VL-Ausgabe (Schema PhotoAnalysis): nur was zu sehen ist, keine Ursache/Schuld.
+# Die Demo-Fotos werden ohne Antwort eingespielt (answer = skip) und hängen als Anlage an den Ereignissen.
 PHOTOS = {
     "IMG_0731": {"time": "07:31", "label": "Achse C – Bewehrung unvollständig", "link": "planlieferverzug",
-                 "description": "Bodenplatte Achse C: untere Bewehrungslage nur teilweise verlegt, obere Lage fehlt. "
+                 "analysis": {
+                     "summary": "Bodenplatte Achse C: untere Bewehrungslage nur teilweise verlegt, obere Lage fehlt. "
                                 "Zwei Arbeiter stehen am Rand, es finden keine Verlegearbeiten statt. Leichter Regen, "
                                 "Pfützen auf der Sauberkeitsschicht.",
-                 "tags": ["Bewehrung", "Achse C", "Personen wartend"]},
+                     "scene": {"bauteil": "Bodenplatte Achse C", "stage": "untere Bewehrungslage teilweise verlegt",
+                               "activity_guess": "Bewehrung Bodenplatte"},
+                     "observations": [
+                         {"category": "progress", "subtype": "stage_change",
+                          "description": "Untere Bewehrungslage nur teilweise verlegt, obere Lage fehlt.",
+                          "bbox": [0, 672, 1000, 1000], "severity": "medium", "visual_conf": 0.82},
+                         {"category": "obstruction", "subtype": "standing_water",
+                          "description": "Pfützen auf der Sauberkeitsschicht.",
+                          "bbox": [520, 700, 980, 990], "severity": "low", "visual_conf": 0.61}],
+                     "followup_question": "Warum ruhen die Bewehrungsarbeiten?"}},
     "IMG_1410": {"time": "14:10", "label": "Bagger nach Reparatur", "link": "equipment_failure",
-                 "description": "Bagger am Aushub BA1 wieder in Betrieb, Ausleger mit neuem Hydraulikschlauch. "
-                                "Ein Lkw wird beladen.", "tags": ["Bagger", "Aushub", "Gerät in Betrieb"]},
+                 "analysis": {
+                     "summary": "Bagger am Aushub BA1 wieder in Betrieb, Ausleger mit neuem Hydraulikschlauch. "
+                                "Ein Lkw wird beladen.",
+                     "scene": {"bauteil": "Baugrube BA1", "stage": "Aushub läuft", "activity_guess": "Aushub"},
+                     "observations": [
+                         {"category": "progress", "subtype": "stage_change",
+                          "description": "Bagger in Betrieb, Lkw wird beladen.",
+                          "bbox": [312, 187, 938, 656], "severity": "low", "visual_conf": 0.86}],
+                     "followup_question": "Welche Menge wurde heute ausgehoben?"}},
+}
+# Weitere Replay-Analysen für eigene Uploads im Demo-Modus (Dateiname = Schlüssel, z. B. IMG_1530.jpg).
+# Nicht im Tagesablauf – zeigen Rückfrage → Antwort → Regelwerk (Mangel/Vorleistung, Behinderung durch Dritte).
+UPLOAD_PHOTOS = {
+    "IMG_1530": {"time": "15:30", "analysis": {
+        "summary": "Wandfuß Achse 3: durchgehender Riss in der Betonoberfläche, daneben Abplatzung an der Kante.",
+        "scene": {"bauteil": "Wand Achse 3", "stage": "ausgeschalt", "activity_guess": None},
+        "observations": [
+            {"category": "defect", "subtype": "crack", "description": "Durchgehender Riss in der Betonoberfläche am Wandfuß.",
+             "bbox": [180, 300, 620, 900], "severity": "high", "visual_conf": 0.78},
+            {"category": "defect", "subtype": "damage", "description": "Abplatzung an der Wandkante.",
+             "bbox": [640, 520, 820, 700], "severity": "medium", "visual_conf": 0.55}],
+        "followup_question": "Seit wann ist der Riss sichtbar?"}},
+    "IMG_1545": {"time": "15:45", "analysis": {
+        "summary": "Paletten mit Mauersteinen stehen auf der Zufahrt zur Bodenplatte, Durchfahrt für Lkw versperrt.",
+        "scene": {"bauteil": "Zufahrt Bodenplatte", "stage": None, "activity_guess": "Betonage Bodenplatte"},
+        "observations": [
+            {"category": "obstruction", "subtype": "material_storage",
+             "description": "Paletten mit Mauersteinen stehen auf der Zufahrt.",
+             "bbox": [90, 380, 760, 950], "severity": "high", "visual_conf": 0.88},
+            {"category": "obstruction", "subtype": "blocked_access",
+             "description": "Durchfahrt für Lkw versperrt.", "bbox": None, "severity": "high", "visual_conf": 0.7}],
+        "followup_question": "Wem gehört das Material?"}},
 }
 GPS = {"lat": 48.13052, "lon": 11.69548}
+
+
+def vision_fixture(p: dict) -> dict:
+    """Replay-Format für llm.structured(): {"exif": …, "base": PhotoAnalysis}."""
+    return {"exif": {"gps": GPS, "taken_at": f"{DAY}T{p['time']}:00{TZ}"}, "base": p["analysis"]}
 
 
 def write_photo(key: str, p: dict) -> None:
@@ -403,11 +466,11 @@ def main() -> None:
         manifest.append({"kind": "email", "file": f"{key}.eml", "time": m["time"], "fixture": key})
     for key, p in PHOTOS.items():
         write_photo(key, p)
-        (FX / "vision" / f"{key}.json").write_text(json.dumps(
-            {"description": p["description"], "gps": GPS, "taken_at": f"{DAY}T{p['time']}:00{TZ}", "tags": p["tags"]},
-            ensure_ascii=False, indent=1))
+        (FX / "vision" / f"{key}.json").write_text(json.dumps(vision_fixture(p), ensure_ascii=False, indent=1))
         manifest.append({"kind": "photo", "file": f"{key}.jpg", "time": p["time"], "title": f"Foto {p['time']} · {p['label']}",
-                         "meta": {"link_event_type": p["link"]}})
+                         "meta": {"link_event_type": p["link"]}, "answer": {"mode": "skip"}})
+    for key, p in UPLOAD_PHOTOS.items():
+        (FX / "vision" / f"{key}.json").write_text(json.dumps(vision_fixture(p), ensure_ascii=False, indent=1))
     for key, fx in {**{f"extract_{k}": v for k, v in EXTRACT.items()}, **MINUTES, **DRAFTS}.items():
         (FX / "llm" / f"{key}.json").write_text(json.dumps(fx, ensure_ascii=False, indent=1))
     (FX / "weather" / f"{DAY}.json").write_text(json.dumps(weather_fixture(), indent=1))

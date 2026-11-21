@@ -93,10 +93,17 @@ export default function Captures() {
                       <Icon className="mt-0.5 h-[18px] w-[18px] shrink-0 text-slate-600" />
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2 text-sm font-medium"><span className="font-mono text-xs text-slate-500">{time(c.captured_at)}</span>{t(c.title)}
-                          {c.status !== "done" && <span className="pill bg-warn-soft text-warn-text">{c.status}</span>}
+                          {c.status !== "done" && <span className="pill bg-warn-soft text-warn-text">{t(({ awaiting_answer: "Rückfrage offen", processing: "in Arbeit", error: "Fehler" } as Record<string, string>)[c.status] || c.status)}</span>}
                           {c.text_edited && <span className="pill bg-accent-soft text-accent-text">{t("korrigiert")}</span>}
                           {c.asr_score != null && <span className="pill bg-slate-100 text-slate-600">ASR {c.asr_score.toFixed(2)}</span>}</div>
                         <div className="text-xs text-slate-600">{c.summary}</div>
+                        {c.followup && (
+                          <div className="mt-1 text-2xs text-slate-600">
+                            <span className="font-medium">{t("Rückfrage:")}</span> {t(c.followup.question)}
+                            {c.answer?.mode && c.answer.mode !== "skip" ? <> · <span className="font-medium">{t("Antwort:")}</span> „{c.text}“</> : c.answer?.mode === "skip" ? <> · {t("ohne Antwort abgelegt")}</> : null}
+                          </div>
+                        )}
+                        {(c.hints || []).map((h: string) => <div key={h} className="text-2xs text-accent-text">{t(h)}</div>)}
                         {c.event_ids?.length > 0 && <div className="mt-1 text-2xs text-accent-text">→ {c.event_ids.join(", ")}</div>}
                       </div>
                     </button>

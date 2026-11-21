@@ -18,6 +18,9 @@
   "title": "Foto 07:31 · Achse C – Bewehrung unvollständig",
   "meta": {
    "link_event_type": "planlieferverzug"
+  },
+  "answer": {
+   "mode": "skip"
   }
  },
  {
@@ -51,6 +54,9 @@
   "title": "Foto 14:10 · Bagger nach Reparatur",
   "meta": {
    "link_event_type": "equipment_failure"
+  },
+  "answer": {
+   "mode": "skip"
   }
  },
  {

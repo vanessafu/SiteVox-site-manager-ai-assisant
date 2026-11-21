@@ -1,7 +1,10 @@
 """Orchestrierung: Erfassung → Verstehen → Belege → Ereignisse → Regeln/Abweichung → (Entwurf auf Anforderung).
 
     Audio   → Whisper → Transkript (+Wort-Scores) → Qwen3-4B → Ereignis-JSON
-    Foto    → Qwen3-VL → Beschreibung (+EXIF Zeit/GPS)
+    Foto    → Qwen3-VL → PhotoAnalysis (was ist zu sehen, +EXIF Zeit/GPS, bbox-Ausschnitte)
+              → genau eine Rückfrage → Antwort per Sprache/Notiz (gleiche Erfassung)
+              → Qwen3-4B mit Antwort + KI-Beobachtungen als Kontext → Ereignis-JSON
+              (Foto + Ausschnitte = Beleg, KI-Beobachtung = Hinweis, erst nach Bestätigung/Stützung Beleg)
     Dokument→ Docling → Text/Tabellen (Protokolle → Zusammenfassung + offene Punkte)
     E-Mail  → .eml → Projektzuordnung → Qwen3-4B
 Danach deterministisch: Aktivitätszuordnung, Risikosphäre, Schreiben-Empfehlung, Fristen, Konfidenz,
@@ -10,6 +13,7 @@ Soll-Ist/Prognose (engine). Die KI versendet nichts.
 from __future__ import annotations
 
 import logging
+import re
 import shutil
 from datetime import date, datetime
 from difflib import SequenceMatcher
@@ -19,7 +23,7 @@ from typing import Any, Optional
 from . import confidence as conf
 from . import rag, settings, store
 from .engine import deadlines, deviation, sphere as sph, weather
-from .schemas import EVENT_TYPE_LABELS, Event, Evidence, ResourceEffect, ValueConf
+from .schemas import EVENT_TYPE_LABELS, OBSERVATION_LABELS, Event, Evidence, ResourceEffect, ValueConf
 from .understand import asr, documents, email_ingest, extract, vision
 
 log = logging.getLogger(__name__)
@@ -50,10 +54,24 @@ def _quote_evidence(cap: dict, quote: str, text: str) -> Evidence:
 
 
 # ============================================================================ capture ingest
+def _plausible_exif_time(taken_at: str, upload_ts: str) -> bool:
+    """EXIF-Zeit nur übernehmen, wenn sie nicht in der Zukunft und höchstens 30 Tage alt ist (Kamerauhr falsch)."""
+    try:
+        t, u = datetime.fromisoformat(taken_at), datetime.fromisoformat(upload_ts)
+        return -600 <= (u - t).total_seconds() <= 30 * 86400
+    except (ValueError, TypeError):
+        return False
+
+
 def ingest(project_id: str, kind: str, *, captured_at: str, file: Optional[Path] = None, text: Optional[str] = None,
            title: str = "", meta: Optional[dict] = None, fixture_key: Optional[str] = None,
-           actor: str = "system") -> dict[str, Any]:
+           actor: str = "system", prefer_exif_time: bool = False) -> dict[str, Any]:
     meta = meta or {}
+    if kind == "photo" and file and prefer_exif_time:  # Datum/Uhrzeit ← EXIF statt Upload-Zeitpunkt
+        taken = vision.exif_meta(Path(file), tz_hint=captured_at[19:] or None).get("taken_at")
+        if taken and _plausible_exif_time(taken, captured_at):
+            meta["upload_at"], meta["time_source"] = captured_at, "exif"
+            captured_at = taken
     day = captured_at[:10]
     cap: dict[str, Any] = {
         "capture_id": store.next_id(f"CAP-{day.replace('-', '')}-", 2), "project_id": project_id, "date": day,
@@ -85,9 +103,13 @@ def _ingest_body(cap, project_id, kind, captured_at, day, file, text, title, met
         cap["transcript"], cap["asr_score"] = tr, tr.get("mean_score")
         body = tr["text"]
     elif kind == "photo":
-        vis = vision.describe(file, project_id)
-        cap["vision"] = vis
-        body = vis.get("description", "")
+        # Nur "sehen": Analyse + Belege + Rückfrage. Ereignisse entstehen erst mit der Antwort (answer_photo).
+        _photo_analyze(cap, file, acts)
+        store.save_capture(cap)
+        store.audit(actor, "capture", cap["capture_id"], "ingest",
+                    after={"kind": kind, "observations": len(cap["vision"]["analysis"]["observations"]),
+                           "question": cap["followup"]["question"]})
+        return cap
     elif kind == "email":
         mail = email_ingest.parse_eml(file)
         mail["project_id"] = email_ingest.assign_project(mail) or project_id
@@ -125,46 +147,254 @@ def _analyze(cap: dict, body: str, acts: list[dict], fixture_key: Optional[str] 
     cap["text"] = body
     source_ev = new_evidence(
         project_id=project_id, capture_id=cap["capture_id"],
-        source={"audio": "audio", "photo": "photo", "email": "email", "note": "note", "document": "document"}[kind],
+        source={"audio": "audio", "email": "email", "note": "note", "document": "document"}[kind],
         title=cap["title"], file=cap.get("file"), quote=body[:280], full_text=body, captured_at=captured_at,
         asr_score=cap.get("asr_score"),
-        meta={k: v for k, v in (cap.get("vision") or {}).items() if k in ("gps", "taken_at", "tags")},
     )
     cap["evidence_ids"].append(source_ev.evidence_id)
 
-    # ---------------------------------------------------------------- extract (not for photos)
-    if kind != "photo" and not (kind == "document" and meta.get("doc_type") != "protokoll"):
-        res = extract.extract(body, project_id=project_id, date=day, time=captured_at[11:16], source=kind, acts=acts,
-                              fixture_key=fixture_key)
-        main, samples = res["main"], res["samples"]
-        cap["summary"] = main.summary
-        for p in main.progress:
-            aid = extract.match_activity(p.activity, acts)
-            if aid:
-                ev = _quote_evidence(cap, p.quote, body)
-                store.save_progress(project_id, aid, day, p.quantity, ev.evidence_id)
-                cap["evidence_ids"].append(ev.evidence_id)
-        crews = {c["name"]: c["planned_staff"] for c in settings.project_cfg(project_id).get("crews", [])}
-        for s in main.staffing:
-            ev = _quote_evidence(cap, s.quote, body)
-            store.save_staffing(project_id, day, s.crew, s.present, crews.get(s.crew, s.present + (s.absent or 0)),
-                                ev.evidence_id)
-            cap["evidence_ids"].append(ev.evidence_id)
-        for i, le in enumerate(main.events):
-            same = [next((e for e in smp.events if e.type == le.type), None) for smp in samples]
-            ev_id = _upsert_event(cap, le, same, body, acts)
-            if ev_id not in cap["event_ids"]:
-                cap["event_ids"].append(ev_id)
+    if not (kind == "document" and meta.get("doc_type") != "protokoll"):
+        _extract_into(cap, body, acts, fixture_key)
     else:
         cap["summary"] = body[:200]
-        for e in store.events(project_id, day):
-            names = [r for r in [x["resource"] for x in e.get("resource_effects", [])] + e["affected_activities"]]
-            hit = meta["link_event_type"] == e["type"] if meta.get("link_event_type") else \
-                any(n.split()[0].lower() in body.lower() for n in names if n)
-            if hit and e["status"] != "dismissed":
-                e["evidence"].append(source_ev.evidence_id)
-                store.save_event(e)
+
+
+def _extract_into(cap: dict, body: str, acts: list[dict], fixture_key: Optional[str] = None, *, context: str = "",
+                  hint_subtypes: Optional[list[str]] = None) -> list[str]:
+    """Extraktion → Leistung, Personal, Ereignisse (+ Regelwerk). Belege werden an cap angehängt.
+    Gibt die IDs der angelegten/ergänzten Ereignisse zurück."""
+    project_id, day, kind, captured_at = cap["project_id"], cap["date"], cap["kind"], cap["captured_at"]
+    res = extract.extract(body, project_id=project_id, date=day, time=captured_at[11:16], source=kind, acts=acts,
+                          fixture_key=fixture_key, context=context, hint_subtypes=hint_subtypes)
+    main, samples = res["main"], res["samples"]
+    cap["summary"] = main.summary
+    cap["progress_found"] = bool(main.progress)
+    for p in main.progress:
+        aid = extract.match_activity(p.activity, acts)
+        if aid:
+            ev = _quote_evidence(cap, p.quote, body)
+            store.save_progress(project_id, aid, day, p.quantity, ev.evidence_id)
+            cap["evidence_ids"].append(ev.evidence_id)
+    crews = {c["name"]: c["planned_staff"] for c in settings.project_cfg(project_id).get("crews", [])}
+    for s in main.staffing:
+        ev = _quote_evidence(cap, s.quote, body)
+        store.save_staffing(project_id, day, s.crew, s.present, crews.get(s.crew, s.present + (s.absent or 0)),
+                            ev.evidence_id)
+        cap["evidence_ids"].append(ev.evidence_id)
+    touched = []
+    for le in main.events:
+        same = [next((e for e in smp.events if e.type == le.type), None) for smp in samples]
+        ev_id = _upsert_event(cap, le, same, body, acts)
+        touched.append(ev_id)
+        if ev_id not in cap["event_ids"]:
+            cap["event_ids"].append(ev_id)
+    return touched
+
+
+def _link_to_events(cap: dict, evidence_ids: list[str], text: str) -> None:
+    """Foto ohne Antwort: als Anlage an passende Ereignisse des Tages hängen (keine neuen Ereignisse)."""
+    meta = cap.get("meta", {})
+    for e in store.events(cap["project_id"], cap["date"]):
+        names = [r for r in [x["resource"] for x in e.get("resource_effects", [])] + e["affected_activities"]]
+        hit = meta["link_event_type"] == e["type"] if meta.get("link_event_type") else \
+            any(n.split()[0].lower() in text.lower() for n in names if n)
+        if hit and e["status"] != "dismissed":
+            e["evidence"] = list(dict.fromkeys(e["evidence"] + evidence_ids))
+            store.save_event(e)
+            if e["event_id"] not in cap["event_ids"]:
                 cap["event_ids"].append(e["event_id"])
+
+
+# ============================================================================ photo: sehen → fragen → verstehen
+SUBTYPE_WORDS: dict[str, list[str]] = {
+    "crack": ["riss", "crack", "çatlak", "pęknię", "rysa"],
+    "surface_defect": ["kiesnest", "abplatz", "fehlstelle", "lunker", "oberfläche", "surface"],
+    "damage": ["beschädig", "kaputt", "schaden", "damage", "zerstört", "abgebrochen"],
+    "standing_water": ["wasser", "pfütze", "nass", "überflut", "water", "puddle"],
+    "material_storage": ["material", "palette", "steine", "stahl", "gelagert", "abgeladen", "storage"],
+    "blocked_access": ["blockiert", "versperrt", "zufahrt", "zugang", "kommen nicht", "blocked", "access"],
+    "equipment_idle": ["stillstand", "steht still", "abgestellt", "bagger", "kran", "pumpe", "gerät", "idle"],
+    "stage_change": ["verlegt", "fertig", "betoniert", "geschalt", "eingebaut", "erledigt", "geschafft", "done"],
+    "safety_hazard": ["absturz", "geländer", "gesichert", "sicherung", "gefahr", "öffnung", "hazard"],
+}
+
+
+def _mentions(answer: str, obs: dict) -> bool:
+    """Stützt die Antwort die Beobachtung? Schlüsselwort des Befunds (nicht verneint) oder gemeinsames Fachwort."""
+    low = answer.lower()
+    for kw in SUBTYPE_WORDS.get(obs.get("subtype"), []):
+        for m in re.finditer(re.escape(kw), low):
+            before = low[max(0, m.start() - 18):m.start()]
+            if not re.search(r"\b(kein\w*|nicht|no|not)\s+(\w+\s+)?$", before):
+                return True
+    words = {w for w in re.findall(r"[a-zäöüß]{6,}", (obs.get("description") or "").lower())}
+    return any(re.search(rf"\b{re.escape(w)}", low) for w in words)
+
+
+def _planned_today(acts: list[dict], day: str) -> list[dict]:
+    return [a for a in acts if a.get("kind") != "milestone" and a["start"] <= day <= a["finish"]]
+
+
+def _photo_analyze(cap: dict, file: Optional[Path], acts: list[dict]) -> None:
+    """Qwen-VL → PhotoAnalysis. Belege: Originalfoto + bbox-Ausschnitte (Beweis), KI-Beobachtungen (Hinweis)."""
+    pid, day = cap["project_id"], cap["date"]
+    planned = _planned_today(acts, day)
+    vis = vision.analyze(file, pid, activities_today=[a["name"] for a in planned],
+                         tz_hint=cap["captured_at"][19:] or None) if file else \
+        {"exif": {}, "analysis": vision._fallback().model_dump(), "backend": None, "model": None}
+    analysis = vis["analysis"]
+    cap["vision"] = {**vis["exif"], **{k: v for k, v in vis.items() if k != "exif"}}
+    sc = analysis.get("scene") or {}
+    guess = " ".join(x for x in (sc.get("activity_guess"), sc.get("bauteil")) if x)
+    aid = extract.match_activity(guess, acts) if guess else None
+    cap["context"] = {"activity_ids": [aid] if aid else [], "planned_today": [a["id"] for a in planned],
+                      "time_source": cap.get("meta", {}).get("time_source", "upload"), "project_source": "app"}
+    exif_meta = {k: v for k, v in vis["exif"].items() if k in ("gps", "taken_at")}
+    photo_ev = new_evidence(project_id=pid, capture_id=cap["capture_id"], source="photo", title=cap["title"],
+                            file=cap.get("file"), captured_at=cap["captured_at"], meta={**exif_meta, "role": "original"})
+    cap["evidence_ids"].append(photo_ev.evidence_id)
+    obs_refs = []
+    for i, o in enumerate(analysis.get("observations") or []):
+        crop_id = None
+        if o.get("bbox") and file:
+            out = vision.crop(Path(file), o["bbox"], Path(file).with_name(f"{Path(file).stem}_obs{i + 1}.jpg"))
+            if out:
+                cev = new_evidence(project_id=pid, capture_id=cap["capture_id"], source="photo",
+                                   title=f"{cap['title']} · Ausschnitt {i + 1}",
+                                   file=str(out.relative_to(settings.data_dir())), captured_at=cap["captured_at"],
+                                   meta={**exif_meta, "role": "crop", "crop_of": photo_ev.evidence_id,
+                                         "bbox": o["bbox"], "observation": i})
+                crop_id = cev.evidence_id
+                cap["evidence_ids"].append(crop_id)
+        aev = new_evidence(
+            project_id=pid, capture_id=cap["capture_id"], source="ai_vision",
+            title=f"KI-Beobachtung · {OBSERVATION_LABELS.get(o['subtype'], o['subtype'])}",
+            quote=o["description"], full_text=o["description"], captured_at=cap["captured_at"],
+            meta={"category": o["category"], "subtype": o["subtype"], "severity": o.get("severity"),
+                  "visual_conf": o.get("visual_conf"), "bbox": o.get("bbox"), "observation": i,
+                  "photo_evidence_id": photo_ev.evidence_id, "crop_evidence_id": crop_id,
+                  "model": vis.get("model"), "status": "ai"})
+        cap["evidence_ids"].append(aev.evidence_id)
+        obs_refs.append({"index": i, "ai_evidence_id": aev.evidence_id, "crop_evidence_id": crop_id})
+    cap["photo"] = {"evidence_id": photo_ev.evidence_id, "observations": obs_refs}
+    cap["followup"] = {**vision.followup(analysis), "asked_at": now_iso()}
+    cap["summary"] = "KI-Beobachtung: " + (analysis.get("summary") or "–")
+    cap["text"] = ""
+    cap["status"] = "awaiting_answer"
+
+
+def answer_photo(capture_id: str, mode: str, *, text: Optional[str] = None, file: Optional[Path] = None,
+                 detail_photo: Optional[Path] = None, language: Optional[str] = None,
+                 answered_at: Optional[str] = None, actor: str = "system") -> dict[str, Any]:
+    """Antwort auf die Foto-Rückfrage (mode: audio | note | skip) → in DIESELBE Erfassung → Extraktion + Regeln."""
+    cap = store.get("captures", capture_id)
+    if not cap or cap["kind"] != "photo":
+        raise ValueError("Keine Foto-Erfassung")
+    if mode not in ("audio", "note", "skip"):
+        raise ValueError(f"unbekannte Antwortart {mode}")
+    pid, day = cap["project_id"], cap["date"]
+    cap["status"] = "processing"
+    store.save_capture(cap)
+    try:
+        ans: dict[str, Any] = {"mode": mode, "answered_at": answered_at or now_iso(),
+                               "question": (cap.get("followup") or {}).get("question")}
+        body = ""
+        if mode == "audio":
+            if not file:
+                raise ValueError("Audiodatei fehlt")
+            dest = settings.project_files_dir(pid, day) / f"{Path(cap.get('file') or capture_id).stem}_antwort{Path(file).suffix}"
+            if Path(file).resolve() != dest.resolve():
+                shutil.copy(file, dest)
+            tr = asr.transcribe(dest, pid, hint=text, language=language)
+            ans.update(file=str(dest.relative_to(settings.data_dir())), transcript=tr, asr_score=tr.get("mean_score"))
+            body = tr["text"]
+        elif mode == "note":
+            body = (text or "").strip()
+            if not body:
+                raise ValueError("Antworttext fehlt")
+        if detail_photo:
+            dest = settings.project_files_dir(pid, day) / f"{Path(cap.get('file') or capture_id).stem}_detail{Path(detail_photo).suffix or '.jpg'}"
+            shutil.copy(detail_photo, dest)
+            dev = new_evidence(project_id=pid, capture_id=capture_id, source="photo",
+                               title=f"{cap['title']} · Detailfoto", file=str(dest.relative_to(settings.data_dir())),
+                               captured_at=ans["answered_at"],
+                               meta={**{k: v for k, v in vision.exif_meta(dest).items() if k in ("gps", "taken_at")},
+                                     "role": "detail", "detail_of": (cap.get("photo") or {}).get("evidence_id")})
+            cap["evidence_ids"].append(dev.evidence_id)
+            cap.setdefault("photo", {})["detail_evidence_id"] = dev.evidence_id
+        cap["answer"] = ans
+        _photo_finalize(cap, body, store.activities(pid))
+        cap["status"] = "done"
+    except Exception as e:  # noqa: BLE001
+        cap["status"], cap["error"] = "error", str(e)[:300]
+        store.save_capture(cap)
+        raise
+    store.save_capture(cap)
+    store.audit(actor, "capture", capture_id, "answer", after={"mode": mode, "events": cap["event_ids"]})
+    refresh_day(pid, date.fromisoformat(day))
+    return cap
+
+
+def _photo_finalize(cap: dict, body: str, acts: list[dict]) -> None:
+    """Antwort + Beobachtungen → Ereignisse. Foto und Ausschnitte hängen als Belege daran, KI-Beobachtungen als
+    Hinweis; eine Beobachtung wird zum Beleg, wenn die Antwort sie stützt (status corroborated)."""
+    pid = cap["project_id"]
+    ph = cap.get("photo") or {}
+    analysis = (cap.get("vision") or {}).get("analysis") or {}
+    obs = analysis.get("observations") or []
+    ai_ids = [r["ai_evidence_id"] for r in ph.get("observations", [])]
+    photo_ids = [x for x in [ph.get("evidence_id")] + [r.get("crop_evidence_id") for r in ph.get("observations", [])]
+                 + [ph.get("detail_evidence_id")] if x]
+    ans = cap.get("answer") or {}
+    cap["text"] = body
+    cap["hints"] = []
+    for aid in ai_ids:  # Stützung immer frisch aus der aktuellen Antwort; Bestätigung durch Menschen bleibt
+        d = store.evidence(aid)
+        if d and d["meta"].get("status") == "corroborated":
+            d["meta"]["status"], d["meta"]["corroborated_by"] = "ai", None
+            store.save_evidence(d)
+    if not body.strip():
+        _link_to_events(cap, photo_ids + ai_ids,
+                        " ".join([analysis.get("summary") or ""] + [o["description"] for o in obs]))
+        cap["summary"] = "KI-Beobachtung: " + (analysis.get("summary") or "–")
+        if any(o["category"] == "progress" for o in obs):
+            cap["hints"].append("Foto zeigt Arbeitsfortschritt – Menge bitte per Sprache oder Notiz nachtragen "
+                                "(wird nicht aus dem Foto geschätzt).")
+        return
+    src_kind = "audio" if ans.get("mode") == "audio" else "note"
+    acap = {**cap, "kind": src_kind, "file": ans.get("file"), "transcript": ans.get("transcript"),
+            "asr_score": ans.get("asr_score"), "title": f"Antwort zu {cap['title']}"}
+    src = new_evidence(project_id=pid, capture_id=cap["capture_id"], source=src_kind, title=acap["title"],
+                       file=ans.get("file"), quote=body[:280], full_text=body, captured_at=cap["captured_at"],
+                       asr_score=ans.get("asr_score"),
+                       meta={"question": ans.get("question"), "answered_at": ans.get("answered_at"),
+                             "answer_to": ph.get("evidence_id")})
+    cap["evidence_ids"].append(src.evidence_id)
+    supported = []
+    for r in ph.get("observations", []):
+        o = obs[r["index"]] if r["index"] < len(obs) else None
+        d = store.evidence(r["ai_evidence_id"])
+        if o and d and d["meta"].get("status") == "ai" and _mentions(body, o):
+            d["meta"]["status"], d["meta"]["corroborated_by"] = "corroborated", src.evidence_id
+            store.save_evidence(d)
+            supported.append(r["ai_evidence_id"])
+    fu = cap.get("followup") or {}
+    primary = [obs[fu["observation"]]["subtype"]] if fu.get("observation") is not None and fu["observation"] < len(obs) else []
+    hints = primary + [o["subtype"] for o in obs if o["subtype"] not in primary]
+    touched = _extract_into(acap, body, acts, context=extract.photo_context(fu.get("question") or "", analysis),
+                            hint_subtypes=hints)
+    cap["summary"] = acap["summary"]
+    for eid in touched:
+        e = store.get("events", eid)
+        e["evidence"] = list(dict.fromkeys(e["evidence"] + photo_ids + ai_ids))
+        e["attrs"]["photo_capture"] = cap["capture_id"]
+        store.save_event(e)
+    if any(o["category"] == "progress" for o in obs) and not acap.get("progress_found"):
+        act = next((a["name"] for a in acts if a["id"] in (cap.get("context") or {}).get("activity_ids", [])), None)
+        cap["hints"].append(f"Foto zeigt Arbeitsfortschritt{' bei ' + act if act else ''} – keine Menge genannt; "
+                            "Soll-Ist bleibt unverändert (Menge nur aus Sprache/Notiz).")
+    if not touched:
+        _link_to_events(cap, photo_ids + ai_ids, body)
 
 
 # ============================================================================ events
@@ -321,6 +551,12 @@ def _score_event(e: dict, analysis: dict, wx: Optional[dict]) -> dict:
     e["warnings"] = sph.consistency_warnings(e["sphere"], rec.kind, llm_guess)
     if e["type"] == "additional_work" and e["attrs"].get("work_started"):
         e["warnings"].append("Ausführung bereits begonnen – Ankündigung muss VOR Ausführung erfolgen")
+    if e["type"] == "quality_defect" and e["attrs"].get("own_work") is None:
+        e["warnings"].append("Unklar, ob eigene Leistung oder Vorleistung – entscheidet zwischen interner Mängelbeseitigung "
+                             "und Bedenkenanzeige; bitte klären")
+    if e["type"] == "third_party_interference" and e["attrs"].get("predecessor_by_owner") is None:
+        e["warnings"].append("Unklar, ob der Verursacher im Auftrag des AG tätig ist – entscheidet über die "
+                             "Behinderungsanzeige; bitte klären")
     if e["type"] == "additional_work" and e["attrs"].get("ordered_by") and "lechner" in str(
             e["attrs"]["ordered_by"]).lower():
         e["warnings"].append("Anordnung durch Architekt – Vollmacht prüfen, Ankündigung an AG richten")
@@ -399,6 +635,24 @@ def _weather_text(s: dict) -> str:
     t = (f"Temperatur {s['temp_min']:.0f} bis {s['temp_max']:.0f} °C, Niederschlag {s['precip_sum']:.1f} mm "
          f"(07–17 Uhr), Böen bis {s['gust_max']:.0f} km/h, {s.get('condition') or ''}")
     return t.replace(".", ",")
+
+
+def review_ai_observation(evidence_id: str, action: str, actor: str, note: str = "") -> dict:
+    """Bauleitung bestätigt (→ Beleg) oder verwirft eine KI-Beobachtung. Entwürfe prüfen sich beim Öffnen neu."""
+    d = store.evidence(evidence_id)
+    if not d or d["source"] != "ai_vision":
+        raise ValueError("Keine KI-Beobachtung")
+    if action not in ("confirm", "reject", "reset"):
+        raise ValueError(action)
+    before = d["meta"].get("status")
+    d["meta"]["status"] = {"confirm": "confirmed", "reject": "rejected", "reset": "ai"}[action]
+    d["meta"]["reviewed_by"], d["meta"]["reviewed_at"] = (actor, now_iso()) if action != "reset" else (None, None)
+    if note:
+        d["meta"]["review_note"] = note
+    store.save_evidence(d)
+    store.audit(actor, "evidence", evidence_id, f"ai_observation_{action}", before=before,
+                after=d["meta"]["status"], note=note)
+    return d
 
 
 def dismiss_event(event_id: str, actor: str, note: str = "") -> dict:

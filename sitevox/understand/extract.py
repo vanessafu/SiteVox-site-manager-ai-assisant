@@ -11,7 +11,7 @@ from difflib import SequenceMatcher
 from typing import Any, Optional
 
 from .. import llm, settings
-from ..prompts import EXTRACT_SYSTEM, EXTRACT_USER, MINUTES_SYSTEM
+from ..prompts import EXTRACT_PHOTO_CONTEXT, EXTRACT_SYSTEM, EXTRACT_USER, MINUTES_SYSTEM
 from ..schemas import Extraction, LLMEvent, LLMProgress, LLMStaffing, MinutesSummary
 
 # ----------------------------------------------------------------------------- activity matching
@@ -48,14 +48,36 @@ GUESS = {"planlieferverzug": "AG", "additional_work": "AG", "leistungsaenderung"
 QTY_RE = re.compile(r"(\d+(?:[.,]\d+)?)\s*(m³|m3|kubik(?:meter)?|t\b|tonnen|m\b|meter|stück|stk)", re.I)
 UNIT = {"m3": "m³", "kubik": "m³", "kubikmeter": "m³", "tonnen": "t", "meter": "m", "stück": "Stk", "stk": "Stk"}
 TIME_RE = re.compile(r"\b(?:seit|ab|um|bis)?\s*(\d{1,2})(?:[:.](\d{2}))?\s*uhr\b|\b(\d{1,2}):(\d{2})\b", re.I)
+# Verantwortungs-Hinweise aus der Antwort (nur Heuristik/Demo – im GPU-Modus füllt das LLM diese Felder)
+ATTR_CUES: list[tuple[str, str, bool]] = [
+    (r"vorleistung|vorunternehmer|vorgewerk|nicht (unsere|von uns)|fremde leistung|previous trade|not our", "own_work", False),
+    (r"(unsere|eigene) leistung|von uns (betoniert|gebaut|hergestellt|verlegt)|our (own )?work", "own_work", True),
+    (r"im auftrag de[sr] (bauherrn|ag|auftraggebers)|vom (bauherrn|ag) beauftragt|vorunternehmer|on behalf of the (client|owner)",
+     "predecessor_by_owner", True),
+    (r"unser(e)? (nach|sub)unternehmer|unsere? lieferant", "predecessor_by_owner", False),
+    (r"(vom|des) (bauherrn|ag|auftraggebers) (beigestellt|geliefert)|bauherrenmaterial|beistellung", "owner_supplied_material", True),
+]
+# Fototyp → Ereignistyp, falls die Antwort selbst kein Schlüsselwort enthält (Heuristik)
+SUBTYPE_EVENT = {"crack": "quality_defect", "surface_defect": "quality_defect", "damage": "quality_defect",
+                 "standing_water": "weather_interruption", "material_storage": "third_party_interference",
+                 "blocked_access": "third_party_interference", "equipment_idle": "equipment_failure"}
 
 
 def _sentences(text: str) -> list[str]:
     return [s.strip() for s in re.split(r"(?<=[.!?])\s+|\n+", text) if s.strip()]
 
 
-def heuristic(text: str, acts: list[dict]) -> Extraction:
+def _attr_cues(text: str) -> dict[str, bool]:
+    low, out = text.lower(), {}
+    for pat, key, val in ATTR_CUES:
+        if key not in out and re.search(pat, low):
+            out[key] = val
+    return out
+
+
+def heuristic(text: str, acts: list[dict], hint_subtypes: Optional[list[str]] = None) -> Extraction:
     events, progress, staffing = [], [], []
+    attrs = _attr_cues(text)
     for s in _sentences(text):
         low = s.lower()
         for pat, typ in KEYWORDS:
@@ -74,7 +96,7 @@ def heuristic(text: str, acts: list[dict]) -> Extraction:
                     type=typ, description=s, cause=s[:120], start_time=t, resource_effects=effects,
                     affected_activities=[next(a["name"] for a in acts if a["id"] == act)] if act else [],
                     responsible_party_guess=GUESS.get(typ, "unklar"),
-                    responsible_rationale="Heuristik (Demo-Modus, Schlüsselwort)", quotes=[s]))
+                    responsible_rationale="Heuristik (Demo-Modus, Schlüsselwort)", quotes=[s], **attrs))
                 break
         for m in QTY_RE.finditer(s):
             act = match_activity(s, acts, 0.99)
@@ -86,13 +108,37 @@ def heuristic(text: str, acts: list[dict]) -> Extraction:
         pm = re.search(r"(\d+)\s*(mann|leute|personen)", low)
         if pm and ("personal" in low or "kolonne" in low):
             staffing.append(LLMStaffing(crew="Gesamt", present=int(pm.group(1)), quote=s))
+    # Foto-Antwort ohne Schlüsselwort ("Vorleistung von Firma X"): Ereignistyp aus der Beobachtung,
+    # Zitat und Verantwortungs-Hinweise aber aus der Antwort.
+    typ = next((SUBTYPE_EVENT[h] for h in hint_subtypes or [] if h in SUBTYPE_EVENT), None)
+    if typ == "quality_defect" and events and all(e.type == "third_party_interference" for e in events):
+        events[0].type = typ  # "Vorunternehmer" bei einem Riss-Foto = Mangel einer Vorleistung, keine Behinderung
+        del events[1:]
+    if typ and not events and text.strip():
+        quote = _sentences(text)[0]
+        events.append(LLMEvent(type=typ, description=text.strip()[:200], cause=text.strip()[:120], quotes=[quote],
+                               responsible_party_guess=GUESS.get(typ, "unklar"),
+                               responsible_rationale="Heuristik (Demo-Modus, Fotobefund + Antwort)", **attrs))
     return Extraction(summary=text[:200], events=events, progress=progress, staffing=staffing)
 
 
 # ----------------------------------------------------------------------------- API
+def photo_context(question: str, analysis: dict) -> str:
+    """Kontextblock für die Extraktion einer Foto-Antwort (KI-Beobachtungen ausdrücklich nicht zitierfähig)."""
+    obs = analysis.get("observations") or []
+    lines = "\n".join(f"- [{o['category']}/{o['subtype']}] {o['description']} (visuelle Sicherheit "
+                      f"{float(o.get('visual_conf') or 0):.2f})" for o in obs) or "- keine"
+    sc = analysis.get("scene") or {}
+    scene = ", ".join(f"{k}: {v}" for k, v in (("Bauteil", sc.get("bauteil")), ("Stand", sc.get("stage")),
+                                                ("Arbeit", sc.get("activity_guess"))) if v) or "–"
+    return EXTRACT_PHOTO_CONTEXT.format(question=question, observations=lines, scene=scene)
+
+
 def extract(text: str, *, project_id: str, date: str, time: str, source: str, acts: list[dict],
-            fixture_key: Optional[str] = None) -> dict[str, Any]:
-    """Gibt {"main": Extraction, "samples": [Extraction, ...]} zurück."""
+            fixture_key: Optional[str] = None, context: str = "",
+            hint_subtypes: Optional[list[str]] = None) -> dict[str, Any]:
+    """Gibt {"main": Extraction, "samples": [Extraction, ...]} zurück.
+    context: z. B. photo_context(...) – zusätzliche Einordnung, aus der NICHT zitiert werden darf."""
     pcfg = settings.project_cfg(project_id)
     cfg = settings.models()["llm"]["extractor"]
     msgs = [
@@ -100,14 +146,14 @@ def extract(text: str, *, project_id: str, date: str, time: str, source: str, ac
         {"role": "user", "content": EXTRACT_USER.format(
             project=pcfg["title"], date=date, time=time, source=source,
             activities=", ".join(a["name"] for a in acts),
-            resources=", ".join(r["name"] for r in pcfg.get("resources", [])), text=text)},
+            resources=", ".join(r["name"] for r in pcfg.get("resources", [])), text=text, context=context)},
     ]
     client = llm.get("extractor")
     fx = (project_id, f"extract_{fixture_key}") if fixture_key else None
-    main = client.structured(Extraction, msgs, n=1, temperature=cfg["temperature"], fixture=fx,
-                             fallback=lambda: heuristic(text, acts))[0]
+    fb = lambda: heuristic(text, acts, hint_subtypes)  # noqa: E731
+    main = client.structured(Extraction, msgs, n=1, temperature=cfg["temperature"], fixture=fx, fallback=fb)[0]
     samples = client.structured(Extraction, msgs, n=cfg["n_samples"], temperature=cfg["sample_temperature"],
-                                fixture=fx, fallback=lambda: heuristic(text, acts))
+                                fixture=fx, fallback=fb)
     return {"main": main, "samples": samples}
 
 

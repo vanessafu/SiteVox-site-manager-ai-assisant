@@ -186,11 +186,12 @@ export default function ReviewEditor() {
                   {s.sentences.map((x: any, i: number) => {
                     const iss = issuesFor(s.key, i);
                     const bad = iss.some((q: any) => q.status === "unverified");
+                    const aiOnly = iss.some((q: any) => q.status === "needs_confirmation");
                     const isSel = sel?.kind === "sentence" && sel.section === s.key && sel.idx === i;
                     const eid = `s:${s.key}:${i}`;
                     return (
                       <div key={i} onClick={() => setSel({ kind: "sentence", section: s.key, idx: i })}
-                        className={`group -mx-2 cursor-pointer rounded px-2 py-0.5 ${isSel ? "bg-accent-soft/50" : "hover:bg-slate-50"} ${bad ? "border-l-2 border-bad" : ""}`}>
+                        className={`group -mx-2 cursor-pointer rounded px-2 py-0.5 ${isSel ? "bg-accent-soft/50" : "hover:bg-slate-50"} ${bad ? "border-l-2 border-bad" : aiOnly ? "border-l-2 border-warn bg-warn-soft/40" : ""}`}>
                         {editing === eid ? (
                           <div className="space-y-1" onClick={(e) => e.stopPropagation()}>
                             <textarea className="w-full rounded border p-2 text-sm" rows={3} value={draftText} onChange={(e) => setDraftText(e.target.value)} />
@@ -204,6 +205,7 @@ export default function ReviewEditor() {
                               <button key={r} onClick={(e) => { e.stopPropagation(); setSel({ kind: "ref", ref: r }); }}
                                 className={`mx-0.5 rounded px-1 text-2xs font-semibold ${refToId[r] ? "bg-slate-200 text-slate-700 hover:bg-slate-900 hover:text-white" : "bg-bad text-white"}`}>[{r}]</button>
                             ))}
+                            {aiOnly && <span className="pill ml-1 bg-warn-soft text-warn-text" title={t("Satz stützt sich nur auf eine KI-Beobachtung (kein Beleg) – bitte bestätigen")}>{t("nur KI-Beobachtung")}</span>}
                             {x.edited && <span className="ml-1 text-2xs text-accent-text">{t("bearbeitet")}</span>}
                             {!locked && <button className="ml-1 hidden text-2xs text-slate-500 hover:text-slate-900 group-hover:inline" onClick={(e) => { e.stopPropagation(); setEditing(eid); setDraftText(x.text); }}>{t("bearbeiten")}</button>}
                           </span>
@@ -226,10 +228,14 @@ export default function ReviewEditor() {
               {L.issues.filter((i: any) => i.status !== "verified" || i.found_in === "andere Quelle").map((i: any) => (
                 <li key={i.issue_id} className="flex items-center gap-2">
                   <BandDot b={i.status === "unverified" ? "red" : i.status === "confirmed" ? "green" : "yellow"} />
+                  {i.kind === "ai_only" && <span className="pill bg-warn-soft text-warn-text">{t("KI-Beobachtung")}</span>}
                   <span className="font-mono">{i.value}</span>
                   <span className="text-slate-600">{i.section} · {t("Satz {n}", { n: i.sentence + 1 })} · {i.message ? t(i.message) : t("belegt in {x}", { x: t(i.found_in) })}</span>
                   {i.status === "unverified" && !locked && (
                     <button className="btn-xs ml-auto" onClick={() => { const note = window.prompt(t("Wodurch ist der Wert belegt? (geht ins Audit-Log)")) ?? ""; if (note) act(() => post(`/api/letters/${lid}/issues/${i.issue_id}/confirm`, { note })); }}>{t("manuell bestätigen")}</button>
+                  )}
+                  {i.status === "needs_confirmation" && !locked && (
+                    <button className="btn-xs ml-auto" onClick={() => { const note = window.prompt(t("Haben Sie den Befund vor Ort bzw. auf dem Foto geprüft? Kurze Notiz (Audit-Log):")) ?? ""; if (note) act(() => post(`/api/letters/${lid}/issues/${i.issue_id}/confirm`, { note })); }}>{t("Beobachtung bestätigen")}</button>
                   )}
                 </li>
               ))}
