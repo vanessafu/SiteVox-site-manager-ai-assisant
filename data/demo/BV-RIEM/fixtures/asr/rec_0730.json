@@ -1,465 +1,465 @@
 {
  "language": "de",
- "duration": 27.52,
+ "duration": 38.8,
  "segments": [
   {
    "start": 0.3,
-   "end": 0.89,
+   "end": 1.14,
    "text": "Achse C.",
    "words": [
     {
      "word": "Achse",
      "start": 0.3,
-     "end": 0.63,
+     "end": 0.77,
      "score": 0.974
     },
     {
      "word": "C.",
-     "start": 0.69,
-     "end": 0.89,
+     "start": 0.86,
+     "end": 1.14,
      "score": 0.937
     }
    ]
   },
   {
-   "start": 0.95,
-   "end": 10.58,
+   "start": 1.22,
+   "end": 14.88,
    "text": "Die Bewehrungspläne für Achse C, Index b, liegen immer noch nicht vor, obwohl das Ingenieurbüro Brandl die Pläne in der Baubesprechung für den 18.11.",
    "words": [
     {
      "word": "Die",
-     "start": 0.95,
-     "end": 1.19,
+     "start": 1.22,
+     "end": 1.56,
      "score": 0.941
     },
     {
      "word": "Bewehrungspläne",
-     "start": 1.25,
-     "end": 2.04,
+     "start": 1.65,
+     "end": 2.76,
      "score": 0.911
     },
     {
      "word": "für",
-     "start": 2.1,
-     "end": 2.34,
+     "start": 2.85,
+     "end": 3.19,
      "score": 0.943
     },
     {
      "word": "Achse",
-     "start": 2.4,
-     "end": 2.73,
+     "start": 3.28,
+     "end": 3.75,
      "score": 0.974
     },
     {
      "word": "C,",
-     "start": 2.79,
-     "end": 2.99,
+     "start": 3.83,
+     "end": 4.11,
      "score": 0.905
     },
     {
      "word": "Index",
-     "start": 3.05,
-     "end": 3.38,
+     "start": 4.2,
+     "end": 4.67,
      "score": 0.58
     },
     {
      "word": "b,",
-     "start": 3.44,
-     "end": 3.64,
+     "start": 4.75,
+     "end": 5.03,
      "score": 0.46
     },
     {
      "word": "liegen",
-     "start": 3.7,
-     "end": 4.07,
+     "start": 5.12,
+     "end": 5.65,
      "score": 0.913
     },
     {
      "word": "immer",
-     "start": 4.13,
-     "end": 4.47,
+     "start": 5.74,
+     "end": 6.21,
      "score": 0.943
     },
     {
      "word": "noch",
-     "start": 4.53,
-     "end": 4.81,
+     "start": 6.3,
+     "end": 6.7,
      "score": 0.977
     },
     {
      "word": "nicht",
-     "start": 4.87,
-     "end": 5.2,
+     "start": 6.79,
+     "end": 7.26,
      "score": 0.966
     },
     {
      "word": "vor,",
-     "start": 5.27,
-     "end": 5.55,
+     "start": 7.34,
+     "end": 7.75,
      "score": 0.921
     },
     {
      "word": "obwohl",
-     "start": 5.61,
-     "end": 5.99,
+     "start": 7.84,
+     "end": 8.37,
      "score": 0.918
     },
     {
      "word": "das",
-     "start": 6.05,
-     "end": 6.29,
+     "start": 8.46,
+     "end": 8.8,
      "score": 0.938
     },
     {
      "word": "Ingenieurbüro",
-     "start": 6.35,
-     "end": 7.05,
+     "start": 8.89,
+     "end": 9.87,
      "score": 0.925
     },
     {
      "word": "Brandl",
-     "start": 7.11,
-     "end": 7.48,
+     "start": 9.96,
+     "end": 10.49,
      "score": 0.71
     },
     {
      "word": "die",
-     "start": 7.54,
-     "end": 7.79,
+     "start": 10.58,
+     "end": 10.92,
      "score": 0.935
     },
     {
      "word": "Pläne",
-     "start": 7.85,
-     "end": 8.18,
+     "start": 11.01,
+     "end": 11.48,
      "score": 0.916
     },
     {
      "word": "in",
-     "start": 8.24,
-     "end": 8.43,
+     "start": 11.56,
+     "end": 11.84,
      "score": 0.928
     },
     {
      "word": "der",
-     "start": 8.49,
-     "end": 8.74,
+     "start": 11.93,
+     "end": 12.27,
      "score": 0.952
     },
     {
      "word": "Baubesprechung",
-     "start": 8.8,
-     "end": 9.54,
+     "start": 12.35,
+     "end": 13.4,
      "score": 0.942
     },
     {
      "word": "für",
-     "start": 9.6,
-     "end": 9.84,
+     "start": 13.49,
+     "end": 13.83,
      "score": 0.943
     },
     {
      "word": "den",
-     "start": 9.9,
-     "end": 10.14,
+     "start": 13.92,
+     "end": 14.26,
      "score": 0.923
     },
     {
      "word": "18.11.",
-     "start": 10.2,
-     "end": 10.58,
+     "start": 14.35,
+     "end": 14.88,
      "score": 0.978
     }
    ]
   },
   {
-   "start": 10.64,
-   "end": 11.54,
+   "start": 14.97,
+   "end": 16.25,
    "text": "zugesagt hatte.",
    "words": [
     {
      "word": "zugesagt",
-     "start": 10.64,
-     "end": 11.11,
+     "start": 14.97,
+     "end": 15.63,
      "score": 0.913
     },
     {
      "word": "hatte.",
-     "start": 11.17,
-     "end": 11.54,
+     "start": 15.72,
+     "end": 16.25,
      "score": 0.949
     }
    ]
   },
   {
-   "start": 11.6,
-   "end": 20.49,
+   "start": 16.34,
+   "end": 28.95,
    "text": "Die Kolonne Müller kann bis Mittag noch in den Achsen A und B verlegen, ab 12 Uhr haben die in Achse C keinen Arbeitsbereich mehr.",
    "words": [
     {
      "word": "Die",
-     "start": 11.6,
-     "end": 11.84,
+     "start": 16.34,
+     "end": 16.68,
      "score": 0.941
     },
     {
      "word": "Kolonne",
-     "start": 11.91,
-     "end": 12.33,
+     "start": 16.77,
+     "end": 17.36,
      "score": 0.955
     },
     {
      "word": "Müller",
-     "start": 12.39,
-     "end": 12.77,
+     "start": 17.45,
+     "end": 17.99,
      "score": 0.973
     },
     {
      "word": "kann",
-     "start": 12.83,
-     "end": 13.11,
+     "start": 18.07,
+     "end": 18.48,
      "score": 0.974
     },
     {
      "word": "bis",
-     "start": 13.17,
-     "end": 13.41,
+     "start": 18.56,
+     "end": 18.91,
      "score": 0.942
     },
     {
      "word": "Mittag",
-     "start": 13.47,
-     "end": 13.85,
+     "start": 18.99,
+     "end": 19.53,
      "score": 0.936
     },
     {
      "word": "noch",
-     "start": 13.91,
-     "end": 14.2,
+     "start": 19.61,
+     "end": 20.02,
      "score": 0.977
     },
     {
      "word": "in",
-     "start": 14.26,
-     "end": 14.46,
+     "start": 20.11,
+     "end": 20.38,
      "score": 0.928
     },
     {
      "word": "den",
-     "start": 14.52,
-     "end": 14.76,
+     "start": 20.47,
+     "end": 20.81,
      "score": 0.923
     },
     {
      "word": "Achsen",
-     "start": 14.82,
-     "end": 15.2,
+     "start": 20.9,
+     "end": 21.43,
      "score": 0.954
     },
     {
      "word": "A",
-     "start": 15.26,
-     "end": 15.41,
+     "start": 21.52,
+     "end": 21.73,
      "score": 0.93
     },
     {
      "word": "und",
-     "start": 15.47,
-     "end": 15.71,
+     "start": 21.82,
+     "end": 22.16,
      "score": 0.944
     },
     {
      "word": "B",
-     "start": 15.77,
-     "end": 15.92,
+     "start": 22.25,
+     "end": 22.46,
      "score": 0.93
     },
     {
      "word": "verlegen,",
-     "start": 15.98,
-     "end": 16.49,
+     "start": 22.55,
+     "end": 23.27,
      "score": 0.974
     },
     {
      "word": "ab",
-     "start": 16.55,
-     "end": 16.75,
+     "start": 23.36,
+     "end": 23.64,
      "score": 0.936
     },
     {
      "word": "12",
-     "start": 16.81,
-     "end": 17.01,
+     "start": 23.72,
+     "end": 24.0,
      "score": 0.979
     },
     {
      "word": "Uhr",
-     "start": 17.07,
-     "end": 17.31,
+     "start": 24.09,
+     "end": 24.43,
      "score": 0.939
     },
     {
      "word": "haben",
-     "start": 17.37,
-     "end": 17.7,
+     "start": 24.52,
+     "end": 24.99,
      "score": 0.923
     },
     {
      "word": "die",
-     "start": 17.76,
-     "end": 18.0,
+     "start": 25.07,
+     "end": 25.42,
      "score": 0.935
     },
     {
      "word": "in",
-     "start": 18.06,
-     "end": 18.26,
+     "start": 25.5,
+     "end": 25.78,
      "score": 0.928
     },
     {
      "word": "Achse",
-     "start": 18.32,
-     "end": 18.65,
+     "start": 25.87,
+     "end": 26.34,
      "score": 0.974
     },
     {
      "word": "C",
-     "start": 18.71,
-     "end": 18.86,
+     "start": 26.42,
+     "end": 26.64,
      "score": 0.978
     },
     {
      "word": "keinen",
-     "start": 18.92,
-     "end": 19.3,
+     "start": 26.72,
+     "end": 27.26,
      "score": 0.92
     },
     {
      "word": "Arbeitsbereich",
-     "start": 19.36,
-     "end": 20.1,
+     "start": 27.34,
+     "end": 28.39,
      "score": 0.912
     },
     {
      "word": "mehr.",
-     "start": 20.16,
-     "end": 20.49,
+     "start": 28.48,
+     "end": 28.95,
      "score": 0.942
     }
    ]
   },
   {
-   "start": 20.55,
-   "end": 25.13,
+   "start": 29.03,
+   "end": 35.52,
    "text": "Damit ist die Betonage der Bodenplatte heute Nachmittag nicht zu halten.",
    "words": [
     {
      "word": "Damit",
-     "start": 20.55,
-     "end": 20.88,
+     "start": 29.03,
+     "end": 29.51,
      "score": 0.971
     },
     {
      "word": "ist",
-     "start": 20.95,
-     "end": 21.19,
+     "start": 29.59,
+     "end": 29.93,
      "score": 0.959
     },
     {
      "word": "die",
-     "start": 21.25,
-     "end": 21.49,
+     "start": 30.02,
+     "end": 30.36,
      "score": 0.935
     },
     {
      "word": "Betonage",
-     "start": 21.55,
-     "end": 22.02,
+     "start": 30.45,
+     "end": 31.11,
      "score": 0.922
     },
     {
      "word": "der",
-     "start": 22.08,
-     "end": 22.32,
+     "start": 31.2,
+     "end": 31.54,
      "score": 0.952
     },
     {
      "word": "Bodenplatte",
-     "start": 22.38,
-     "end": 22.98,
+     "start": 31.62,
+     "end": 32.48,
      "score": 0.968
     },
     {
      "word": "heute",
-     "start": 23.04,
-     "end": 23.37,
+     "start": 32.57,
+     "end": 33.04,
      "score": 0.901
     },
     {
      "word": "Nachmittag",
-     "start": 23.44,
-     "end": 23.99,
+     "start": 33.12,
+     "end": 33.92,
      "score": 0.969
     },
     {
      "word": "nicht",
-     "start": 24.05,
-     "end": 24.39,
+     "start": 34.0,
+     "end": 34.47,
      "score": 0.966
     },
     {
      "word": "zu",
-     "start": 24.45,
-     "end": 24.64,
+     "start": 34.56,
+     "end": 34.84,
      "score": 0.953
     },
     {
      "word": "halten.",
-     "start": 24.7,
-     "end": 25.13,
+     "start": 34.92,
+     "end": 35.52,
      "score": 0.908
     }
    ]
   },
   {
-   "start": 25.19,
-   "end": 27.16,
+   "start": 35.61,
+   "end": 38.41,
    "text": "Ich mache Fotos von Achse C.",
    "words": [
     {
      "word": "Ich",
-     "start": 25.19,
-     "end": 25.43,
+     "start": 35.61,
+     "end": 35.95,
      "score": 0.932
     },
     {
      "word": "mache",
-     "start": 25.49,
-     "end": 25.82,
+     "start": 36.04,
+     "end": 36.51,
      "score": 0.91
     },
     {
      "word": "Fotos",
-     "start": 25.88,
-     "end": 26.21,
+     "start": 36.59,
+     "end": 37.06,
      "score": 0.964
     },
     {
      "word": "von",
-     "start": 26.27,
-     "end": 26.51,
+     "start": 37.15,
+     "end": 37.49,
      "score": 0.967
     },
     {
      "word": "Achse",
-     "start": 26.57,
-     "end": 26.91,
+     "start": 37.58,
+     "end": 38.05,
      "score": 0.974
     },
     {
      "word": "C.",
-     "start": 26.97,
-     "end": 27.16,
+     "start": 38.13,
+     "end": 38.41,
      "score": 0.937
     }
    ]

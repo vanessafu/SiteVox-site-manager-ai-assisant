@@ -4,6 +4,10 @@ geschriebenen Sätzen muss in den Belegen vorkommen. Sonst → rot, Export gespe
 Zusätzlich:
   * jeder Satz braucht >= 1 gültige Beleg-ID [E-xx]
   * Normzitate (§, VOB, BGB) sind im LLM-Text verboten – sie kommen nur aus der Vorlage
+  * KI-Beobachtungen aus Fotos (source="ai_vision") sind KEIN Beleg: Sie zählen weder für Zahlen/Daten/Namen
+    noch als Zitat. Stützt sich ein Satz nur auf KI-Beobachtungen → gelb ("needs_confirmation"), Freigabe erst
+    nach Bestätigung. Als Beleg gilt eine KI-Beobachtung erst, wenn die Bauleitung sie bestätigt hat oder die
+    Sprach-/Textantwort sie stützt (meta.status "confirmed" bzw. "corroborated").
 """
 from __future__ import annotations
 
@@ -119,6 +123,22 @@ def _entities_in(text: str) -> set[str]:
     return {f for f in found if len(f) > 2}
 
 
+AI_PROMOTED = ("confirmed", "corroborated")
+
+
+def is_ai_observation(d: dict) -> bool:
+    return (d or {}).get("source") == "ai_vision"
+
+
+def counts_as_evidence(d: dict) -> bool:
+    """Foto, Audio, Mail … immer; KI-Beobachtung nur nach Bestätigung bzw. Stützung durch Sprache/Notiz."""
+    if not d:
+        return False
+    if is_ai_observation(d):
+        return (d.get("meta") or {}).get("status") in AI_PROMOTED
+    return True
+
+
 def _haystack(texts: Iterable[str]) -> dict[str, Any]:
     full = " \n ".join(t for t in texts if t)
     return {"text": full.lower(), "dates": _dates_in(full), "times": _times_in(full),
@@ -145,7 +165,7 @@ def _ev_text(d: dict) -> str:
 def verify_sentences(sections: dict[str, list[dict]], evidence_map: dict[str, str],
                      evidence_docs: dict[str, dict]) -> list[VerificationIssue]:
     """sections: {"sachverhalt": [{"text","evidence":[E-01]}], ...}; evidence_map: E-01 → EV-0001."""
-    all_hay = _haystack([_ev_text(d) for d in evidence_docs.values()])
+    all_hay = _haystack([_ev_text(d) for d in evidence_docs.values() if counts_as_evidence(d)])
     issues: list[VerificationIssue] = []
     n = 0
 
@@ -165,10 +185,17 @@ def verify_sentences(sections: dict[str, list[dict]], evidence_map: dict[str, st
             for c in cites:
                 if c not in evidence_map:
                     add(section, i, "citation", c, "unverified", msg=f"Beleg {c} existiert nicht")
+            if valid and not any(counts_as_evidence(evidence_docs.get(evidence_map[c], {})) for c in valid):
+                ai = [c for c in valid if is_ai_observation(evidence_docs.get(evidence_map[c], {}))]
+                add(section, i, "ai_only", ", ".join(ai) or text[:60],
+                    "needs_confirmation" if ai else "unverified",
+                    msg="Satz stützt sich nur auf eine KI-Beobachtung (kein Beleg) – bitte bestätigen"
+                    if ai else "Zitierte Belege nicht vorhanden")
             if LEGAL_RE.search(text):
                 add(section, i, "legal_ref", LEGAL_RE.search(text).group(0), "unverified",
                     msg="Normzitat im KI-Text – nur aus Vorlage zulässig")
-            cited_docs = {c: evidence_docs.get(evidence_map[c], {}) for c in valid}
+            cited_docs = {c: evidence_docs.get(evidence_map[c], {}) for c in valid
+                          if counts_as_evidence(evidence_docs.get(evidence_map[c], {}))}
             cited = {c: _haystack([_ev_text(d)]) for c, d in cited_docs.items()}
 
             def locate(pred) -> tuple[str, str | None]:
@@ -198,9 +225,10 @@ def verify_sentences(sections: dict[str, list[dict]], evidence_map: dict[str, st
 
 
 def blocking(issues: list[dict] | list[VerificationIssue]) -> list:
+    """Rot (unverified) und gelb (needs_confirmation) sperren die Freigabe, bis die Bauleitung bestätigt."""
     out = []
     for x in issues:
         d = x.model_dump() if hasattr(x, "model_dump") else x
-        if d["status"] == "unverified":
+        if d["status"] in ("unverified", "needs_confirmation"):
             out.append(d)
     return out

@@ -27,7 +27,24 @@ Bekannte Geräte/Kolonnen: {resources}
 Eingabe:
 \"\"\"
 {text}
-\"\"\""""
+\"\"\"{context}"""
+
+# Wird an EXTRACT_USER angehängt, wenn die Eingabe die Antwort auf eine Foto-Rückfrage ist.
+EXTRACT_PHOTO_CONTEXT = """
+
+Kontext: Die Eingabe ist die Antwort des Poliers auf die Rückfrage zu einem Foto.
+Gestellte Frage: "{question}"
+KI-Beobachtungen aus dem Foto (automatisch erkannt, KEIN Beleg):
+{observations}
+Szene laut Foto: {scene}
+
+Regeln für Foto-Antworten:
+- Die KI-Beobachtungen sagen nur, WAS zu sehen ist. Ursache, Verursacher, Beginn, betroffene Vorgänge,
+  Mengen und ob es eigene Leistung oder Vorleistung ist, NUR aus der Antwort übernehmen.
+- "quotes" ausschließlich wörtlich aus der Antwort, nie aus den KI-Beobachtungen.
+- Mengen (progress) nur, wenn sie in der Antwort genannt werden – nie aus dem Foto schätzen.
+- Ereignistyp darf die Beobachtung berücksichtigen (z. B. Riss + "Vorleistung" → quality_defect mit own_work=false;
+  Material auf der Zufahrt + "Firma X im Auftrag des Bauherrn" → third_party_interference mit predecessor_by_owner=true)."""
 
 DRAFT_SYSTEM = """Du formulierst für die Bauleitung des Auftragnehmers zwei Absätze eines förmlichen Schreibens an den
 Auftraggeber: "sachverhalt" und "auswirkungen". Betreff, Bezug, Rechtsgrundlagen, Vorbehalt und Grußformel
@@ -60,9 +77,43 @@ MINUTES_SYSTEM = """Fasse ein Baubesprechungsprotokoll für die Bauleitung des A
 - "open_items": offene Punkte mit Verantwortlichem und Termin (ISO-Datum), jeweils mit wörtlichem Zitat.
 Nur Inhalte aus dem Protokoll, nichts ergänzen. Antworte als JSON."""
 
-VISION_PROMPT = """Beschreibe dieses Baustellenfoto sachlich auf Deutsch für das Bautagebuch (2–4 Sätze):
-- Bauzustand / sichtbare Arbeiten (z. B. Bewehrung, Schalung, Aushub)
-- Geräte: in Betrieb oder abgestellt?
-- Personen: arbeitend oder wartend? (keine Identifizierung von Personen)
-- Auffälligkeiten (fehlende Bauteile, Schäden, Wasser, Sicherheitsmängel)
-Keine Vermutungen über Ursachen oder Verantwortliche."""
+VISION_PROMPT = """Du analysierst ein Baustellenfoto für die Bauleitung des Auftragnehmers. Beschreibe NUR, was sichtbar ist.
+
+Liefere JSON:
+- "summary": 2–3 sachliche Sätze auf Deutsch für das Bautagebuch (Bauzustand, Geräte in Betrieb/abgestellt,
+  Personen arbeitend/wartend – ohne Personen zu identifizieren).
+- "scene": {{"bauteil", "stage", "activity_guess"}} – sichtbares Bauteil, Bauzustand, vermutlich laufende Arbeit.
+- "observations": 0–6 Auffälligkeiten, je {{"category", "subtype", "description", "bbox", "severity", "visual_conf"}}
+    category obstruction: blocked_access (Zugang/Zufahrt versperrt), standing_water (stehendes Wasser),
+                          material_storage (Material belegt Arbeitsfläche), equipment_idle (Gerät steht still)
+    category defect:      crack (Riss), surface_defect (Kiesnester, Abplatzungen, Fehlstellen), damage (Beschädigung)
+    category progress:    stage_change (sichtbarer Arbeitsstand, z. B. "untere Bewehrungslage verlegt", "Schalung fertig")
+    category safety:      safety_hazard (fehlende Absturzsicherung, ungesicherte Öffnung …)
+  "bbox" = [x1, y1, x2, y2] in relativen Koordinaten 0–1000 um die Auffälligkeit (oder null),
+  "severity" = low | medium | high, "visual_conf" = 0–1, wie sicher du das visuell erkennst.
+- "followup_question": eine kurze Rückfrage auf Deutsch an den Polier zum wichtigsten Befund.
+
+Strikte Regeln:
+- Keine Vermutungen über Ursache, Verursacher, Verantwortliche oder Schuld.
+- Keine Mengen, Maße oder Abmessungen schätzen (Fotos sind dafür nicht maßstäblich).
+- Nichts erfinden, was nicht sichtbar ist. Lieber weniger Beobachtungen mit ehrlicher visual_conf.
+{context}"""
+
+VISION_CONTEXT = """Projektkontext (nur zur Einordnung, nicht als Beobachtung übernehmen):
+Heute geplante Vorgänge: {activities}"""
+
+# Deterministische Rückfrage je Befund (Vorrang P0 Behinderung/Mangel vor P1 Fortschritt).
+# Gefragt wird genau das, was das Regelwerk braucht und das Foto NICHT zeigen kann.
+FOLLOWUP_QUESTIONS: dict[str, str] = {
+    "material_storage": "Wessen Material ist das, und seit wann ist der Zugang blockiert?",
+    "blocked_access": "Wer blockiert den Zugang (Firma/Gewerk, im Auftrag des Bauherrn?), seit wann, und welche Arbeiten sind betroffen?",
+    "standing_water": "Seit wann steht das Wasser, und welche Arbeiten können deshalb nicht ausgeführt werden?",
+    "equipment_idle": "Wessen Gerät ist das, warum steht es, und seit wann?",
+    "crack": "Ist das unsere Leistung oder eine Vorleistung? Bitte Detailfoto mit Maßstab.",
+    "surface_defect": "Ist das unsere Leistung oder eine Vorleistung? Bitte Detailfoto mit Maßstab.",
+    "damage": "Ist das unsere Leistung oder eine Vorleistung? Wer hat es beschädigt? Bitte Detailfoto mit Maßstab.",
+    "stage_change": "Welche Menge wurde heute erledigt (z. B. t, m², m³), und für welchen Vorgang?",
+    "safety_hazard": "Was ist hier passiert, und ist die Gefahrenstelle bereits gesichert?",
+    "other": "Was ist hier passiert?",
+}
+FOLLOWUP_DEFAULT = "Was ist hier passiert?"

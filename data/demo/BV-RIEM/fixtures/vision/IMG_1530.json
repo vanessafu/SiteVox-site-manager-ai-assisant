@@ -1,0 +1,46 @@
+{
+ "exif": {
+  "gps": {
+   "lat": 48.13052,
+   "lon": 11.69548
+  },
+  "taken_at": "2026-11-20T15:30:00+01:00"
+ },
+ "base": {
+  "summary": "Wandfuß Achse 3: durchgehender Riss in der Betonoberfläche, daneben Abplatzung an der Kante.",
+  "scene": {
+   "bauteil": "Wand Achse 3",
+   "stage": "ausgeschalt",
+   "activity_guess": null
+  },
+  "observations": [
+   {
+    "category": "defect",
+    "subtype": "crack",
+    "description": "Durchgehender Riss in der Betonoberfläche am Wandfuß.",
+    "bbox": [
+     180,
+     300,
+     620,
+     900
+    ],
+    "severity": "high",
+    "visual_conf": 0.78
+   },
+   {
+    "category": "defect",
+    "subtype": "damage",
+    "description": "Abplatzung an der Wandkante.",
+    "bbox": [
+     640,
+     520,
+     820,
+     700
+    ],
+    "severity": "medium",
+    "visual_conf": 0.55
+   }
+  ],
+  "followup_question": "Seit wann ist der Riss sichtbar?"
+ }
+}

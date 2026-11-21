@@ -83,11 +83,19 @@ def capture(cid: str) -> dict:
     return c
 
 
-def _run_ingest(pid: str, kind: str, path: Optional[Path], text: Optional[str], captured_at: str, meta: dict) -> None:
+def _run_ingest(pid: str, kind: str, path: Optional[Path], text: Optional[str], captured_at: str, meta: dict,
+                prefer_exif_time: bool = False) -> None:
     try:
-        pipeline.ingest(pid, kind, file=path, text=text, captured_at=captured_at, meta=meta, actor=ACTOR)
+        pipeline.ingest(pid, kind, file=path, text=text, captured_at=captured_at, meta=meta, actor=ACTOR,
+                        prefer_exif_time=prefer_exif_time)
     except Exception as e:  # noqa: BLE001
         store.audit("system", "capture", pid, "ingest_failed", note=str(e))
+
+
+async def _tmp_file(upload: UploadFile, default: str) -> Path:
+    tmp = Path(tempfile.mkdtemp()) / Path(upload.filename or default).name
+    tmp.write_bytes(await upload.read())
+    return tmp
 
 
 @app.post("/api/projects/{pid}/captures")
@@ -104,9 +112,7 @@ async def upload_capture(pid: str, background: BackgroundTasks, kind: str = Form
     ts = captured_at or datetime.now().astimezone().isoformat(timespec="seconds")
     path = None
     if file is not None:
-        tmp = Path(tempfile.mkdtemp()) / Path(file.filename or f"upload_{kind}").name
-        tmp.write_bytes(await file.read())
-        path = tmp
+        path = await _tmp_file(file, f"upload_{kind}")
     elif kind != "note":
         raise HTTPException(400, "Datei fehlt")
     meta: dict[str, Any] = {"source": "mobile"}
@@ -122,8 +128,44 @@ async def upload_capture(pid: str, background: BackgroundTasks, kind: str = Form
         meta["language"] = asr_language  # Schreiben an den AG bleiben deutsch
     if lat is not None and lon is not None:
         meta["gps"] = {"lat": lat, "lon": lon}
-    background.add_task(_run_ingest, pid, kind, path, text, ts, meta)
+    # Foto: Aufnahmezeit aus EXIF, sofern der Client keine Zeit mitschickt (Datum ← EXIF)
+    background.add_task(_run_ingest, pid, kind, path, text, ts, meta, kind == "photo" and not captured_at)
     return {"accepted": True, "captured_at": ts}
+
+
+def _run_answer(cid: str, mode: str, text: Optional[str], path: Optional[Path], detail: Optional[Path],
+                language: Optional[str]) -> None:
+    try:
+        pipeline.answer_photo(cid, mode, text=text, file=path, detail_photo=detail, language=language, actor=ACTOR)
+    except Exception as e:  # noqa: BLE001
+        store.audit("system", "capture", cid, "answer_failed", note=str(e))
+
+
+@app.post("/api/captures/{cid}/answer")
+async def answer_capture(cid: str, background: BackgroundTasks, mode: str = Form(...),
+                         text: Optional[str] = Form(None), asr_language: Optional[str] = Form(None),
+                         file: Optional[UploadFile] = File(None),
+                         detail_photo: Optional[UploadFile] = File(None)) -> dict:
+    """Antwort auf die Foto-Rückfrage: mode = audio (Sprachantwort, Whisper) | note (Text) | skip.
+    Landet in derselben Erfassung; Extraktion + Regelwerk laufen im Hintergrund."""
+    cap = store.get("captures", cid)
+    if not cap or cap["kind"] != "photo":
+        raise HTTPException(404, "Foto-Erfassung nicht gefunden")
+    if mode not in ("audio", "note", "skip"):
+        raise HTTPException(400, "mode muss audio, note oder skip sein")
+    if cap["status"] == "processing":
+        raise HTTPException(409, "Erfassung wird gerade verarbeitet")
+    if mode == "audio" and file is None:
+        raise HTTPException(400, "Audiodatei fehlt")
+    if mode == "note" and not (text or "").strip():
+        raise HTTPException(400, "Antworttext fehlt")
+    path = await _tmp_file(file, "antwort.webm") if file is not None and mode == "audio" else None
+    detail = await _tmp_file(detail_photo, "detail.jpg") if detail_photo is not None else None
+    lang = asr_language if asr_language in ("de", "en", "tr", "pl", "auto") else None
+    cap["status"] = "processing"  # sofort sichtbar, bevor der Hintergrundjob startet
+    store.save_capture(cap)
+    background.add_task(_run_answer, cid, mode, text, path, detail, lang)
+    return {"accepted": True, "capture_id": cid}
 
 
 # ------------------------------------------------------------------------------------------- events
@@ -195,7 +237,7 @@ def letters(pid: str) -> list[dict]:
                     "status": l["status"], "event_id": l["event_id"], "event_label": ev.get("label"),
                     "betreff": next((s["text"] for s in l.get("rendered", []) if s["key"] == "betreff"), ""),
                     "created_at": l["created_at"], "sent_at": l.get("sent_at"),
-                    "open_issues": len([i for i in l["issues"] if i["status"] == "unverified"]),
+                    "open_issues": len([i for i in l["issues"] if i["status"] in ("unverified", "needs_confirmation")]),
                     "deadline": views.event_card(ev)["deadline"] if ev else None})
     return out
 
@@ -370,6 +412,20 @@ def evidence(evid: str) -> dict:
         e["transcript"] = cap.get("transcript")
         e["email"] = cap.get("email")
     return e
+
+
+class ReviewIn(BaseModel):
+    action: str  # confirm | reject | reset
+    note: str = ""
+
+
+@app.post("/api/evidence/{evid}/review")
+def review_evidence(evid: str, body: ReviewIn) -> dict:
+    """KI-Beobachtung bestätigen (→ zählt als Beleg), verwerfen oder zurücksetzen. Audit-Log."""
+    try:
+        return pipeline.review_ai_observation(evid, body.action, ACTOR, body.note)
+    except ValueError as ex:
+        raise HTTPException(400, str(ex)) from ex
 
 
 @app.get("/api/audit")

@@ -1,0 +1,1027 @@
+### Starting TaskPrologue of job 5038168 on a0532 at Sat Nov 21 03:32:45 AM CET 2026
+Running on cores 0-15 with governor schedutil
+Sat Nov 21 03:32:45 2026       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 620.70.06              KMD Version: 620.70.06     CUDA UMD Version: 13.5     |
++-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  GPU          On  |   00000000:96:00.0 Off |                    0 |
+| N/A   32C    P0             65W /  400W |       0MiB /  81920MiB |      0%      Default |
+|                                         |                        |             Disabled |
++-----------------------------------------+------------------------+----------------------+
+
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|  No running processes found                                                             |
++-----------------------------------------------------------------------------------------+
+### Finished TaskPrologue
+
+name, memory.total [MiB], driver_version
+GPU, 81920 MiB, 620.70.06
+torch 2.8.0+cu128 cuda ok: True
+[transformers] Model config: bos_token_id must be `None` or an integer within the vocabulary (between 0 and 255), got 50256. This may result in unexpected behavior.
+[transformers] Model config: eos_token_id must be `None` or an integer within the vocabulary (between 0 and 255), got 50256. This may result in unexpected behavior.
+[transformers] Model config: bos_token_id must be `None` or an integer within the vocabulary (between 0 and 607), got 50256. This may result in unexpected behavior.
+[transformers] Model config: eos_token_id must be `None` or an integer within the vocabulary (between 0 and 607), got 50256. This may result in unexpected behavior.
+XTTS-v2 auf cuda (GPU)
+rec_0700.wav   15.8s  Damien Black
+rec_0730.wav   38.8s  Damien Black
+rec_1002.wav   17.4s  Damien Black
+rec_1300.wav   15.3s  Damien Black
+rec_1630.wav   30.4s  Damien Black
+Demo-Memos geschrieben nach /home/hpc/b279bb/CLUSTER_USER/Abschlussarbeit-multilingual-math-reasoning/SiteVox-site-manager-ai-assisant/data/demo/BV-RIEM/inputs/2026-11-20. Jetzt: python scripts/make_demo_data.py (behält echte Audiodateien, passt ASR-Fixture-Zeiten an)
+behalte vorhandene Sprachaufnahme rec_0700.wav
+behalte vorhandene Sprachaufnahme rec_0730.wav
+behalte vorhandene Sprachaufnahme rec_1002.wav
+behalte vorhandene Sprachaufnahme rec_1300.wav
+behalte vorhandene Sprachaufnahme rec_1630.wav
+Demo-Daten geschrieben nach /home/hpc/b279bb/CLUSTER_USER/Abschlussarbeit-multilingual-math-reasoning/SiteVox-site-manager-ai-assisant/data/demo/BV-RIEM (9 Erfassungen, TTS=nein)
+[transformers] Model config: bos_token_id must be `None` or an integer within the vocabulary (between 0 and 255), got 50256. This may result in unexpected behavior.
+[transformers] Model config: eos_token_id must be `None` or an integer within the vocabulary (between 0 and 255), got 50256. This may result in unexpected behavior.
+[transformers] Model config: bos_token_id must be `None` or an integer within the vocabulary (between 0 and 607), got 50256. This may result in unexpected behavior.
+[transformers] Model config: eos_token_id must be `None` or an integer within the vocabulary (between 0 and 607), got 50256. This may result in unexpected behavior.
+XTTS-v2 auf cuda (GPU)
+12 Szenario-Varianten × 10 Stimmen (Ana Florence/tts, Damien Black/tts, cv_ec08d489/tr-L1-clone, cv_b08012da/cs-L1-clone, cv_ea3e6fd5/pl-L1-clone, cv_8ed2742c/sk-L1-clone, cv_9acd750f/ru-L1-clone, cv_28e00364/hu-L1-clone, cv_510e1b36/bg-L1-clone, cv_06b222d5/ar-L1-clone)
+S01_de_tts0                       27.7s  Ana Florence
+S01_de_tts1                       17.2s  Damien Black
+/home/atuin/b279bb/CLUSTER_USER/tts-venv/lib/python3.12/site-packages/torchaudio/_backend/utils.py:213: UserWarning: In 2.9, this function's implementation will be changed to use torchaudio.load_with_torchcodec` under the hood. Some parameters like ``normalize``, ``format``, ``buffer_size``, and ``backend`` will be ignored. We recommend that you port your code to rely directly on TorchCodec's decoder instead: https://docs.pytorch.org/torchcodec/stable/generated/torchcodec.decoders.AudioDecoder.html#torchcodec.decoders.AudioDecoder.
+  warnings.warn(
+S01_de_cl_tr                      15.5s  cv_ec08d489
+S01_de_cl_cs                      21.3s  cv_b08012da
+S01_de_cl_pl                      18.5s  cv_ea3e6fd5
+S01_de_cl_sk                      15.1s  cv_8ed2742c
+S01_de_cl_ru                      23.1s  cv_9acd750f
+S01_de_cl_hu                      18.6s  cv_28e00364
+S01_de_cl_bg                      23.5s  cv_510e1b36
+S01_de_cl_ar                      19.0s  cv_06b222d5
+S01_en_tts0                       14.4s  Ana Florence
+S01_en_tts1                       13.3s  Damien Black
+S01_tr_tts0                       16.2s  Ana Florence
+S01_tr_tts1                       19.1s  Damien Black
+S01_pl_tts0                       23.4s  Ana Florence
+S01_pl_tts1                       24.8s  Damien Black
+S02_de_tts0                       14.0s  Ana Florence
+S02_de_tts1                       11.2s  Damien Black
+S02_de_cl_tr                       9.5s  cv_ec08d489
+S02_de_cl_cs                      13.5s  cv_b08012da
+S02_de_cl_pl                      12.0s  cv_ea3e6fd5
+S02_de_cl_sk                       9.8s  cv_8ed2742c
+S02_de_cl_ru                      12.2s  cv_9acd750f
+S02_de_cl_hu                      12.5s  cv_28e00364
+S02_de_cl_bg                      13.0s  cv_510e1b36
+S02_de_cl_ar                      11.8s  cv_06b222d5
+S02_tr_tts0                       10.1s  Ana Florence
+S02_tr_tts1                       11.3s  Damien Black
+S03_de_tts0                       24.6s  Ana Florence
+S03_de_tts1                       19.2s  Damien Black
+S03_de_cl_tr                      26.7s  cv_ec08d489
+S03_de_cl_cs                      20.2s  cv_b08012da
+S03_de_cl_pl                      23.4s  cv_ea3e6fd5
+S03_de_cl_sk                      16.3s  cv_8ed2742c
+S03_de_cl_ru                      16.6s  cv_9acd750f
+S03_de_cl_hu                      21.8s  cv_28e00364
+S03_de_cl_bg                      29.6s  cv_510e1b36
+S03_de_cl_ar                      24.5s  cv_06b222d5
+S05_de_tts0                       15.4s  Ana Florence
+S05_de_tts1                       28.7s  Damien Black
+S05_de_cl_tr                      20.3s  cv_ec08d489
+S05_de_cl_cs                      17.6s  cv_b08012da
+S05_de_cl_pl                      19.5s  cv_ea3e6fd5
+S05_de_cl_sk                      12.1s  cv_8ed2742c
+S05_de_cl_ru                      14.4s  cv_9acd750f
+S05_de_cl_hu                      19.0s  cv_28e00364
+S05_de_cl_bg                      24.4s  cv_510e1b36
+S05_de_cl_ar                      19.8s  cv_06b222d5
+S05_pl_tts0                       17.5s  Ana Florence
+S05_pl_tts1                       12.4s  Damien Black
+S06_de_tts0                        8.4s  Ana Florence
+S06_de_tts1                        7.5s  Damien Black
+S06_de_cl_tr                       7.7s  cv_ec08d489
+S06_de_cl_cs                       7.5s  cv_b08012da
+S06_de_cl_pl                       7.4s  cv_ea3e6fd5
+S06_de_cl_sk                       6.0s  cv_8ed2742c
+S06_de_cl_ru                       6.7s  cv_9acd750f
+S06_de_cl_hu                       8.0s  cv_28e00364
+S06_de_cl_bg                       9.9s  cv_510e1b36
+S06_de_cl_ar                       7.5s  cv_06b222d5
+S07_de_tts0                        9.1s  Ana Florence
+S07_de_tts1                        9.1s  Damien Black
+S07_de_cl_tr                       7.6s  cv_ec08d489
+S07_de_cl_cs                      12.6s  cv_b08012da
+S07_de_cl_pl                      10.2s  cv_ea3e6fd5
+S07_de_cl_sk                       8.6s  cv_8ed2742c
+S07_de_cl_ru                       9.1s  cv_9acd750f
+S07_de_cl_hu                       9.5s  cv_28e00364
+S07_de_cl_bg                      11.4s  cv_510e1b36
+S07_de_cl_ar                       8.4s  cv_06b222d5
+S08_de_tts0                       19.9s  Ana Florence
+S08_de_tts1                        7.7s  Damien Black
+S08_de_cl_tr                       6.9s  cv_ec08d489
+S08_de_cl_cs                      14.4s  cv_b08012da
+S08_de_cl_pl                      10.2s  cv_ea3e6fd5
+S08_de_cl_sk                       7.9s  cv_8ed2742c
+S08_de_cl_ru                       8.1s  cv_9acd750f
+S08_de_cl_hu                      12.4s  cv_28e00364
+S08_de_cl_bg                      10.3s  cv_510e1b36
+S08_de_cl_ar                       9.8s  cv_06b222d5
+80 Aufnahmen → data/asr_eval/clean/manifest.jsonl
+80 Sprachdateien · Lärm: echt (roadwork_open-noise, street_traffic_DEMAND, urbansound8k_drilling, urbansound8k_engine_idling, urbansound8k_jackhammer)
+S01_de_tts0_snr20.wav                        SNR   20 dB  Lärm urbansound8k_jackhammer/jackhammer_03
+S01_de_tts0_snr10.wav                        SNR   10 dB  Lärm urbansound8k_jackhammer/jackhammer_02
+S01_de_tts0_snr5.wav                         SNR    5 dB  Lärm urbansound8k_jackhammer/jackhammer_01
+S01_de_tts0_snr0.wav                         SNR    0 dB  Lärm street_traffic_DEMAND/ch01
+S01_de_tts1_snr20.wav                        SNR   20 dB  Lärm urbansound8k_jackhammer/jackhammer_04
+S01_de_tts1_snr10.wav                        SNR   10 dB  Lärm urbansound8k_drilling/drilling_04
+S01_de_tts1_snr5.wav                         SNR    5 dB  Lärm urbansound8k_engine_idling/engine_idling_00
+S01_de_tts1_snr0.wav                         SNR    0 dB  Lärm urbansound8k_jackhammer/jackhammer_01
+S01_de_cl_tr_snr20.wav                       SNR   20 dB  Lärm street_traffic_DEMAND/ch01
+S01_de_cl_tr_snr10.wav                       SNR   10 dB  Lärm street_traffic_DEMAND/ch01
+S01_de_cl_tr_snr5.wav                        SNR    5 dB  Lärm urbansound8k_drilling/drilling_02
+S01_de_cl_tr_snr0.wav                        SNR    0 dB  Lärm urbansound8k_drilling/drilling_02
+S01_de_cl_cs_snr20.wav                       SNR   20 dB  Lärm urbansound8k_jackhammer/jackhammer_04
+S01_de_cl_cs_snr10.wav                       SNR   10 dB  Lärm urbansound8k_engine_idling/engine_idling_03
+S01_de_cl_cs_snr5.wav                        SNR    5 dB  Lärm urbansound8k_jackhammer/jackhammer_02
+S01_de_cl_cs_snr0.wav                        SNR    0 dB  Lärm urbansound8k_jackhammer/jackhammer_00
+S01_de_cl_pl_snr20.wav                       SNR   20 dB  Lärm urbansound8k_engine_idling/engine_idling_00
+S01_de_cl_pl_snr10.wav                       SNR   10 dB  Lärm urbansound8k_drilling/drilling_00
+S01_de_cl_pl_snr5.wav                        SNR    5 dB  Lärm urbansound8k_drilling/drilling_04
+S01_de_cl_pl_snr0.wav                        SNR    0 dB  Lärm urbansound8k_jackhammer/jackhammer_04
+S01_de_cl_sk_snr20.wav                       SNR   20 dB  Lärm urbansound8k_engine_idling/engine_idling_02
+S01_de_cl_sk_snr10.wav                       SNR   10 dB  Lärm street_traffic_DEMAND/ch01
+S01_de_cl_sk_snr5.wav                        SNR    5 dB  Lärm street_traffic_DEMAND/ch01
+S01_de_cl_sk_snr0.wav                        SNR    0 dB  Lärm urbansound8k_jackhammer/jackhammer_00
+S01_de_cl_ru_snr20.wav                       SNR   20 dB  Lärm roadwork_open-noise/roadwork__c_dynamic
+S01_de_cl_ru_snr10.wav                       SNR   10 dB  Lärm urbansound8k_jackhammer/jackhammer_01
+S01_de_cl_ru_snr5.wav                        SNR    5 dB  Lärm street_traffic_DEMAND/ch01
+S01_de_cl_ru_snr0.wav                        SNR    0 dB  Lärm roadwork_open-noise/roadwork__b_eventful
+S01_de_cl_hu_snr20.wav                       SNR   20 dB  Lärm urbansound8k_engine_idling/engine_idling_00
+S01_de_cl_hu_snr10.wav                       SNR   10 dB  Lärm street_traffic_DEMAND/ch01
+S01_de_cl_hu_snr5.wav                        SNR    5 dB  Lärm urbansound8k_jackhammer/jackhammer_00
+S01_de_cl_hu_snr0.wav                        SNR    0 dB  Lärm urbansound8k_jackhammer/jackhammer_04
+S01_de_cl_bg_snr20.wav                       SNR   20 dB  Lärm urbansound8k_engine_idling/engine_idling_00
+S01_de_cl_bg_snr10.wav                       SNR   10 dB  Lärm urbansound8k_drilling/drilling_00
+S01_de_cl_bg_snr5.wav                        SNR    5 dB  Lärm urbansound8k_drilling/drilling_03
+S01_de_cl_bg_snr0.wav                        SNR    0 dB  Lärm urbansound8k_engine_idling/engine_idling_04
+S01_de_cl_ar_snr20.wav                       SNR   20 dB  Lärm street_traffic_DEMAND/ch01
+S01_de_cl_ar_snr10.wav                       SNR   10 dB  Lärm urbansound8k_drilling/drilling_00
+S01_de_cl_ar_snr5.wav                        SNR    5 dB  Lärm urbansound8k_engine_idling/engine_idling_01
+S01_de_cl_ar_snr0.wav                        SNR    0 dB  Lärm street_traffic_DEMAND/ch01
+S01_en_tts0_snr20.wav                        SNR   20 dB  Lärm roadwork_open-noise/roadwork__b_eventful
+S01_en_tts0_snr10.wav                        SNR   10 dB  Lärm urbansound8k_drilling/drilling_01
+S01_en_tts0_snr5.wav                         SNR    5 dB  Lärm urbansound8k_jackhammer/jackhammer_01
+S01_en_tts0_snr0.wav                         SNR    0 dB  Lärm urbansound8k_drilling/drilling_03
+S01_en_tts1_snr20.wav                        SNR   20 dB  Lärm urbansound8k_engine_idling/engine_idling_02
+S01_en_tts1_snr10.wav                        SNR   10 dB  Lärm urbansound8k_jackhammer/jackhammer_00
+S01_en_tts1_snr5.wav                         SNR    5 dB  Lärm urbansound8k_drilling/drilling_01
+S01_en_tts1_snr0.wav                         SNR    0 dB  Lärm roadwork_open-noise/roadwork__b_eventful
+S01_tr_tts0_snr20.wav                        SNR   20 dB  Lärm roadwork_open-noise/roadwork__b_eventful
+S01_tr_tts0_snr10.wav                        SNR   10 dB  Lärm urbansound8k_jackhammer/jackhammer_01
+S01_tr_tts0_snr5.wav                         SNR    5 dB  Lärm urbansound8k_engine_idling/engine_idling_00
+S01_tr_tts0_snr0.wav                         SNR    0 dB  Lärm urbansound8k_drilling/drilling_04
+S01_tr_tts1_snr20.wav                        SNR   20 dB  Lärm urbansound8k_engine_idling/engine_idling_02
+S01_tr_tts1_snr10.wav                        SNR   10 dB  Lärm urbansound8k_jackhammer/jackhammer_04
+S01_tr_tts1_snr5.wav                         SNR    5 dB  Lärm urbansound8k_jackhammer/jackhammer_03
+S01_tr_tts1_snr0.wav                         SNR    0 dB  Lärm urbansound8k_jackhammer/jackhammer_02
+S01_pl_tts0_snr20.wav                        SNR   20 dB  Lärm roadwork_open-noise/roadwork__b_eventful
+S01_pl_tts0_snr10.wav                        SNR   10 dB  Lärm urbansound8k_engine_idling/engine_idling_04
+S01_pl_tts0_snr5.wav                         SNR    5 dB  Lärm urbansound8k_drilling/drilling_00
+S01_pl_tts0_snr0.wav                         SNR    0 dB  Lärm street_traffic_DEMAND/ch01
+S01_pl_tts1_snr20.wav                        SNR   20 dB  Lärm urbansound8k_jackhammer/jackhammer_03
+S01_pl_tts1_snr10.wav                        SNR   10 dB  Lärm urbansound8k_drilling/drilling_00
+S01_pl_tts1_snr5.wav                         SNR    5 dB  Lärm urbansound8k_jackhammer/jackhammer_02
+S01_pl_tts1_snr0.wav                         SNR    0 dB  Lärm street_traffic_DEMAND/ch01
+S02_de_tts0_snr20.wav                        SNR   20 dB  Lärm roadwork_open-noise/roadwork__c_dynamic
+S02_de_tts0_snr10.wav                        SNR   10 dB  Lärm urbansound8k_drilling/drilling_02
+S02_de_tts0_snr5.wav                         SNR    5 dB  Lärm urbansound8k_drilling/drilling_02
+S02_de_tts0_snr0.wav                         SNR    0 dB  Lärm urbansound8k_drilling/drilling_03
+S02_de_tts1_snr20.wav                        SNR   20 dB  Lärm roadwork_open-noise/roadwork__c_dynamic
+S02_de_tts1_snr10.wav                        SNR   10 dB  Lärm urbansound8k_jackhammer/jackhammer_00
+S02_de_tts1_snr5.wav                         SNR    5 dB  Lärm roadwork_open-noise/roadwork__b_eventful
+S02_de_tts1_snr0.wav                         SNR    0 dB  Lärm roadwork_open-noise/roadwork__b_eventful
+S02_de_cl_tr_snr20.wav                       SNR   20 dB  Lärm urbansound8k_drilling/drilling_00
+S02_de_cl_tr_snr10.wav                       SNR   10 dB  Lärm urbansound8k_drilling/drilling_04
+S02_de_cl_tr_snr5.wav                        SNR    5 dB  Lärm street_traffic_DEMAND/ch01
+S02_de_cl_tr_snr0.wav                        SNR    0 dB  Lärm urbansound8k_drilling/drilling_01
+S02_de_cl_cs_snr20.wav                       SNR   20 dB  Lärm urbansound8k_jackhammer/jackhammer_01
+S02_de_cl_cs_snr10.wav                       SNR   10 dB  Lärm urbansound8k_drilling/drilling_02
+S02_de_cl_cs_snr5.wav                        SNR    5 dB  Lärm urbansound8k_engine_idling/engine_idling_04
+S02_de_cl_cs_snr0.wav                        SNR    0 dB  Lärm roadwork_open-noise/roadwork__b_eventful
+S02_de_cl_pl_snr20.wav                       SNR   20 dB  Lärm street_traffic_DEMAND/ch01
+S02_de_cl_pl_snr10.wav                       SNR   10 dB  Lärm urbansound8k_drilling/drilling_03
+S02_de_cl_pl_snr5.wav                        SNR    5 dB  Lärm urbansound8k_jackhammer/jackhammer_03
+S02_de_cl_pl_snr0.wav                        SNR    0 dB  Lärm urbansound8k_jackhammer/jackhammer_02
+S02_de_cl_sk_snr20.wav                       SNR   20 dB  Lärm urbansound8k_jackhammer/jackhammer_04
+S02_de_cl_sk_snr10.wav                       SNR   10 dB  Lärm urbansound8k_jackhammer/jackhammer_03
+S02_de_cl_sk_snr5.wav                        SNR    5 dB  Lärm urbansound8k_engine_idling/engine_idling_04
+S02_de_cl_sk_snr0.wav                        SNR    0 dB  Lärm roadwork_open-noise/roadwork__c_dynamic
+S02_de_cl_ru_snr20.wav                       SNR   20 dB  Lärm street_traffic_DEMAND/ch01
+S02_de_cl_ru_snr10.wav                       SNR   10 dB  Lärm roadwork_open-noise/roadwork__c_dynamic
+S02_de_cl_ru_snr5.wav                        SNR    5 dB  Lärm roadwork_open-noise/roadwork__a_steady
+S02_de_cl_ru_snr0.wav                        SNR    0 dB  Lärm street_traffic_DEMAND/ch01
+S02_de_cl_hu_snr20.wav                       SNR   20 dB  Lärm urbansound8k_jackhammer/jackhammer_04
+S02_de_cl_hu_snr10.wav                       SNR   10 dB  Lärm urbansound8k_jackhammer/jackhammer_01
+S02_de_cl_hu_snr5.wav                        SNR    5 dB  Lärm street_traffic_DEMAND/ch01
+S02_de_cl_hu_snr0.wav                        SNR    0 dB  Lärm urbansound8k_jackhammer/jackhammer_01
+S02_de_cl_bg_snr20.wav                       SNR   20 dB  Lärm street_traffic_DEMAND/ch01
+S02_de_cl_bg_snr10.wav                       SNR   10 dB  Lärm roadwork_open-noise/roadwork__b_eventful
+S02_de_cl_bg_snr5.wav                        SNR    5 dB  Lärm urbansound8k_drilling/drilling_04
+S02_de_cl_bg_snr0.wav                        SNR    0 dB  Lärm urbansound8k_engine_idling/engine_idling_03
+S02_de_cl_ar_snr20.wav                       SNR   20 dB  Lärm urbansound8k_drilling/drilling_04
+S02_de_cl_ar_snr10.wav                       SNR   10 dB  Lärm urbansound8k_jackhammer/jackhammer_04
+S02_de_cl_ar_snr5.wav                        SNR    5 dB  Lärm urbansound8k_drilling/drilling_03
+S02_de_cl_ar_snr0.wav                        SNR    0 dB  Lärm roadwork_open-noise/roadwork__a_steady
+S02_tr_tts0_snr20.wav                        SNR   20 dB  Lärm urbansound8k_drilling/drilling_00
+S02_tr_tts0_snr10.wav                        SNR   10 dB  Lärm urbansound8k_drilling/drilling_04
+S02_tr_tts0_snr5.wav                         SNR    5 dB  Lärm street_traffic_DEMAND/ch01
+S02_tr_tts0_snr0.wav                         SNR    0 dB  Lärm urbansound8k_jackhammer/jackhammer_03
+S02_tr_tts1_snr20.wav                        SNR   20 dB  Lärm street_traffic_DEMAND/ch01
+S02_tr_tts1_snr10.wav                        SNR   10 dB  Lärm roadwork_open-noise/roadwork__b_eventful
+S02_tr_tts1_snr5.wav                         SNR    5 dB  Lärm urbansound8k_jackhammer/jackhammer_01
+S02_tr_tts1_snr0.wav                         SNR    0 dB  Lärm urbansound8k_engine_idling/engine_idling_01
+S03_de_tts0_snr20.wav                        SNR   20 dB  Lärm street_traffic_DEMAND/ch01
+S03_de_tts0_snr10.wav                        SNR   10 dB  Lärm roadwork_open-noise/roadwork__b_eventful
+S03_de_tts0_snr5.wav                         SNR    5 dB  Lärm street_traffic_DEMAND/ch01
+S03_de_tts0_snr0.wav                         SNR    0 dB  Lärm urbansound8k_jackhammer/jackhammer_04
+S03_de_tts1_snr20.wav                        SNR   20 dB  Lärm roadwork_open-noise/roadwork__c_dynamic
+S03_de_tts1_snr10.wav                        SNR   10 dB  Lärm urbansound8k_jackhammer/jackhammer_02
+S03_de_tts1_snr5.wav                         SNR    5 dB  Lärm urbansound8k_drilling/drilling_02
+S03_de_tts1_snr0.wav                         SNR    0 dB  Lärm street_traffic_DEMAND/ch01
+S03_de_cl_tr_snr20.wav                       SNR   20 dB  Lärm roadwork_open-noise/roadwork__c_dynamic
+S03_de_cl_tr_snr10.wav                       SNR   10 dB  Lärm urbansound8k_drilling/drilling_01
+S03_de_cl_tr_snr5.wav                        SNR    5 dB  Lärm urbansound8k_drilling/drilling_03
+S03_de_cl_tr_snr0.wav                        SNR    0 dB  Lärm roadwork_open-noise/roadwork__c_dynamic
+S03_de_cl_cs_snr20.wav                       SNR   20 dB  Lärm urbansound8k_engine_idling/engine_idling_02
+S03_de_cl_cs_snr10.wav                       SNR   10 dB  Lärm urbansound8k_engine_idling/engine_idling_03
+S03_de_cl_cs_snr5.wav                        SNR    5 dB  Lärm urbansound8k_jackhammer/jackhammer_03
+S03_de_cl_cs_snr0.wav                        SNR    0 dB  Lärm roadwork_open-noise/roadwork__c_dynamic
+S03_de_cl_pl_snr20.wav                       SNR   20 dB  Lärm urbansound8k_engine_idling/engine_idling_04
+S03_de_cl_pl_snr10.wav                       SNR   10 dB  Lärm urbansound8k_jackhammer/jackhammer_04
+S03_de_cl_pl_snr5.wav                        SNR    5 dB  Lärm urbansound8k_jackhammer/jackhammer_04
+S03_de_cl_pl_snr0.wav                        SNR    0 dB  Lärm roadwork_open-noise/roadwork__a_steady
+S03_de_cl_sk_snr20.wav                       SNR   20 dB  Lärm urbansound8k_drilling/drilling_00
+S03_de_cl_sk_snr10.wav                       SNR   10 dB  Lärm street_traffic_DEMAND/ch01
+S03_de_cl_sk_snr5.wav                        SNR    5 dB  Lärm street_traffic_DEMAND/ch01
+S03_de_cl_sk_snr0.wav                        SNR    0 dB  Lärm roadwork_open-noise/roadwork__c_dynamic
+S03_de_cl_ru_snr20.wav                       SNR   20 dB  Lärm street_traffic_DEMAND/ch01
+S03_de_cl_ru_snr10.wav                       SNR   10 dB  Lärm street_traffic_DEMAND/ch01
+S03_de_cl_ru_snr5.wav                        SNR    5 dB  Lärm roadwork_open-noise/roadwork__a_steady
+S03_de_cl_ru_snr0.wav                        SNR    0 dB  Lärm urbansound8k_engine_idling/engine_idling_00
+S03_de_cl_hu_snr20.wav                       SNR   20 dB  Lärm urbansound8k_drilling/drilling_01
+S03_de_cl_hu_snr10.wav                       SNR   10 dB  Lärm urbansound8k_jackhammer/jackhammer_04
+S03_de_cl_hu_snr5.wav                        SNR    5 dB  Lärm urbansound8k_engine_idling/engine_idling_04
+S03_de_cl_hu_snr0.wav                        SNR    0 dB  Lärm urbansound8k_engine_idling/engine_idling_01
+S03_de_cl_bg_snr20.wav                       SNR   20 dB  Lärm street_traffic_DEMAND/ch01
+S03_de_cl_bg_snr10.wav                       SNR   10 dB  Lärm urbansound8k_engine_idling/engine_idling_02
+S03_de_cl_bg_snr5.wav                        SNR    5 dB  Lärm roadwork_open-noise/roadwork__a_steady
+S03_de_cl_bg_snr0.wav                        SNR    0 dB  Lärm urbansound8k_drilling/drilling_04
+S03_de_cl_ar_snr20.wav                       SNR   20 dB  Lärm urbansound8k_jackhammer/jackhammer_00
+S03_de_cl_ar_snr10.wav                       SNR   10 dB  Lärm urbansound8k_drilling/drilling_01
+S03_de_cl_ar_snr5.wav                        SNR    5 dB  Lärm street_traffic_DEMAND/ch01
+S03_de_cl_ar_snr0.wav                        SNR    0 dB  Lärm roadwork_open-noise/roadwork__a_steady
+S05_de_tts0_snr20.wav                        SNR   20 dB  Lärm roadwork_open-noise/roadwork__c_dynamic
+S05_de_tts0_snr10.wav                        SNR   10 dB  Lärm street_traffic_DEMAND/ch01
+S05_de_tts0_snr5.wav                         SNR    5 dB  Lärm urbansound8k_jackhammer/jackhammer_02
+S05_de_tts0_snr0.wav                         SNR    0 dB  Lärm street_traffic_DEMAND/ch01
+S05_de_tts1_snr20.wav                        SNR   20 dB  Lärm urbansound8k_jackhammer/jackhammer_03
+S05_de_tts1_snr10.wav                        SNR   10 dB  Lärm urbansound8k_jackhammer/jackhammer_02
+S05_de_tts1_snr5.wav                         SNR    5 dB  Lärm urbansound8k_drilling/drilling_02
+S05_de_tts1_snr0.wav                         SNR    0 dB  Lärm urbansound8k_engine_idling/engine_idling_01
+S05_de_cl_tr_snr20.wav                       SNR   20 dB  Lärm urbansound8k_engine_idling/engine_idling_00
+S05_de_cl_tr_snr10.wav                       SNR   10 dB  Lärm urbansound8k_engine_idling/engine_idling_00
+S05_de_cl_tr_snr5.wav                        SNR    5 dB  Lärm urbansound8k_jackhammer/jackhammer_04
+S05_de_cl_tr_snr0.wav                        SNR    0 dB  Lärm urbansound8k_jackhammer/jackhammer_01
+S05_de_cl_cs_snr20.wav                       SNR   20 dB  Lärm roadwork_open-noise/roadwork__c_dynamic
+S05_de_cl_cs_snr10.wav                       SNR   10 dB  Lärm urbansound8k_jackhammer/jackhammer_02
+S05_de_cl_cs_snr5.wav                        SNR    5 dB  Lärm roadwork_open-noise/roadwork__a_steady
+S05_de_cl_cs_snr0.wav                        SNR    0 dB  Lärm roadwork_open-noise/roadwork__b_eventful
+S05_de_cl_pl_snr20.wav                       SNR   20 dB  Lärm urbansound8k_engine_idling/engine_idling_01
+S05_de_cl_pl_snr10.wav                       SNR   10 dB  Lärm urbansound8k_drilling/drilling_03
+S05_de_cl_pl_snr5.wav                        SNR    5 dB  Lärm urbansound8k_jackhammer/jackhammer_01
+S05_de_cl_pl_snr0.wav                        SNR    0 dB  Lärm street_traffic_DEMAND/ch01
+S05_de_cl_sk_snr20.wav                       SNR   20 dB  Lärm urbansound8k_drilling/drilling_04
+S05_de_cl_sk_snr10.wav                       SNR   10 dB  Lärm urbansound8k_drilling/drilling_00
+S05_de_cl_sk_snr5.wav                        SNR    5 dB  Lärm street_traffic_DEMAND/ch01
+S05_de_cl_sk_snr0.wav                        SNR    0 dB  Lärm roadwork_open-noise/roadwork__a_steady
+S05_de_cl_ru_snr20.wav                       SNR   20 dB  Lärm urbansound8k_engine_idling/engine_idling_04
+S05_de_cl_ru_snr10.wav                       SNR   10 dB  Lärm street_traffic_DEMAND/ch01
+S05_de_cl_ru_snr5.wav                        SNR    5 dB  Lärm street_traffic_DEMAND/ch01
+S05_de_cl_ru_snr0.wav                        SNR    0 dB  Lärm urbansound8k_drilling/drilling_01
+S05_de_cl_hu_snr20.wav                       SNR   20 dB  Lärm urbansound8k_engine_idling/engine_idling_01
+S05_de_cl_hu_snr10.wav                       SNR   10 dB  Lärm street_traffic_DEMAND/ch01
+S05_de_cl_hu_snr5.wav                        SNR    5 dB  Lärm urbansound8k_drilling/drilling_02
+S05_de_cl_hu_snr0.wav                        SNR    0 dB  Lärm street_traffic_DEMAND/ch01
+S05_de_cl_bg_snr20.wav                       SNR   20 dB  Lärm urbansound8k_engine_idling/engine_idling_02
+S05_de_cl_bg_snr10.wav                       SNR   10 dB  Lärm street_traffic_DEMAND/ch01
+S05_de_cl_bg_snr5.wav                        SNR    5 dB  Lärm roadwork_open-noise/roadwork__a_steady
+S05_de_cl_bg_snr0.wav                        SNR    0 dB  Lärm urbansound8k_jackhammer/jackhammer_00
+S05_de_cl_ar_snr20.wav                       SNR   20 dB  Lärm roadwork_open-noise/roadwork__c_dynamic
+S05_de_cl_ar_snr10.wav                       SNR   10 dB  Lärm urbansound8k_engine_idling/engine_idling_00
+S05_de_cl_ar_snr5.wav                        SNR    5 dB  Lärm urbansound8k_jackhammer/jackhammer_03
+S05_de_cl_ar_snr0.wav                        SNR    0 dB  Lärm urbansound8k_jackhammer/jackhammer_01
+S05_pl_tts0_snr20.wav                        SNR   20 dB  Lärm urbansound8k_jackhammer/jackhammer_02
+S05_pl_tts0_snr10.wav                        SNR   10 dB  Lärm urbansound8k_jackhammer/jackhammer_00
+S05_pl_tts0_snr5.wav                         SNR    5 dB  Lärm urbansound8k_drilling/drilling_00
+S05_pl_tts0_snr0.wav                         SNR    0 dB  Lärm urbansound8k_jackhammer/jackhammer_01
+S05_pl_tts1_snr20.wav                        SNR   20 dB  Lärm urbansound8k_engine_idling/engine_idling_02
+S05_pl_tts1_snr10.wav                        SNR   10 dB  Lärm urbansound8k_engine_idling/engine_idling_03
+S05_pl_tts1_snr5.wav                         SNR    5 dB  Lärm urbansound8k_engine_idling/engine_idling_02
+S05_pl_tts1_snr0.wav                         SNR    0 dB  Lärm urbansound8k_jackhammer/jackhammer_03
+S06_de_tts0_snr20.wav                        SNR   20 dB  Lärm street_traffic_DEMAND/ch01
+S06_de_tts0_snr10.wav                        SNR   10 dB  Lärm roadwork_open-noise/roadwork__a_steady
+S06_de_tts0_snr5.wav                         SNR    5 dB  Lärm urbansound8k_jackhammer/jackhammer_03
+S06_de_tts0_snr0.wav                         SNR    0 dB  Lärm roadwork_open-noise/roadwork__a_steady
+S06_de_tts1_snr20.wav                        SNR   20 dB  Lärm urbansound8k_engine_idling/engine_idling_02
+S06_de_tts1_snr10.wav                        SNR   10 dB  Lärm urbansound8k_engine_idling/engine_idling_03
+S06_de_tts1_snr5.wav                         SNR    5 dB  Lärm urbansound8k_drilling/drilling_00
+S06_de_tts1_snr0.wav                         SNR    0 dB  Lärm roadwork_open-noise/roadwork__a_steady
+S06_de_cl_tr_snr20.wav                       SNR   20 dB  Lärm urbansound8k_drilling/drilling_03
+S06_de_cl_tr_snr10.wav                       SNR   10 dB  Lärm urbansound8k_engine_idling/engine_idling_02
+S06_de_cl_tr_snr5.wav                        SNR    5 dB  Lärm urbansound8k_engine_idling/engine_idling_04
+S06_de_cl_tr_snr0.wav                        SNR    0 dB  Lärm urbansound8k_jackhammer/jackhammer_00
+S06_de_cl_cs_snr20.wav                       SNR   20 dB  Lärm urbansound8k_engine_idling/engine_idling_01
+S06_de_cl_cs_snr10.wav                       SNR   10 dB  Lärm urbansound8k_engine_idling/engine_idling_00
+S06_de_cl_cs_snr5.wav                        SNR    5 dB  Lärm urbansound8k_jackhammer/jackhammer_03
+S06_de_cl_cs_snr0.wav                        SNR    0 dB  Lärm urbansound8k_engine_idling/engine_idling_01
+S06_de_cl_pl_snr20.wav                       SNR   20 dB  Lärm street_traffic_DEMAND/ch01
+S06_de_cl_pl_snr10.wav                       SNR   10 dB  Lärm roadwork_open-noise/roadwork__b_eventful
+S06_de_cl_pl_snr5.wav                        SNR    5 dB  Lärm urbansound8k_drilling/drilling_02
+S06_de_cl_pl_snr0.wav                        SNR    0 dB  Lärm street_traffic_DEMAND/ch01
+S06_de_cl_sk_snr20.wav                       SNR   20 dB  Lärm urbansound8k_drilling/drilling_02
+S06_de_cl_sk_snr10.wav                       SNR   10 dB  Lärm street_traffic_DEMAND/ch01
+S06_de_cl_sk_snr5.wav                        SNR    5 dB  Lärm urbansound8k_drilling/drilling_00
+S06_de_cl_sk_snr0.wav                        SNR    0 dB  Lärm urbansound8k_engine_idling/engine_idling_01
+S06_de_cl_ru_snr20.wav                       SNR   20 dB  Lärm urbansound8k_jackhammer/jackhammer_01
+S06_de_cl_ru_snr10.wav                       SNR   10 dB  Lärm street_traffic_DEMAND/ch01
+S06_de_cl_ru_snr5.wav                        SNR    5 dB  Lärm urbansound8k_engine_idling/engine_idling_00
+S06_de_cl_ru_snr0.wav                        SNR    0 dB  Lärm urbansound8k_engine_idling/engine_idling_04
+S06_de_cl_hu_snr20.wav                       SNR   20 dB  Lärm roadwork_open-noise/roadwork__a_steady
+S06_de_cl_hu_snr10.wav                       SNR   10 dB  Lärm urbansound8k_engine_idling/engine_idling_04
+S06_de_cl_hu_snr5.wav                        SNR    5 dB  Lärm street_traffic_DEMAND/ch01
+S06_de_cl_hu_snr0.wav                        SNR    0 dB  Lärm street_traffic_DEMAND/ch01
+S06_de_cl_bg_snr20.wav                       SNR   20 dB  Lärm urbansound8k_drilling/drilling_00
+S06_de_cl_bg_snr10.wav                       SNR   10 dB  Lärm urbansound8k_jackhammer/jackhammer_00
+S06_de_cl_bg_snr5.wav                        SNR    5 dB  Lärm roadwork_open-noise/roadwork__a_steady
+S06_de_cl_bg_snr0.wav                        SNR    0 dB  Lärm urbansound8k_drilling/drilling_04
+S06_de_cl_ar_snr20.wav                       SNR   20 dB  Lärm urbansound8k_jackhammer/jackhammer_03
+S06_de_cl_ar_snr10.wav                       SNR   10 dB  Lärm roadwork_open-noise/roadwork__b_eventful
+S06_de_cl_ar_snr5.wav                        SNR    5 dB  Lärm urbansound8k_engine_idling/engine_idling_01
+S06_de_cl_ar_snr0.wav                        SNR    0 dB  Lärm urbansound8k_engine_idling/engine_idling_00
+S07_de_tts0_snr20.wav                        SNR   20 dB  Lärm street_traffic_DEMAND/ch01
+S07_de_tts0_snr10.wav                        SNR   10 dB  Lärm roadwork_open-noise/roadwork__a_steady
+S07_de_tts0_snr5.wav                         SNR    5 dB  Lärm street_traffic_DEMAND/ch01
+S07_de_tts0_snr0.wav                         SNR    0 dB  Lärm street_traffic_DEMAND/ch01
+S07_de_tts1_snr20.wav                        SNR   20 dB  Lärm urbansound8k_engine_idling/engine_idling_01
+S07_de_tts1_snr10.wav                        SNR   10 dB  Lärm urbansound8k_engine_idling/engine_idling_00
+S07_de_tts1_snr5.wav                         SNR    5 dB  Lärm urbansound8k_jackhammer/jackhammer_01
+S07_de_tts1_snr0.wav                         SNR    0 dB  Lärm street_traffic_DEMAND/ch01
+S07_de_cl_tr_snr20.wav                       SNR   20 dB  Lärm urbansound8k_engine_idling/engine_idling_01
+S07_de_cl_tr_snr10.wav                       SNR   10 dB  Lärm street_traffic_DEMAND/ch01
+S07_de_cl_tr_snr5.wav                        SNR    5 dB  Lärm street_traffic_DEMAND/ch01
+S07_de_cl_tr_snr0.wav                        SNR    0 dB  Lärm roadwork_open-noise/roadwork__b_eventful
+S07_de_cl_cs_snr20.wav                       SNR   20 dB  Lärm urbansound8k_jackhammer/jackhammer_02
+S07_de_cl_cs_snr10.wav                       SNR   10 dB  Lärm roadwork_open-noise/roadwork__a_steady
+S07_de_cl_cs_snr5.wav                        SNR    5 dB  Lärm urbansound8k_drilling/drilling_04
+S07_de_cl_cs_snr0.wav                        SNR    0 dB  Lärm urbansound8k_drilling/drilling_04
+S07_de_cl_pl_snr20.wav                       SNR   20 dB  Lärm roadwork_open-noise/roadwork__c_dynamic
+S07_de_cl_pl_snr10.wav                       SNR   10 dB  Lärm street_traffic_DEMAND/ch01
+S07_de_cl_pl_snr5.wav                        SNR    5 dB  Lärm urbansound8k_drilling/drilling_03
+S07_de_cl_pl_snr0.wav                        SNR    0 dB  Lärm urbansound8k_jackhammer/jackhammer_02
+S07_de_cl_sk_snr20.wav                       SNR   20 dB  Lärm urbansound8k_engine_idling/engine_idling_02
+S07_de_cl_sk_snr10.wav                       SNR   10 dB  Lärm urbansound8k_jackhammer/jackhammer_01
+S07_de_cl_sk_snr5.wav                        SNR    5 dB  Lärm urbansound8k_engine_idling/engine_idling_00
+S07_de_cl_sk_snr0.wav                        SNR    0 dB  Lärm street_traffic_DEMAND/ch01
+S07_de_cl_ru_snr20.wav                       SNR   20 dB  Lärm street_traffic_DEMAND/ch01
+S07_de_cl_ru_snr10.wav                       SNR   10 dB  Lärm street_traffic_DEMAND/ch01
+S07_de_cl_ru_snr5.wav                        SNR    5 dB  Lärm urbansound8k_drilling/drilling_04
+S07_de_cl_ru_snr0.wav                        SNR    0 dB  Lärm urbansound8k_jackhammer/jackhammer_01
+S07_de_cl_hu_snr20.wav                       SNR   20 dB  Lärm urbansound8k_engine_idling/engine_idling_04
+S07_de_cl_hu_snr10.wav                       SNR   10 dB  Lärm street_traffic_DEMAND/ch01
+S07_de_cl_hu_snr5.wav                        SNR    5 dB  Lärm urbansound8k_drilling/drilling_02
+S07_de_cl_hu_snr0.wav                        SNR    0 dB  Lärm urbansound8k_drilling/drilling_04
+S07_de_cl_bg_snr20.wav                       SNR   20 dB  Lärm roadwork_open-noise/roadwork__c_dynamic
+S07_de_cl_bg_snr10.wav                       SNR   10 dB  Lärm street_traffic_DEMAND/ch01
+S07_de_cl_bg_snr5.wav                        SNR    5 dB  Lärm urbansound8k_jackhammer/jackhammer_00
+S07_de_cl_bg_snr0.wav                        SNR    0 dB  Lärm street_traffic_DEMAND/ch01
+S07_de_cl_ar_snr20.wav                       SNR   20 dB  Lärm urbansound8k_drilling/drilling_04
+S07_de_cl_ar_snr10.wav                       SNR   10 dB  Lärm roadwork_open-noise/roadwork__c_dynamic
+S07_de_cl_ar_snr5.wav                        SNR    5 dB  Lärm urbansound8k_jackhammer/jackhammer_04
+S07_de_cl_ar_snr0.wav                        SNR    0 dB  Lärm urbansound8k_jackhammer/jackhammer_03
+S08_de_tts0_snr20.wav                        SNR   20 dB  Lärm urbansound8k_jackhammer/jackhammer_03
+S08_de_tts0_snr10.wav                        SNR   10 dB  Lärm urbansound8k_jackhammer/jackhammer_03
+S08_de_tts0_snr5.wav                         SNR    5 dB  Lärm street_traffic_DEMAND/ch01
+S08_de_tts0_snr0.wav                         SNR    0 dB  Lärm roadwork_open-noise/roadwork__a_steady
+S08_de_tts1_snr20.wav                        SNR   20 dB  Lärm urbansound8k_engine_idling/engine_idling_00
+S08_de_tts1_snr10.wav                        SNR   10 dB  Lärm urbansound8k_jackhammer/jackhammer_04
+S08_de_tts1_snr5.wav                         SNR    5 dB  Lärm urbansound8k_jackhammer/jackhammer_01
+S08_de_tts1_snr0.wav                         SNR    0 dB  Lärm urbansound8k_jackhammer/jackhammer_02
+S08_de_cl_tr_snr20.wav                       SNR   20 dB  Lärm street_traffic_DEMAND/ch01
+S08_de_cl_tr_snr10.wav                       SNR   10 dB  Lärm street_traffic_DEMAND/ch01
+S08_de_cl_tr_snr5.wav                        SNR    5 dB  Lärm roadwork_open-noise/roadwork__c_dynamic
+S08_de_cl_tr_snr0.wav                        SNR    0 dB  Lärm urbansound8k_drilling/drilling_02
+S08_de_cl_cs_snr20.wav                       SNR   20 dB  Lärm roadwork_open-noise/roadwork__a_steady
+S08_de_cl_cs_snr10.wav                       SNR   10 dB  Lärm urbansound8k_jackhammer/jackhammer_02
+S08_de_cl_cs_snr5.wav                        SNR    5 dB  Lärm urbansound8k_jackhammer/jackhammer_03
+S08_de_cl_cs_snr0.wav                        SNR    0 dB  Lärm urbansound8k_jackhammer/jackhammer_01
+S08_de_cl_pl_snr20.wav                       SNR   20 dB  Lärm street_traffic_DEMAND/ch01
+S08_de_cl_pl_snr10.wav                       SNR   10 dB  Lärm roadwork_open-noise/roadwork__c_dynamic
+S08_de_cl_pl_snr5.wav                        SNR    5 dB  Lärm urbansound8k_jackhammer/jackhammer_03
+S08_de_cl_pl_snr0.wav                        SNR    0 dB  Lärm urbansound8k_drilling/drilling_03
+S08_de_cl_sk_snr20.wav                       SNR   20 dB  Lärm street_traffic_DEMAND/ch01
+S08_de_cl_sk_snr10.wav                       SNR   10 dB  Lärm urbansound8k_drilling/drilling_02
+S08_de_cl_sk_snr5.wav                        SNR    5 dB  Lärm roadwork_open-noise/roadwork__a_steady
+S08_de_cl_sk_snr0.wav                        SNR    0 dB  Lärm urbansound8k_engine_idling/engine_idling_03
+S08_de_cl_ru_snr20.wav                       SNR   20 dB  Lärm urbansound8k_engine_idling/engine_idling_04
+S08_de_cl_ru_snr10.wav                       SNR   10 dB  Lärm urbansound8k_drilling/drilling_02
+S08_de_cl_ru_snr5.wav                        SNR    5 dB  Lärm roadwork_open-noise/roadwork__c_dynamic
+S08_de_cl_ru_snr0.wav                        SNR    0 dB  Lärm urbansound8k_drilling/drilling_04
+S08_de_cl_hu_snr20.wav                       SNR   20 dB  Lärm urbansound8k_jackhammer/jackhammer_00
+S08_de_cl_hu_snr10.wav                       SNR   10 dB  Lärm urbansound8k_drilling/drilling_02
+S08_de_cl_hu_snr5.wav                        SNR    5 dB  Lärm roadwork_open-noise/roadwork__c_dynamic
+S08_de_cl_hu_snr0.wav                        SNR    0 dB  Lärm roadwork_open-noise/roadwork__c_dynamic
+S08_de_cl_bg_snr20.wav                       SNR   20 dB  Lärm roadwork_open-noise/roadwork__b_eventful
+S08_de_cl_bg_snr10.wav                       SNR   10 dB  Lärm urbansound8k_drilling/drilling_03
+S08_de_cl_bg_snr5.wav                        SNR    5 dB  Lärm urbansound8k_engine_idling/engine_idling_02
+S08_de_cl_bg_snr0.wav                        SNR    0 dB  Lärm street_traffic_DEMAND/ch01
+S08_de_cl_ar_snr20.wav                       SNR   20 dB  Lärm roadwork_open-noise/roadwork__a_steady
+S08_de_cl_ar_snr10.wav                       SNR   10 dB  Lärm urbansound8k_drilling/drilling_00
+S08_de_cl_ar_snr5.wav                        SNR    5 dB  Lärm urbansound8k_drilling/drilling_04
+S08_de_cl_ar_snr0.wav                        SNR    0 dB  Lärm urbansound8k_jackhammer/jackhammer_03
+418 Manifest-Zeilen → data/asr_eval/noisy/manifest.jsonl
+136 Sprachdateien · Lärm: echt (roadwork_open-noise, street_traffic_DEMAND, urbansound8k_drilling, urbansound8k_engine_idling, urbansound8k_jackhammer)
+de_cv_ar-L1_044_snr20.wav                    SNR   20 dB  Lärm urbansound8k_jackhammer/jackhammer_03
+de_cv_ar-L1_044_snr10.wav                    SNR   10 dB  Lärm urbansound8k_jackhammer/jackhammer_02
+de_cv_ar-L1_044_snr5.wav                     SNR    5 dB  Lärm urbansound8k_jackhammer/jackhammer_01
+de_cv_ar-L1_044_snr0.wav                     SNR    0 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_ar-L1_045_snr20.wav                    SNR   20 dB  Lärm urbansound8k_jackhammer/jackhammer_04
+de_cv_ar-L1_045_snr10.wav                    SNR   10 dB  Lärm urbansound8k_drilling/drilling_04
+de_cv_ar-L1_045_snr5.wav                     SNR    5 dB  Lärm urbansound8k_engine_idling/engine_idling_00
+de_cv_ar-L1_045_snr0.wav                     SNR    0 dB  Lärm urbansound8k_jackhammer/jackhammer_01
+de_cv_ar-L1_046_snr20.wav                    SNR   20 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_ar-L1_046_snr10.wav                    SNR   10 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_ar-L1_046_snr5.wav                     SNR    5 dB  Lärm urbansound8k_drilling/drilling_02
+de_cv_ar-L1_046_snr0.wav                     SNR    0 dB  Lärm urbansound8k_drilling/drilling_02
+de_cv_ar-L1_047_snr20.wav                    SNR   20 dB  Lärm urbansound8k_jackhammer/jackhammer_04
+de_cv_ar-L1_047_snr10.wav                    SNR   10 dB  Lärm urbansound8k_engine_idling/engine_idling_03
+de_cv_ar-L1_047_snr5.wav                     SNR    5 dB  Lärm urbansound8k_jackhammer/jackhammer_02
+de_cv_ar-L1_047_snr0.wav                     SNR    0 dB  Lärm urbansound8k_jackhammer/jackhammer_00
+de_cv_bg-L1_033_snr20.wav                    SNR   20 dB  Lärm urbansound8k_engine_idling/engine_idling_00
+de_cv_bg-L1_033_snr10.wav                    SNR   10 dB  Lärm urbansound8k_drilling/drilling_00
+de_cv_bg-L1_033_snr5.wav                     SNR    5 dB  Lärm urbansound8k_drilling/drilling_04
+de_cv_bg-L1_033_snr0.wav                     SNR    0 dB  Lärm urbansound8k_jackhammer/jackhammer_04
+de_cv_bg-L1_034_snr20.wav                    SNR   20 dB  Lärm urbansound8k_engine_idling/engine_idling_02
+de_cv_bg-L1_034_snr10.wav                    SNR   10 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_bg-L1_034_snr5.wav                     SNR    5 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_bg-L1_034_snr0.wav                     SNR    0 dB  Lärm urbansound8k_jackhammer/jackhammer_00
+de_cv_bg-L1_035_snr20.wav                    SNR   20 dB  Lärm roadwork_open-noise/roadwork__c_dynamic
+de_cv_bg-L1_035_snr10.wav                    SNR   10 dB  Lärm urbansound8k_jackhammer/jackhammer_01
+de_cv_bg-L1_035_snr5.wav                     SNR    5 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_bg-L1_035_snr0.wav                     SNR    0 dB  Lärm roadwork_open-noise/roadwork__b_eventful
+de_cv_bg-L1_036_snr20.wav                    SNR   20 dB  Lärm urbansound8k_engine_idling/engine_idling_00
+de_cv_bg-L1_036_snr10.wav                    SNR   10 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_bg-L1_036_snr5.wav                     SNR    5 dB  Lärm urbansound8k_jackhammer/jackhammer_00
+de_cv_bg-L1_036_snr0.wav                     SNR    0 dB  Lärm urbansound8k_jackhammer/jackhammer_04
+de_cv_cs-L1_014_snr20.wav                    SNR   20 dB  Lärm urbansound8k_engine_idling/engine_idling_00
+de_cv_cs-L1_014_snr10.wav                    SNR   10 dB  Lärm urbansound8k_drilling/drilling_00
+de_cv_cs-L1_014_snr5.wav                     SNR    5 dB  Lärm urbansound8k_drilling/drilling_03
+de_cv_cs-L1_014_snr0.wav                     SNR    0 dB  Lärm urbansound8k_engine_idling/engine_idling_04
+de_cv_cs-L1_015_snr20.wav                    SNR   20 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_cs-L1_015_snr10.wav                    SNR   10 dB  Lärm urbansound8k_drilling/drilling_00
+de_cv_cs-L1_015_snr5.wav                     SNR    5 dB  Lärm urbansound8k_engine_idling/engine_idling_01
+de_cv_cs-L1_015_snr0.wav                     SNR    0 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_cs-L1_016_snr20.wav                    SNR   20 dB  Lärm roadwork_open-noise/roadwork__b_eventful
+de_cv_cs-L1_016_snr10.wav                    SNR   10 dB  Lärm urbansound8k_drilling/drilling_01
+de_cv_cs-L1_016_snr5.wav                     SNR    5 dB  Lärm urbansound8k_jackhammer/jackhammer_01
+de_cv_cs-L1_016_snr0.wav                     SNR    0 dB  Lärm urbansound8k_drilling/drilling_03
+de_cv_cs-L1_017_snr20.wav                    SNR   20 dB  Lärm urbansound8k_engine_idling/engine_idling_02
+de_cv_cs-L1_017_snr10.wav                    SNR   10 dB  Lärm urbansound8k_jackhammer/jackhammer_00
+de_cv_cs-L1_017_snr5.wav                     SNR    5 dB  Lärm urbansound8k_drilling/drilling_01
+de_cv_cs-L1_017_snr0.wav                     SNR    0 dB  Lärm roadwork_open-noise/roadwork__b_eventful
+de_cv_cs-L1_023_snr20.wav                    SNR   20 dB  Lärm roadwork_open-noise/roadwork__b_eventful
+de_cv_cs-L1_023_snr10.wav                    SNR   10 dB  Lärm urbansound8k_jackhammer/jackhammer_01
+de_cv_cs-L1_023_snr5.wav                     SNR    5 dB  Lärm urbansound8k_engine_idling/engine_idling_00
+de_cv_cs-L1_023_snr0.wav                     SNR    0 dB  Lärm urbansound8k_drilling/drilling_04
+de_cv_cs-L1_024_snr20.wav                    SNR   20 dB  Lärm urbansound8k_engine_idling/engine_idling_02
+de_cv_cs-L1_024_snr10.wav                    SNR   10 dB  Lärm urbansound8k_jackhammer/jackhammer_04
+de_cv_cs-L1_024_snr5.wav                     SNR    5 dB  Lärm urbansound8k_jackhammer/jackhammer_03
+de_cv_cs-L1_024_snr0.wav                     SNR    0 dB  Lärm urbansound8k_jackhammer/jackhammer_02
+de_cv_cs-L1_086_snr20.wav                    SNR   20 dB  Lärm roadwork_open-noise/roadwork__b_eventful
+de_cv_cs-L1_086_snr10.wav                    SNR   10 dB  Lärm urbansound8k_engine_idling/engine_idling_04
+de_cv_cs-L1_086_snr5.wav                     SNR    5 dB  Lärm urbansound8k_drilling/drilling_00
+de_cv_cs-L1_086_snr0.wav                     SNR    0 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_cs-L1_087_snr20.wav                    SNR   20 dB  Lärm urbansound8k_jackhammer/jackhammer_03
+de_cv_cs-L1_087_snr10.wav                    SNR   10 dB  Lärm urbansound8k_drilling/drilling_00
+de_cv_cs-L1_087_snr5.wav                     SNR    5 dB  Lärm urbansound8k_jackhammer/jackhammer_02
+de_cv_cs-L1_087_snr0.wav                     SNR    0 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_cs-L1_088_snr20.wav                    SNR   20 dB  Lärm roadwork_open-noise/roadwork__c_dynamic
+de_cv_cs-L1_088_snr10.wav                    SNR   10 dB  Lärm urbansound8k_drilling/drilling_02
+de_cv_cs-L1_088_snr5.wav                     SNR    5 dB  Lärm urbansound8k_drilling/drilling_02
+de_cv_cs-L1_088_snr0.wav                     SNR    0 dB  Lärm urbansound8k_drilling/drilling_03
+de_cv_cs-L1_089_snr20.wav                    SNR   20 dB  Lärm roadwork_open-noise/roadwork__c_dynamic
+de_cv_cs-L1_089_snr10.wav                    SNR   10 dB  Lärm urbansound8k_jackhammer/jackhammer_00
+de_cv_cs-L1_089_snr5.wav                     SNR    5 dB  Lärm roadwork_open-noise/roadwork__b_eventful
+de_cv_cs-L1_089_snr0.wav                     SNR    0 dB  Lärm roadwork_open-noise/roadwork__b_eventful
+de_cv_cs-L1_090_snr20.wav                    SNR   20 dB  Lärm urbansound8k_drilling/drilling_00
+de_cv_cs-L1_090_snr10.wav                    SNR   10 dB  Lärm urbansound8k_drilling/drilling_04
+de_cv_cs-L1_090_snr5.wav                     SNR    5 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_cs-L1_090_snr0.wav                     SNR    0 dB  Lärm urbansound8k_drilling/drilling_01
+de_cv_cs-L1_091_snr20.wav                    SNR   20 dB  Lärm urbansound8k_jackhammer/jackhammer_01
+de_cv_cs-L1_091_snr10.wav                    SNR   10 dB  Lärm urbansound8k_drilling/drilling_02
+de_cv_cs-L1_091_snr5.wav                     SNR    5 dB  Lärm urbansound8k_engine_idling/engine_idling_04
+de_cv_cs-L1_091_snr0.wav                     SNR    0 dB  Lärm roadwork_open-noise/roadwork__b_eventful
+de_cv_cs-L1_092_snr20.wav                    SNR   20 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_cs-L1_092_snr10.wav                    SNR   10 dB  Lärm urbansound8k_drilling/drilling_03
+de_cv_cs-L1_092_snr5.wav                     SNR    5 dB  Lärm urbansound8k_jackhammer/jackhammer_03
+de_cv_cs-L1_092_snr0.wav                     SNR    0 dB  Lärm urbansound8k_jackhammer/jackhammer_02
+de_cv_cs-L1_093_snr20.wav                    SNR   20 dB  Lärm urbansound8k_jackhammer/jackhammer_04
+de_cv_cs-L1_093_snr10.wav                    SNR   10 dB  Lärm urbansound8k_jackhammer/jackhammer_03
+de_cv_cs-L1_093_snr5.wav                     SNR    5 dB  Lärm urbansound8k_engine_idling/engine_idling_04
+de_cv_cs-L1_093_snr0.wav                     SNR    0 dB  Lärm roadwork_open-noise/roadwork__c_dynamic
+de_cv_cs-L1_094_snr20.wav                    SNR   20 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_cs-L1_094_snr10.wav                    SNR   10 dB  Lärm roadwork_open-noise/roadwork__c_dynamic
+de_cv_cs-L1_094_snr5.wav                     SNR    5 dB  Lärm roadwork_open-noise/roadwork__a_steady
+de_cv_cs-L1_094_snr0.wav                     SNR    0 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_cs-L1_095_snr20.wav                    SNR   20 dB  Lärm urbansound8k_jackhammer/jackhammer_04
+de_cv_cs-L1_095_snr10.wav                    SNR   10 dB  Lärm urbansound8k_jackhammer/jackhammer_01
+de_cv_cs-L1_095_snr5.wav                     SNR    5 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_cs-L1_095_snr0.wav                     SNR    0 dB  Lärm urbansound8k_jackhammer/jackhammer_01
+de_cv_cs-L1_108_snr20.wav                    SNR   20 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_cs-L1_108_snr10.wav                    SNR   10 dB  Lärm roadwork_open-noise/roadwork__b_eventful
+de_cv_cs-L1_108_snr5.wav                     SNR    5 dB  Lärm urbansound8k_drilling/drilling_04
+de_cv_cs-L1_108_snr0.wav                     SNR    0 dB  Lärm urbansound8k_engine_idling/engine_idling_03
+de_cv_cs-L1_109_snr20.wav                    SNR   20 dB  Lärm urbansound8k_drilling/drilling_04
+de_cv_cs-L1_109_snr10.wav                    SNR   10 dB  Lärm urbansound8k_jackhammer/jackhammer_04
+de_cv_cs-L1_109_snr5.wav                     SNR    5 dB  Lärm urbansound8k_drilling/drilling_03
+de_cv_cs-L1_109_snr0.wav                     SNR    0 dB  Lärm roadwork_open-noise/roadwork__a_steady
+de_cv_cs-L1_110_snr20.wav                    SNR   20 dB  Lärm urbansound8k_drilling/drilling_00
+de_cv_cs-L1_110_snr10.wav                    SNR   10 dB  Lärm urbansound8k_drilling/drilling_04
+de_cv_cs-L1_110_snr5.wav                     SNR    5 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_cs-L1_110_snr0.wav                     SNR    0 dB  Lärm urbansound8k_jackhammer/jackhammer_03
+de_cv_cs-L1_111_snr20.wav                    SNR   20 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_cs-L1_111_snr10.wav                    SNR   10 dB  Lärm roadwork_open-noise/roadwork__b_eventful
+de_cv_cs-L1_111_snr5.wav                     SNR    5 dB  Lärm urbansound8k_jackhammer/jackhammer_01
+de_cv_cs-L1_111_snr0.wav                     SNR    0 dB  Lärm urbansound8k_engine_idling/engine_idling_01
+de_cv_cs-L1_112_snr20.wav                    SNR   20 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_cs-L1_112_snr10.wav                    SNR   10 dB  Lärm roadwork_open-noise/roadwork__b_eventful
+de_cv_cs-L1_112_snr5.wav                     SNR    5 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_cs-L1_112_snr0.wav                     SNR    0 dB  Lärm urbansound8k_jackhammer/jackhammer_04
+de_cv_cs-L1_113_snr20.wav                    SNR   20 dB  Lärm roadwork_open-noise/roadwork__c_dynamic
+de_cv_cs-L1_113_snr10.wav                    SNR   10 dB  Lärm urbansound8k_jackhammer/jackhammer_02
+de_cv_cs-L1_113_snr5.wav                     SNR    5 dB  Lärm urbansound8k_drilling/drilling_02
+de_cv_cs-L1_113_snr0.wav                     SNR    0 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_de-L1_000_snr20.wav                    SNR   20 dB  Lärm roadwork_open-noise/roadwork__c_dynamic
+de_cv_de-L1_000_snr10.wav                    SNR   10 dB  Lärm urbansound8k_drilling/drilling_01
+de_cv_de-L1_000_snr5.wav                     SNR    5 dB  Lärm urbansound8k_drilling/drilling_03
+de_cv_de-L1_000_snr0.wav                     SNR    0 dB  Lärm roadwork_open-noise/roadwork__c_dynamic
+de_cv_de-L1_001_snr20.wav                    SNR   20 dB  Lärm urbansound8k_engine_idling/engine_idling_02
+de_cv_de-L1_001_snr10.wav                    SNR   10 dB  Lärm urbansound8k_engine_idling/engine_idling_03
+de_cv_de-L1_001_snr5.wav                     SNR    5 dB  Lärm urbansound8k_jackhammer/jackhammer_03
+de_cv_de-L1_001_snr0.wav                     SNR    0 dB  Lärm roadwork_open-noise/roadwork__c_dynamic
+de_cv_de-L1_002_snr20.wav                    SNR   20 dB  Lärm urbansound8k_engine_idling/engine_idling_04
+de_cv_de-L1_002_snr10.wav                    SNR   10 dB  Lärm urbansound8k_jackhammer/jackhammer_04
+de_cv_de-L1_002_snr5.wav                     SNR    5 dB  Lärm urbansound8k_jackhammer/jackhammer_04
+de_cv_de-L1_002_snr0.wav                     SNR    0 dB  Lärm roadwork_open-noise/roadwork__a_steady
+de_cv_de-L1_007_snr20.wav                    SNR   20 dB  Lärm urbansound8k_drilling/drilling_00
+de_cv_de-L1_007_snr10.wav                    SNR   10 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_de-L1_007_snr5.wav                     SNR    5 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_de-L1_007_snr0.wav                     SNR    0 dB  Lärm roadwork_open-noise/roadwork__c_dynamic
+de_cv_de-L1_008_snr20.wav                    SNR   20 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_de-L1_008_snr10.wav                    SNR   10 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_de-L1_008_snr5.wav                     SNR    5 dB  Lärm roadwork_open-noise/roadwork__a_steady
+de_cv_de-L1_008_snr0.wav                     SNR    0 dB  Lärm urbansound8k_engine_idling/engine_idling_00
+de_cv_de-L1_010_snr20.wav                    SNR   20 dB  Lärm urbansound8k_drilling/drilling_01
+de_cv_de-L1_010_snr10.wav                    SNR   10 dB  Lärm urbansound8k_jackhammer/jackhammer_04
+de_cv_de-L1_010_snr5.wav                     SNR    5 dB  Lärm urbansound8k_engine_idling/engine_idling_04
+de_cv_de-L1_010_snr0.wav                     SNR    0 dB  Lärm urbansound8k_engine_idling/engine_idling_01
+de_cv_de-L1_025_snr20.wav                    SNR   20 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_de-L1_025_snr10.wav                    SNR   10 dB  Lärm urbansound8k_engine_idling/engine_idling_02
+de_cv_de-L1_025_snr5.wav                     SNR    5 dB  Lärm roadwork_open-noise/roadwork__a_steady
+de_cv_de-L1_025_snr0.wav                     SNR    0 dB  Lärm urbansound8k_drilling/drilling_04
+de_cv_de-L1_028_snr20.wav                    SNR   20 dB  Lärm urbansound8k_jackhammer/jackhammer_00
+de_cv_de-L1_028_snr10.wav                    SNR   10 dB  Lärm urbansound8k_drilling/drilling_01
+de_cv_de-L1_028_snr5.wav                     SNR    5 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_de-L1_028_snr0.wav                     SNR    0 dB  Lärm roadwork_open-noise/roadwork__a_steady
+de_cv_de-L1_029_snr20.wav                    SNR   20 dB  Lärm roadwork_open-noise/roadwork__c_dynamic
+de_cv_de-L1_029_snr10.wav                    SNR   10 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_de-L1_029_snr5.wav                     SNR    5 dB  Lärm urbansound8k_jackhammer/jackhammer_02
+de_cv_de-L1_029_snr0.wav                     SNR    0 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_de-L1_030_snr20.wav                    SNR   20 dB  Lärm urbansound8k_jackhammer/jackhammer_03
+de_cv_de-L1_030_snr10.wav                    SNR   10 dB  Lärm urbansound8k_jackhammer/jackhammer_02
+de_cv_de-L1_030_snr5.wav                     SNR    5 dB  Lärm urbansound8k_drilling/drilling_02
+de_cv_de-L1_030_snr0.wav                     SNR    0 dB  Lärm urbansound8k_engine_idling/engine_idling_01
+de_cv_de-L1_032_snr20.wav                    SNR   20 dB  Lärm urbansound8k_engine_idling/engine_idling_00
+de_cv_de-L1_032_snr10.wav                    SNR   10 dB  Lärm urbansound8k_engine_idling/engine_idling_00
+de_cv_de-L1_032_snr5.wav                     SNR    5 dB  Lärm urbansound8k_jackhammer/jackhammer_04
+de_cv_de-L1_032_snr0.wav                     SNR    0 dB  Lärm urbansound8k_jackhammer/jackhammer_01
+de_cv_de-L1_041_snr20.wav                    SNR   20 dB  Lärm roadwork_open-noise/roadwork__c_dynamic
+de_cv_de-L1_041_snr10.wav                    SNR   10 dB  Lärm urbansound8k_jackhammer/jackhammer_02
+de_cv_de-L1_041_snr5.wav                     SNR    5 dB  Lärm roadwork_open-noise/roadwork__a_steady
+de_cv_de-L1_041_snr0.wav                     SNR    0 dB  Lärm roadwork_open-noise/roadwork__b_eventful
+de_cv_de-L1_042_snr20.wav                    SNR   20 dB  Lärm urbansound8k_engine_idling/engine_idling_01
+de_cv_de-L1_042_snr10.wav                    SNR   10 dB  Lärm urbansound8k_drilling/drilling_03
+de_cv_de-L1_042_snr5.wav                     SNR    5 dB  Lärm urbansound8k_jackhammer/jackhammer_01
+de_cv_de-L1_042_snr0.wav                     SNR    0 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_de-L1_043_snr20.wav                    SNR   20 dB  Lärm urbansound8k_drilling/drilling_04
+de_cv_de-L1_043_snr10.wav                    SNR   10 dB  Lärm urbansound8k_drilling/drilling_00
+de_cv_de-L1_043_snr5.wav                     SNR    5 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_de-L1_043_snr0.wav                     SNR    0 dB  Lärm roadwork_open-noise/roadwork__a_steady
+de_cv_de-L1_048_snr20.wav                    SNR   20 dB  Lärm urbansound8k_engine_idling/engine_idling_04
+de_cv_de-L1_048_snr10.wav                    SNR   10 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_de-L1_048_snr5.wav                     SNR    5 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_de-L1_048_snr0.wav                     SNR    0 dB  Lärm urbansound8k_drilling/drilling_01
+de_cv_de-L1_050_snr20.wav                    SNR   20 dB  Lärm urbansound8k_engine_idling/engine_idling_01
+de_cv_de-L1_050_snr10.wav                    SNR   10 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_de-L1_050_snr5.wav                     SNR    5 dB  Lärm urbansound8k_drilling/drilling_02
+de_cv_de-L1_050_snr0.wav                     SNR    0 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_de-L1_051_snr20.wav                    SNR   20 dB  Lärm urbansound8k_engine_idling/engine_idling_02
+de_cv_de-L1_051_snr10.wav                    SNR   10 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_de-L1_051_snr5.wav                     SNR    5 dB  Lärm roadwork_open-noise/roadwork__a_steady
+de_cv_de-L1_051_snr0.wav                     SNR    0 dB  Lärm urbansound8k_jackhammer/jackhammer_00
+de_cv_de-L1_060_snr20.wav                    SNR   20 dB  Lärm roadwork_open-noise/roadwork__c_dynamic
+de_cv_de-L1_060_snr10.wav                    SNR   10 dB  Lärm urbansound8k_engine_idling/engine_idling_00
+de_cv_de-L1_060_snr5.wav                     SNR    5 dB  Lärm urbansound8k_jackhammer/jackhammer_03
+de_cv_de-L1_060_snr0.wav                     SNR    0 dB  Lärm urbansound8k_jackhammer/jackhammer_01
+de_cv_de-L1_069_snr20.wav                    SNR   20 dB  Lärm urbansound8k_jackhammer/jackhammer_02
+de_cv_de-L1_069_snr10.wav                    SNR   10 dB  Lärm urbansound8k_jackhammer/jackhammer_00
+de_cv_de-L1_069_snr5.wav                     SNR    5 dB  Lärm urbansound8k_drilling/drilling_00
+de_cv_de-L1_069_snr0.wav                     SNR    0 dB  Lärm urbansound8k_jackhammer/jackhammer_01
+de_cv_de-L1_070_snr20.wav                    SNR   20 dB  Lärm urbansound8k_engine_idling/engine_idling_02
+de_cv_de-L1_070_snr10.wav                    SNR   10 dB  Lärm urbansound8k_engine_idling/engine_idling_03
+de_cv_de-L1_070_snr5.wav                     SNR    5 dB  Lärm urbansound8k_engine_idling/engine_idling_02
+de_cv_de-L1_070_snr0.wav                     SNR    0 dB  Lärm urbansound8k_jackhammer/jackhammer_03
+de_cv_hu-L1_003_snr20.wav                    SNR   20 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_hu-L1_003_snr10.wav                    SNR   10 dB  Lärm roadwork_open-noise/roadwork__a_steady
+de_cv_hu-L1_003_snr5.wav                     SNR    5 dB  Lärm urbansound8k_jackhammer/jackhammer_03
+de_cv_hu-L1_003_snr0.wav                     SNR    0 dB  Lärm roadwork_open-noise/roadwork__a_steady
+de_cv_hu-L1_004_snr20.wav                    SNR   20 dB  Lärm urbansound8k_engine_idling/engine_idling_02
+de_cv_hu-L1_004_snr10.wav                    SNR   10 dB  Lärm urbansound8k_engine_idling/engine_idling_03
+de_cv_hu-L1_004_snr5.wav                     SNR    5 dB  Lärm urbansound8k_drilling/drilling_00
+de_cv_hu-L1_004_snr0.wav                     SNR    0 dB  Lärm roadwork_open-noise/roadwork__a_steady
+de_cv_hu-L1_005_snr20.wav                    SNR   20 dB  Lärm urbansound8k_drilling/drilling_03
+de_cv_hu-L1_005_snr10.wav                    SNR   10 dB  Lärm urbansound8k_engine_idling/engine_idling_02
+de_cv_hu-L1_005_snr5.wav                     SNR    5 dB  Lärm urbansound8k_engine_idling/engine_idling_04
+de_cv_hu-L1_005_snr0.wav                     SNR    0 dB  Lärm urbansound8k_jackhammer/jackhammer_00
+de_cv_hu-L1_006_snr20.wav                    SNR   20 dB  Lärm urbansound8k_engine_idling/engine_idling_01
+de_cv_hu-L1_006_snr10.wav                    SNR   10 dB  Lärm urbansound8k_engine_idling/engine_idling_00
+de_cv_hu-L1_006_snr5.wav                     SNR    5 dB  Lärm urbansound8k_jackhammer/jackhammer_03
+de_cv_hu-L1_006_snr0.wav                     SNR    0 dB  Lärm urbansound8k_engine_idling/engine_idling_01
+de_cv_hu-L1_052_snr20.wav                    SNR   20 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_hu-L1_052_snr10.wav                    SNR   10 dB  Lärm roadwork_open-noise/roadwork__b_eventful
+de_cv_hu-L1_052_snr5.wav                     SNR    5 dB  Lärm urbansound8k_drilling/drilling_02
+de_cv_hu-L1_052_snr0.wav                     SNR    0 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_hu-L1_053_snr20.wav                    SNR   20 dB  Lärm urbansound8k_drilling/drilling_02
+de_cv_hu-L1_053_snr10.wav                    SNR   10 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_hu-L1_053_snr5.wav                     SNR    5 dB  Lärm urbansound8k_drilling/drilling_00
+de_cv_hu-L1_053_snr0.wav                     SNR    0 dB  Lärm urbansound8k_engine_idling/engine_idling_01
+de_cv_hu-L1_054_snr20.wav                    SNR   20 dB  Lärm urbansound8k_jackhammer/jackhammer_01
+de_cv_hu-L1_054_snr10.wav                    SNR   10 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_hu-L1_054_snr5.wav                     SNR    5 dB  Lärm urbansound8k_engine_idling/engine_idling_00
+de_cv_hu-L1_054_snr0.wav                     SNR    0 dB  Lärm urbansound8k_engine_idling/engine_idling_04
+de_cv_hu-L1_055_snr20.wav                    SNR   20 dB  Lärm roadwork_open-noise/roadwork__a_steady
+de_cv_hu-L1_055_snr10.wav                    SNR   10 dB  Lärm urbansound8k_engine_idling/engine_idling_04
+de_cv_hu-L1_055_snr5.wav                     SNR    5 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_hu-L1_055_snr0.wav                     SNR    0 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_hu-L1_056_snr20.wav                    SNR   20 dB  Lärm urbansound8k_drilling/drilling_00
+de_cv_hu-L1_056_snr10.wav                    SNR   10 dB  Lärm urbansound8k_jackhammer/jackhammer_00
+de_cv_hu-L1_056_snr5.wav                     SNR    5 dB  Lärm roadwork_open-noise/roadwork__a_steady
+de_cv_hu-L1_056_snr0.wav                     SNR    0 dB  Lärm urbansound8k_drilling/drilling_04
+de_cv_hu-L1_057_snr20.wav                    SNR   20 dB  Lärm urbansound8k_jackhammer/jackhammer_03
+de_cv_hu-L1_057_snr10.wav                    SNR   10 dB  Lärm roadwork_open-noise/roadwork__b_eventful
+de_cv_hu-L1_057_snr5.wav                     SNR    5 dB  Lärm urbansound8k_engine_idling/engine_idling_01
+de_cv_hu-L1_057_snr0.wav                     SNR    0 dB  Lärm urbansound8k_engine_idling/engine_idling_00
+de_cv_hu-L1_058_snr20.wav                    SNR   20 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_hu-L1_058_snr10.wav                    SNR   10 dB  Lärm roadwork_open-noise/roadwork__a_steady
+de_cv_hu-L1_058_snr5.wav                     SNR    5 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_hu-L1_058_snr0.wav                     SNR    0 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_hu-L1_059_snr20.wav                    SNR   20 dB  Lärm urbansound8k_engine_idling/engine_idling_01
+de_cv_hu-L1_059_snr10.wav                    SNR   10 dB  Lärm urbansound8k_engine_idling/engine_idling_00
+de_cv_hu-L1_059_snr5.wav                     SNR    5 dB  Lärm urbansound8k_jackhammer/jackhammer_01
+de_cv_hu-L1_059_snr0.wav                     SNR    0 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_hu-L1_064_snr20.wav                    SNR   20 dB  Lärm urbansound8k_engine_idling/engine_idling_01
+de_cv_hu-L1_064_snr10.wav                    SNR   10 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_hu-L1_064_snr5.wav                     SNR    5 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_hu-L1_064_snr0.wav                     SNR    0 dB  Lärm roadwork_open-noise/roadwork__b_eventful
+de_cv_hu-L1_065_snr20.wav                    SNR   20 dB  Lärm urbansound8k_jackhammer/jackhammer_02
+de_cv_hu-L1_065_snr10.wav                    SNR   10 dB  Lärm roadwork_open-noise/roadwork__a_steady
+de_cv_hu-L1_065_snr5.wav                     SNR    5 dB  Lärm urbansound8k_drilling/drilling_04
+de_cv_hu-L1_065_snr0.wav                     SNR    0 dB  Lärm urbansound8k_drilling/drilling_04
+de_cv_hu-L1_066_snr20.wav                    SNR   20 dB  Lärm roadwork_open-noise/roadwork__c_dynamic
+de_cv_hu-L1_066_snr10.wav                    SNR   10 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_hu-L1_066_snr5.wav                     SNR    5 dB  Lärm urbansound8k_drilling/drilling_03
+de_cv_hu-L1_066_snr0.wav                     SNR    0 dB  Lärm urbansound8k_jackhammer/jackhammer_02
+de_cv_hu-L1_067_snr20.wav                    SNR   20 dB  Lärm urbansound8k_engine_idling/engine_idling_02
+de_cv_hu-L1_067_snr10.wav                    SNR   10 dB  Lärm urbansound8k_jackhammer/jackhammer_01
+de_cv_hu-L1_067_snr5.wav                     SNR    5 dB  Lärm urbansound8k_engine_idling/engine_idling_00
+de_cv_hu-L1_067_snr0.wav                     SNR    0 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_hu-L1_068_snr20.wav                    SNR   20 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_hu-L1_068_snr10.wav                    SNR   10 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_hu-L1_068_snr5.wav                     SNR    5 dB  Lärm urbansound8k_drilling/drilling_04
+de_cv_hu-L1_068_snr0.wav                     SNR    0 dB  Lärm urbansound8k_jackhammer/jackhammer_01
+de_cv_pl-L1_013_snr20.wav                    SNR   20 dB  Lärm urbansound8k_engine_idling/engine_idling_04
+de_cv_pl-L1_013_snr10.wav                    SNR   10 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_pl-L1_013_snr5.wav                     SNR    5 dB  Lärm urbansound8k_drilling/drilling_02
+de_cv_pl-L1_013_snr0.wav                     SNR    0 dB  Lärm urbansound8k_drilling/drilling_04
+de_cv_pl-L1_026_snr20.wav                    SNR   20 dB  Lärm roadwork_open-noise/roadwork__c_dynamic
+de_cv_pl-L1_026_snr10.wav                    SNR   10 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_pl-L1_026_snr5.wav                     SNR    5 dB  Lärm urbansound8k_jackhammer/jackhammer_00
+de_cv_pl-L1_026_snr0.wav                     SNR    0 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_pl-L1_027_snr20.wav                    SNR   20 dB  Lärm urbansound8k_drilling/drilling_04
+de_cv_pl-L1_027_snr10.wav                    SNR   10 dB  Lärm roadwork_open-noise/roadwork__c_dynamic
+de_cv_pl-L1_027_snr5.wav                     SNR    5 dB  Lärm urbansound8k_jackhammer/jackhammer_04
+de_cv_pl-L1_027_snr0.wav                     SNR    0 dB  Lärm urbansound8k_jackhammer/jackhammer_03
+de_cv_pl-L1_061_snr20.wav                    SNR   20 dB  Lärm urbansound8k_jackhammer/jackhammer_03
+de_cv_pl-L1_061_snr10.wav                    SNR   10 dB  Lärm urbansound8k_jackhammer/jackhammer_03
+de_cv_pl-L1_061_snr5.wav                     SNR    5 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_pl-L1_061_snr0.wav                     SNR    0 dB  Lärm roadwork_open-noise/roadwork__a_steady
+de_cv_pl-L1_062_snr20.wav                    SNR   20 dB  Lärm urbansound8k_engine_idling/engine_idling_00
+de_cv_pl-L1_062_snr10.wav                    SNR   10 dB  Lärm urbansound8k_jackhammer/jackhammer_04
+de_cv_pl-L1_062_snr5.wav                     SNR    5 dB  Lärm urbansound8k_jackhammer/jackhammer_01
+de_cv_pl-L1_062_snr0.wav                     SNR    0 dB  Lärm urbansound8k_jackhammer/jackhammer_02
+de_cv_pl-L1_063_snr20.wav                    SNR   20 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_pl-L1_063_snr10.wav                    SNR   10 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_pl-L1_063_snr5.wav                     SNR    5 dB  Lärm roadwork_open-noise/roadwork__c_dynamic
+de_cv_pl-L1_063_snr0.wav                     SNR    0 dB  Lärm urbansound8k_drilling/drilling_02
+de_cv_pl-L1_071_snr20.wav                    SNR   20 dB  Lärm roadwork_open-noise/roadwork__a_steady
+de_cv_pl-L1_071_snr10.wav                    SNR   10 dB  Lärm urbansound8k_jackhammer/jackhammer_02
+de_cv_pl-L1_071_snr5.wav                     SNR    5 dB  Lärm urbansound8k_jackhammer/jackhammer_03
+de_cv_pl-L1_071_snr0.wav                     SNR    0 dB  Lärm urbansound8k_jackhammer/jackhammer_01
+de_cv_pl-L1_114_snr20.wav                    SNR   20 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_pl-L1_114_snr10.wav                    SNR   10 dB  Lärm roadwork_open-noise/roadwork__c_dynamic
+de_cv_pl-L1_114_snr5.wav                     SNR    5 dB  Lärm urbansound8k_jackhammer/jackhammer_03
+de_cv_pl-L1_114_snr0.wav                     SNR    0 dB  Lärm urbansound8k_drilling/drilling_03
+de_cv_pl-L1_115_snr20.wav                    SNR   20 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_pl-L1_115_snr10.wav                    SNR   10 dB  Lärm urbansound8k_drilling/drilling_02
+de_cv_pl-L1_115_snr5.wav                     SNR    5 dB  Lärm roadwork_open-noise/roadwork__a_steady
+de_cv_pl-L1_115_snr0.wav                     SNR    0 dB  Lärm urbansound8k_engine_idling/engine_idling_03
+de_cv_pl-L1_116_snr20.wav                    SNR   20 dB  Lärm urbansound8k_engine_idling/engine_idling_04
+de_cv_pl-L1_116_snr10.wav                    SNR   10 dB  Lärm urbansound8k_drilling/drilling_02
+de_cv_pl-L1_116_snr5.wav                     SNR    5 dB  Lärm roadwork_open-noise/roadwork__c_dynamic
+de_cv_pl-L1_116_snr0.wav                     SNR    0 dB  Lärm urbansound8k_drilling/drilling_04
+de_cv_pl-L1_117_snr20.wav                    SNR   20 dB  Lärm urbansound8k_jackhammer/jackhammer_00
+de_cv_pl-L1_117_snr10.wav                    SNR   10 dB  Lärm urbansound8k_drilling/drilling_02
+de_cv_pl-L1_117_snr5.wav                     SNR    5 dB  Lärm roadwork_open-noise/roadwork__c_dynamic
+de_cv_pl-L1_117_snr0.wav                     SNR    0 dB  Lärm roadwork_open-noise/roadwork__c_dynamic
+de_cv_pl-L1_118_snr20.wav                    SNR   20 dB  Lärm roadwork_open-noise/roadwork__b_eventful
+de_cv_pl-L1_118_snr10.wav                    SNR   10 dB  Lärm urbansound8k_drilling/drilling_03
+de_cv_pl-L1_118_snr5.wav                     SNR    5 dB  Lärm urbansound8k_engine_idling/engine_idling_02
+de_cv_pl-L1_118_snr0.wav                     SNR    0 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_pl-L1_119_snr20.wav                    SNR   20 dB  Lärm roadwork_open-noise/roadwork__a_steady
+de_cv_pl-L1_119_snr10.wav                    SNR   10 dB  Lärm urbansound8k_drilling/drilling_00
+de_cv_pl-L1_119_snr5.wav                     SNR    5 dB  Lärm urbansound8k_drilling/drilling_04
+de_cv_pl-L1_119_snr0.wav                     SNR    0 dB  Lärm urbansound8k_jackhammer/jackhammer_03
+de_cv_pl-L1_120_snr20.wav                    SNR   20 dB  Lärm urbansound8k_drilling/drilling_02
+de_cv_pl-L1_120_snr10.wav                    SNR   10 dB  Lärm roadwork_open-noise/roadwork__b_eventful
+de_cv_pl-L1_120_snr5.wav                     SNR    5 dB  Lärm urbansound8k_engine_idling/engine_idling_00
+de_cv_pl-L1_120_snr0.wav                     SNR    0 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_pl-L1_121_snr20.wav                    SNR   20 dB  Lärm urbansound8k_engine_idling/engine_idling_03
+de_cv_pl-L1_121_snr10.wav                    SNR   10 dB  Lärm urbansound8k_drilling/drilling_00
+de_cv_pl-L1_121_snr5.wav                     SNR    5 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_pl-L1_121_snr0.wav                     SNR    0 dB  Lärm roadwork_open-noise/roadwork__c_dynamic
+de_cv_pl-L1_122_snr20.wav                    SNR   20 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_pl-L1_122_snr10.wav                    SNR   10 dB  Lärm urbansound8k_drilling/drilling_00
+de_cv_pl-L1_122_snr5.wav                     SNR    5 dB  Lärm urbansound8k_jackhammer/jackhammer_02
+de_cv_pl-L1_122_snr0.wav                     SNR    0 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_pl-L1_123_snr20.wav                    SNR   20 dB  Lärm urbansound8k_jackhammer/jackhammer_04
+de_cv_pl-L1_123_snr10.wav                    SNR   10 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_pl-L1_123_snr5.wav                     SNR    5 dB  Lärm roadwork_open-noise/roadwork__c_dynamic
+de_cv_pl-L1_123_snr0.wav                     SNR    0 dB  Lärm urbansound8k_drilling/drilling_03
+de_cv_ru-L1_009_snr20.wav                    SNR   20 dB  Lärm urbansound8k_jackhammer/jackhammer_00
+de_cv_ru-L1_009_snr10.wav                    SNR   10 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_ru-L1_009_snr5.wav                     SNR    5 dB  Lärm urbansound8k_jackhammer/jackhammer_01
+de_cv_ru-L1_009_snr0.wav                     SNR    0 dB  Lärm urbansound8k_drilling/drilling_02
+de_cv_ru-L1_031_snr20.wav                    SNR   20 dB  Lärm urbansound8k_engine_idling/engine_idling_03
+de_cv_ru-L1_031_snr10.wav                    SNR   10 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_ru-L1_031_snr5.wav                     SNR    5 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_ru-L1_031_snr0.wav                     SNR    0 dB  Lärm roadwork_open-noise/roadwork__a_steady
+de_cv_ru-L1_037_snr20.wav                    SNR   20 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_ru-L1_037_snr10.wav                    SNR   10 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_ru-L1_037_snr5.wav                     SNR    5 dB  Lärm urbansound8k_drilling/drilling_02
+de_cv_ru-L1_037_snr0.wav                     SNR    0 dB  Lärm urbansound8k_drilling/drilling_01
+de_cv_ru-L1_038_snr20.wav                    SNR   20 dB  Lärm urbansound8k_drilling/drilling_04
+de_cv_ru-L1_038_snr10.wav                    SNR   10 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_ru-L1_038_snr5.wav                     SNR    5 dB  Lärm urbansound8k_engine_idling/engine_idling_04
+de_cv_ru-L1_038_snr0.wav                     SNR    0 dB  Lärm urbansound8k_jackhammer/jackhammer_04
+de_cv_ru-L1_039_snr20.wav                    SNR   20 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_ru-L1_039_snr10.wav                    SNR   10 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_ru-L1_039_snr5.wav                     SNR    5 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_ru-L1_039_snr0.wav                     SNR    0 dB  Lärm urbansound8k_jackhammer/jackhammer_03
+de_cv_ru-L1_040_snr20.wav                    SNR   20 dB  Lärm roadwork_open-noise/roadwork__a_steady
+de_cv_ru-L1_040_snr10.wav                    SNR   10 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_ru-L1_040_snr5.wav                     SNR    5 dB  Lärm urbansound8k_drilling/drilling_02
+de_cv_ru-L1_040_snr0.wav                     SNR    0 dB  Lärm roadwork_open-noise/roadwork__c_dynamic
+de_cv_ru-L1_049_snr20.wav                    SNR   20 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_ru-L1_049_snr10.wav                    SNR   10 dB  Lärm urbansound8k_drilling/drilling_04
+de_cv_ru-L1_049_snr5.wav                     SNR    5 dB  Lärm urbansound8k_drilling/drilling_04
+de_cv_ru-L1_049_snr0.wav                     SNR    0 dB  Lärm urbansound8k_engine_idling/engine_idling_02
+de_cv_ru-L1_072_snr20.wav                    SNR   20 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_ru-L1_072_snr10.wav                    SNR   10 dB  Lärm urbansound8k_drilling/drilling_01
+de_cv_ru-L1_072_snr5.wav                     SNR    5 dB  Lärm urbansound8k_drilling/drilling_01
+de_cv_ru-L1_072_snr0.wav                     SNR    0 dB  Lärm urbansound8k_engine_idling/engine_idling_04
+de_cv_ru-L1_073_snr20.wav                    SNR   20 dB  Lärm urbansound8k_drilling/drilling_00
+de_cv_ru-L1_073_snr10.wav                    SNR   10 dB  Lärm urbansound8k_engine_idling/engine_idling_02
+de_cv_ru-L1_073_snr5.wav                     SNR    5 dB  Lärm urbansound8k_drilling/drilling_02
+de_cv_ru-L1_073_snr0.wav                     SNR    0 dB  Lärm roadwork_open-noise/roadwork__a_steady
+de_cv_ru-L1_074_snr20.wav                    SNR   20 dB  Lärm urbansound8k_drilling/drilling_01
+de_cv_ru-L1_074_snr10.wav                    SNR   10 dB  Lärm urbansound8k_engine_idling/engine_idling_01
+de_cv_ru-L1_074_snr5.wav                     SNR    5 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_ru-L1_074_snr0.wav                     SNR    0 dB  Lärm urbansound8k_jackhammer/jackhammer_01
+de_cv_ru-L1_075_snr20.wav                    SNR   20 dB  Lärm urbansound8k_drilling/drilling_00
+de_cv_ru-L1_075_snr10.wav                    SNR   10 dB  Lärm urbansound8k_jackhammer/jackhammer_03
+de_cv_ru-L1_075_snr5.wav                     SNR    5 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_ru-L1_075_snr0.wav                     SNR    0 dB  Lärm urbansound8k_jackhammer/jackhammer_01
+de_cv_ru-L1_076_snr20.wav                    SNR   20 dB  Lärm urbansound8k_jackhammer/jackhammer_01
+de_cv_ru-L1_076_snr10.wav                    SNR   10 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_ru-L1_076_snr5.wav                     SNR    5 dB  Lärm roadwork_open-noise/roadwork__b_eventful
+de_cv_ru-L1_076_snr0.wav                     SNR    0 dB  Lärm urbansound8k_jackhammer/jackhammer_03
+de_cv_ru-L1_077_snr20.wav                    SNR   20 dB  Lärm urbansound8k_engine_idling/engine_idling_04
+de_cv_ru-L1_077_snr10.wav                    SNR   10 dB  Lärm roadwork_open-noise/roadwork__a_steady
+de_cv_ru-L1_077_snr5.wav                     SNR    5 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_ru-L1_077_snr0.wav                     SNR    0 dB  Lärm urbansound8k_engine_idling/engine_idling_01
+de_cv_ru-L1_078_snr20.wav                    SNR   20 dB  Lärm urbansound8k_engine_idling/engine_idling_04
+de_cv_ru-L1_078_snr10.wav                    SNR   10 dB  Lärm urbansound8k_engine_idling/engine_idling_02
+de_cv_ru-L1_078_snr5.wav                     SNR    5 dB  Lärm urbansound8k_jackhammer/jackhammer_03
+de_cv_ru-L1_078_snr0.wav                     SNR    0 dB  Lärm urbansound8k_engine_idling/engine_idling_00
+de_cv_ru-L1_079_snr20.wav                    SNR   20 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_ru-L1_079_snr10.wav                    SNR   10 dB  Lärm urbansound8k_jackhammer/jackhammer_02
+de_cv_ru-L1_079_snr5.wav                     SNR    5 dB  Lärm urbansound8k_drilling/drilling_00
+de_cv_ru-L1_079_snr0.wav                     SNR    0 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_ru-L1_080_snr20.wav                    SNR   20 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_ru-L1_080_snr10.wav                    SNR   10 dB  Lärm urbansound8k_drilling/drilling_00
+de_cv_ru-L1_080_snr5.wav                     SNR    5 dB  Lärm roadwork_open-noise/roadwork__b_eventful
+de_cv_ru-L1_080_snr0.wav                     SNR    0 dB  Lärm urbansound8k_jackhammer/jackhammer_01
+de_cv_ru-L1_096_snr20.wav                    SNR   20 dB  Lärm urbansound8k_jackhammer/jackhammer_01
+de_cv_ru-L1_096_snr10.wav                    SNR   10 dB  Lärm roadwork_open-noise/roadwork__a_steady
+de_cv_ru-L1_096_snr5.wav                     SNR    5 dB  Lärm roadwork_open-noise/roadwork__c_dynamic
+de_cv_ru-L1_096_snr0.wav                     SNR    0 dB  Lärm urbansound8k_jackhammer/jackhammer_00
+de_cv_ru-L1_097_snr20.wav                    SNR   20 dB  Lärm urbansound8k_drilling/drilling_00
+de_cv_ru-L1_097_snr10.wav                    SNR   10 dB  Lärm roadwork_open-noise/roadwork__a_steady
+de_cv_ru-L1_097_snr5.wav                     SNR    5 dB  Lärm urbansound8k_engine_idling/engine_idling_02
+de_cv_ru-L1_097_snr0.wav                     SNR    0 dB  Lärm urbansound8k_drilling/drilling_03
+de_cv_ru-L1_098_snr20.wav                    SNR   20 dB  Lärm urbansound8k_drilling/drilling_04
+de_cv_ru-L1_098_snr10.wav                    SNR   10 dB  Lärm urbansound8k_drilling/drilling_04
+de_cv_ru-L1_098_snr5.wav                     SNR    5 dB  Lärm roadwork_open-noise/roadwork__b_eventful
+de_cv_ru-L1_098_snr0.wav                     SNR    0 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_ru-L1_099_snr20.wav                    SNR   20 dB  Lärm urbansound8k_drilling/drilling_03
+de_cv_ru-L1_099_snr10.wav                    SNR   10 dB  Lärm roadwork_open-noise/roadwork__a_steady
+de_cv_ru-L1_099_snr5.wav                     SNR    5 dB  Lärm urbansound8k_jackhammer/jackhammer_03
+de_cv_ru-L1_099_snr0.wav                     SNR    0 dB  Lärm urbansound8k_engine_idling/engine_idling_04
+de_cv_ru-L1_100_snr20.wav                    SNR   20 dB  Lärm roadwork_open-noise/roadwork__c_dynamic
+de_cv_ru-L1_100_snr10.wav                    SNR   10 dB  Lärm urbansound8k_jackhammer/jackhammer_00
+de_cv_ru-L1_100_snr5.wav                     SNR    5 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_ru-L1_100_snr0.wav                     SNR    0 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_ru-L1_124_snr20.wav                    SNR   20 dB  Lärm urbansound8k_jackhammer/jackhammer_04
+de_cv_ru-L1_124_snr10.wav                    SNR   10 dB  Lärm urbansound8k_jackhammer/jackhammer_04
+de_cv_ru-L1_124_snr5.wav                     SNR    5 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_ru-L1_124_snr0.wav                     SNR    0 dB  Lärm urbansound8k_engine_idling/engine_idling_03
+de_cv_ru-L1_125_snr20.wav                    SNR   20 dB  Lärm urbansound8k_engine_idling/engine_idling_01
+de_cv_ru-L1_125_snr10.wav                    SNR   10 dB  Lärm roadwork_open-noise/roadwork__c_dynamic
+de_cv_ru-L1_125_snr5.wav                     SNR    5 dB  Lärm urbansound8k_engine_idling/engine_idling_03
+de_cv_ru-L1_125_snr0.wav                     SNR    0 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_ru-L1_126_snr20.wav                    SNR   20 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_ru-L1_126_snr10.wav                    SNR   10 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_ru-L1_126_snr5.wav                     SNR    5 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_ru-L1_126_snr0.wav                     SNR    0 dB  Lärm urbansound8k_drilling/drilling_02
+de_cv_ru-L1_127_snr20.wav                    SNR   20 dB  Lärm urbansound8k_jackhammer/jackhammer_04
+de_cv_ru-L1_127_snr10.wav                    SNR   10 dB  Lärm roadwork_open-noise/roadwork__b_eventful
+de_cv_ru-L1_127_snr5.wav                     SNR    5 dB  Lärm roadwork_open-noise/roadwork__b_eventful
+de_cv_ru-L1_127_snr0.wav                     SNR    0 dB  Lärm urbansound8k_drilling/drilling_00
+de_cv_ru-L1_128_snr20.wav                    SNR   20 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_ru-L1_128_snr10.wav                    SNR   10 dB  Lärm urbansound8k_drilling/drilling_02
+de_cv_ru-L1_128_snr5.wav                     SNR    5 dB  Lärm roadwork_open-noise/roadwork__a_steady
+de_cv_ru-L1_128_snr0.wav                     SNR    0 dB  Lärm urbansound8k_jackhammer/jackhammer_03
+de_cv_ru-L1_129_snr20.wav                    SNR   20 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_ru-L1_129_snr10.wav                    SNR   10 dB  Lärm roadwork_open-noise/roadwork__b_eventful
+de_cv_ru-L1_129_snr5.wav                     SNR    5 dB  Lärm roadwork_open-noise/roadwork__a_steady
+de_cv_ru-L1_129_snr0.wav                     SNR    0 dB  Lärm urbansound8k_jackhammer/jackhammer_01
+de_cv_ru-L1_130_snr20.wav                    SNR   20 dB  Lärm roadwork_open-noise/roadwork__a_steady
+de_cv_ru-L1_130_snr10.wav                    SNR   10 dB  Lärm roadwork_open-noise/roadwork__c_dynamic
+de_cv_ru-L1_130_snr5.wav                     SNR    5 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_ru-L1_130_snr0.wav                     SNR    0 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_ru-L1_131_snr20.wav                    SNR   20 dB  Lärm urbansound8k_jackhammer/jackhammer_03
+de_cv_ru-L1_131_snr10.wav                    SNR   10 dB  Lärm urbansound8k_engine_idling/engine_idling_03
+de_cv_ru-L1_131_snr5.wav                     SNR    5 dB  Lärm roadwork_open-noise/roadwork__a_steady
+de_cv_ru-L1_131_snr0.wav                     SNR    0 dB  Lärm urbansound8k_drilling/drilling_00
+de_cv_ru-L1_132_snr20.wav                    SNR   20 dB  Lärm urbansound8k_drilling/drilling_01
+de_cv_ru-L1_132_snr10.wav                    SNR   10 dB  Lärm urbansound8k_drilling/drilling_02
+de_cv_ru-L1_132_snr5.wav                     SNR    5 dB  Lärm urbansound8k_jackhammer/jackhammer_02
+de_cv_ru-L1_132_snr0.wav                     SNR    0 dB  Lärm roadwork_open-noise/roadwork__a_steady
+de_cv_ru-L1_133_snr20.wav                    SNR   20 dB  Lärm urbansound8k_engine_idling/engine_idling_04
+de_cv_ru-L1_133_snr10.wav                    SNR   10 dB  Lärm urbansound8k_jackhammer/jackhammer_01
+de_cv_ru-L1_133_snr5.wav                     SNR    5 dB  Lärm urbansound8k_engine_idling/engine_idling_01
+de_cv_ru-L1_133_snr0.wav                     SNR    0 dB  Lärm urbansound8k_engine_idling/engine_idling_04
+de_cv_ru-L1_134_snr20.wav                    SNR   20 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_ru-L1_134_snr10.wav                    SNR   10 dB  Lärm urbansound8k_engine_idling/engine_idling_04
+de_cv_ru-L1_134_snr5.wav                     SNR    5 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_ru-L1_134_snr0.wav                     SNR    0 dB  Lärm roadwork_open-noise/roadwork__b_eventful
+de_cv_ru-L1_135_snr20.wav                    SNR   20 dB  Lärm urbansound8k_engine_idling/engine_idling_00
+de_cv_ru-L1_135_snr10.wav                    SNR   10 dB  Lärm roadwork_open-noise/roadwork__b_eventful
+de_cv_ru-L1_135_snr5.wav                     SNR    5 dB  Lärm roadwork_open-noise/roadwork__a_steady
+de_cv_ru-L1_135_snr0.wav                     SNR    0 dB  Lärm urbansound8k_drilling/drilling_03
+de_cv_sk-L1_018_snr20.wav                    SNR   20 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_sk-L1_018_snr10.wav                    SNR   10 dB  Lärm urbansound8k_engine_idling/engine_idling_02
+de_cv_sk-L1_018_snr5.wav                     SNR    5 dB  Lärm urbansound8k_jackhammer/jackhammer_02
+de_cv_sk-L1_018_snr0.wav                     SNR    0 dB  Lärm urbansound8k_jackhammer/jackhammer_02
+de_cv_sk-L1_019_snr20.wav                    SNR   20 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_sk-L1_019_snr10.wav                    SNR   10 dB  Lärm urbansound8k_engine_idling/engine_idling_01
+de_cv_sk-L1_019_snr5.wav                     SNR    5 dB  Lärm roadwork_open-noise/roadwork__c_dynamic
+de_cv_sk-L1_019_snr0.wav                     SNR    0 dB  Lärm urbansound8k_engine_idling/engine_idling_01
+de_cv_sk-L1_020_snr20.wav                    SNR   20 dB  Lärm roadwork_open-noise/roadwork__c_dynamic
+de_cv_sk-L1_020_snr10.wav                    SNR   10 dB  Lärm urbansound8k_engine_idling/engine_idling_02
+de_cv_sk-L1_020_snr5.wav                     SNR    5 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_sk-L1_020_snr0.wav                     SNR    0 dB  Lärm urbansound8k_engine_idling/engine_idling_04
+de_cv_sk-L1_021_snr20.wav                    SNR   20 dB  Lärm urbansound8k_engine_idling/engine_idling_01
+de_cv_sk-L1_021_snr10.wav                    SNR   10 dB  Lärm urbansound8k_drilling/drilling_02
+de_cv_sk-L1_021_snr5.wav                     SNR    5 dB  Lärm urbansound8k_drilling/drilling_00
+de_cv_sk-L1_021_snr0.wav                     SNR    0 dB  Lärm roadwork_open-noise/roadwork__c_dynamic
+de_cv_sk-L1_022_snr20.wav                    SNR   20 dB  Lärm urbansound8k_jackhammer/jackhammer_02
+de_cv_sk-L1_022_snr10.wav                    SNR   10 dB  Lärm urbansound8k_jackhammer/jackhammer_01
+de_cv_sk-L1_022_snr5.wav                     SNR    5 dB  Lärm urbansound8k_jackhammer/jackhammer_02
+de_cv_sk-L1_022_snr0.wav                     SNR    0 dB  Lärm urbansound8k_jackhammer/jackhammer_04
+de_cv_sk-L1_081_snr20.wav                    SNR   20 dB  Lärm roadwork_open-noise/roadwork__a_steady
+de_cv_sk-L1_081_snr10.wav                    SNR   10 dB  Lärm urbansound8k_drilling/drilling_01
+de_cv_sk-L1_081_snr5.wav                     SNR    5 dB  Lärm urbansound8k_drilling/drilling_03
+de_cv_sk-L1_081_snr0.wav                     SNR    0 dB  Lärm roadwork_open-noise/roadwork__b_eventful
+de_cv_sk-L1_082_snr20.wav                    SNR   20 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_sk-L1_082_snr10.wav                    SNR   10 dB  Lärm urbansound8k_drilling/drilling_02
+de_cv_sk-L1_082_snr5.wav                     SNR    5 dB  Lärm urbansound8k_drilling/drilling_03
+de_cv_sk-L1_082_snr0.wav                     SNR    0 dB  Lärm urbansound8k_jackhammer/jackhammer_01
+de_cv_sk-L1_083_snr20.wav                    SNR   20 dB  Lärm roadwork_open-noise/roadwork__c_dynamic
+de_cv_sk-L1_083_snr10.wav                    SNR   10 dB  Lärm roadwork_open-noise/roadwork__a_steady
+de_cv_sk-L1_083_snr5.wav                     SNR    5 dB  Lärm roadwork_open-noise/roadwork__a_steady
+de_cv_sk-L1_083_snr0.wav                     SNR    0 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_sk-L1_084_snr20.wav                    SNR   20 dB  Lärm urbansound8k_drilling/drilling_02
+de_cv_sk-L1_084_snr10.wav                    SNR   10 dB  Lärm urbansound8k_engine_idling/engine_idling_03
+de_cv_sk-L1_084_snr5.wav                     SNR    5 dB  Lärm urbansound8k_engine_idling/engine_idling_02
+de_cv_sk-L1_084_snr0.wav                     SNR    0 dB  Lärm urbansound8k_engine_idling/engine_idling_03
+de_cv_sk-L1_085_snr20.wav                    SNR   20 dB  Lärm roadwork_open-noise/roadwork__c_dynamic
+de_cv_sk-L1_085_snr10.wav                    SNR   10 dB  Lärm urbansound8k_drilling/drilling_02
+de_cv_sk-L1_085_snr5.wav                     SNR    5 dB  Lärm urbansound8k_drilling/drilling_02
+de_cv_sk-L1_085_snr0.wav                     SNR    0 dB  Lärm urbansound8k_drilling/drilling_00
+de_cv_tr-L1_011_snr20.wav                    SNR   20 dB  Lärm urbansound8k_drilling/drilling_03
+de_cv_tr-L1_011_snr10.wav                    SNR   10 dB  Lärm urbansound8k_jackhammer/jackhammer_02
+de_cv_tr-L1_011_snr5.wav                     SNR    5 dB  Lärm urbansound8k_jackhammer/jackhammer_02
+de_cv_tr-L1_011_snr0.wav                     SNR    0 dB  Lärm urbansound8k_engine_idling/engine_idling_01
+de_cv_tr-L1_012_snr20.wav                    SNR   20 dB  Lärm urbansound8k_drilling/drilling_01
+de_cv_tr-L1_012_snr10.wav                    SNR   10 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_tr-L1_012_snr5.wav                     SNR    5 dB  Lärm urbansound8k_drilling/drilling_02
+de_cv_tr-L1_012_snr0.wav                     SNR    0 dB  Lärm roadwork_open-noise/roadwork__b_eventful
+de_cv_tr-L1_101_snr20.wav                    SNR   20 dB  Lärm roadwork_open-noise/roadwork__c_dynamic
+de_cv_tr-L1_101_snr10.wav                    SNR   10 dB  Lärm urbansound8k_engine_idling/engine_idling_04
+de_cv_tr-L1_101_snr5.wav                     SNR    5 dB  Lärm roadwork_open-noise/roadwork__b_eventful
+de_cv_tr-L1_101_snr0.wav                     SNR    0 dB  Lärm urbansound8k_engine_idling/engine_idling_00
+de_cv_tr-L1_102_snr20.wav                    SNR   20 dB  Lärm urbansound8k_jackhammer/jackhammer_00
+de_cv_tr-L1_102_snr10.wav                    SNR   10 dB  Lärm urbansound8k_engine_idling/engine_idling_00
+de_cv_tr-L1_102_snr5.wav                     SNR    5 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_tr-L1_102_snr0.wav                     SNR    0 dB  Lärm roadwork_open-noise/roadwork__b_eventful
+de_cv_tr-L1_103_snr20.wav                    SNR   20 dB  Lärm urbansound8k_drilling/drilling_04
+de_cv_tr-L1_103_snr10.wav                    SNR   10 dB  Lärm roadwork_open-noise/roadwork__c_dynamic
+de_cv_tr-L1_103_snr5.wav                     SNR    5 dB  Lärm roadwork_open-noise/roadwork__b_eventful
+de_cv_tr-L1_103_snr0.wav                     SNR    0 dB  Lärm urbansound8k_drilling/drilling_02
+de_cv_tr-L1_104_snr20.wav                    SNR   20 dB  Lärm urbansound8k_drilling/drilling_02
+de_cv_tr-L1_104_snr10.wav                    SNR   10 dB  Lärm roadwork_open-noise/roadwork__c_dynamic
+de_cv_tr-L1_104_snr5.wav                     SNR    5 dB  Lärm urbansound8k_drilling/drilling_04
+de_cv_tr-L1_104_snr0.wav                     SNR    0 dB  Lärm urbansound8k_engine_idling/engine_idling_04
+de_cv_tr-L1_105_snr20.wav                    SNR   20 dB  Lärm urbansound8k_drilling/drilling_04
+de_cv_tr-L1_105_snr10.wav                    SNR   10 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_tr-L1_105_snr5.wav                     SNR    5 dB  Lärm urbansound8k_engine_idling/engine_idling_01
+de_cv_tr-L1_105_snr0.wav                     SNR    0 dB  Lärm urbansound8k_drilling/drilling_04
+de_cv_tr-L1_106_snr20.wav                    SNR   20 dB  Lärm roadwork_open-noise/roadwork__b_eventful
+de_cv_tr-L1_106_snr10.wav                    SNR   10 dB  Lärm urbansound8k_engine_idling/engine_idling_03
+de_cv_tr-L1_106_snr5.wav                     SNR    5 dB  Lärm urbansound8k_drilling/drilling_02
+de_cv_tr-L1_106_snr0.wav                     SNR    0 dB  Lärm urbansound8k_drilling/drilling_00
+de_cv_tr-L1_107_snr20.wav                    SNR   20 dB  Lärm street_traffic_DEMAND/ch01
+de_cv_tr-L1_107_snr10.wav                    SNR   10 dB  Lärm roadwork_open-noise/roadwork__c_dynamic
+de_cv_tr-L1_107_snr5.wav                     SNR    5 dB  Lärm urbansound8k_jackhammer/jackhammer_00
+de_cv_tr-L1_107_snr0.wav                     SNR    0 dB  Lärm urbansound8k_drilling/drilling_01
+680 Manifest-Zeilen → data/asr_eval/noisy_cv/manifest.jsonl
+fertig: data/asr_eval/{clean,noisy,noisy_cv}/manifest.jsonl
+=== JOB_STATISTICS ===
+=== current date     : Sat Nov 21 03:45:56 CET 2026
+= Job-ID             : 5038168 on alex
+= Job-Name           : sitevox-tts
+= Job-Command        : /home/hpc/b279bb/CLUSTER_USER/Abschlussarbeit-multilingual-math-reasoning/SiteVox-site-manager-ai-assisant/scripts/cluster/tts.sbatch
+= Initial workdir    : /home/hpc/b279bb/CLUSTER_USER/Abschlussarbeit-multilingual-math-reasoning/SiteVox-site-manager-ai-assisant
+= Queue/Partition    : GPU
+= Slurm account      : b279bb with QOS=normal
+= Features           : gpu
+= Requested resources:  for 02:00:00
+= Elapsed runtime    : 00:13:22
+= Total RAM usage    : 6.7 GiB of assigned  GiB (%)
+= Node list          : a0532
+= Subm/Elig/Start/End: 2026-11-21T03:32:00 / 2026-11-21T03:32:00 / 2026-11-21T03:32:33 / 2026-11-21T03:45:55
+======================
+=== Quota infos ======
+    Path                 Used     SoftQ    HardQ    Gracetime  Filec    FileQ    FiHaQ    FileGrace    
+    /home/hpc              94.5G   104.9G   209.7G        N/A     240K     300K     400K        N/A    
+    /home/vault           494.9G  1048.6G  2097.2G        N/A   4,132      200K     400K        N/A    
+======================
+=== GPU utilization ==
+gpu_name, gpu_bus_id, pid, gpu_utilization [%], mem_utilization [%], max_memory_usage [MiB], time [ms]
+GPU, 00000000:96:00.0, 2917139, 10 %, 1 %, 2918 MiB, 128317 ms
+GPU, 00000000:96:00.0, 3747964, 21 %, 3 %, 3066 MiB, 613055 ms
+GPU, 00000000:96:00.0, 5145, 0 %, 0 %, 28116 MiB, 0 ms

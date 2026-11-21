@@ -1,13 +1,33 @@
 {
- "description": "Bagger am Aushub BA1 wieder in Betrieb, Ausleger mit neuem Hydraulikschlauch. Ein Lkw wird beladen.",
- "gps": {
-  "lat": 48.13052,
-  "lon": 11.69548
+ "exif": {
+  "gps": {
+   "lat": 48.13052,
+   "lon": 11.69548
+  },
+  "taken_at": "2026-11-20T14:10:00+01:00"
  },
- "taken_at": "2026-11-20T14:10:00+01:00",
- "tags": [
-  "Bagger",
-  "Aushub",
-  "Gerät in Betrieb"
- ]
+ "base": {
+  "summary": "Bagger am Aushub BA1 wieder in Betrieb, Ausleger mit neuem Hydraulikschlauch. Ein Lkw wird beladen.",
+  "scene": {
+   "bauteil": "Baugrube BA1",
+   "stage": "Aushub läuft",
+   "activity_guess": "Aushub"
+  },
+  "observations": [
+   {
+    "category": "progress",
+    "subtype": "stage_change",
+    "description": "Bagger in Betrieb, Lkw wird beladen.",
+    "bbox": [
+     312,
+     187,
+     938,
+     656
+    ],
+    "severity": "low",
+    "visual_conf": 0.86
+   }
+  ],
+  "followup_question": "Welche Menge wurde heute ausgehoben?"
+ }
 }

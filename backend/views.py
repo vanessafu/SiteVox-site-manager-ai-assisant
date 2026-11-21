@@ -60,7 +60,7 @@ def event_card(e: dict) -> dict:
         "resource_effects": e.get("resource_effects", []), "date": e["date"], "attrs": {k: v for k, v in e["attrs"].items()
                                                              if k not in ("field_stats",)},
         "letter": {"letter_id": letter["letter_id"], "status": letter["status"],
-                   "open_issues": len([i for i in letter["issues"] if i["status"] == "unverified"])}
+                   "open_issues": len([i for i in letter["issues"] if i["status"] in ("unverified", "needs_confirmation")])}
         if letter else None,
     }
 

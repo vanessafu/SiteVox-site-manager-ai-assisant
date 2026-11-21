@@ -18,7 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from sitevox import rag, settings, store  # noqa: E402
 from sitevox.drafting import composer  # noqa: E402
 from sitevox.engine import schedule  # noqa: E402
-from sitevox.pipeline import ingest, new_evidence  # noqa: E402
+from sitevox.pipeline import answer_photo, ingest, new_evidence  # noqa: E402
 from sitevox.understand import documents  # noqa: E402
 
 PID = "BV-RIEM"
@@ -87,6 +87,10 @@ def main() -> None:
         cap = ingest(PID, m["kind"], file=settings.demo_dir(PID) / "inputs" / DAY / m["file"],
                      captured_at=f"{DAY}T{m['time']}:00{TZ}", title=m.get("title", ""), meta=m.get("meta", {}),
                      fixture_key=m.get("fixture"))
+        if m["kind"] == "photo":  # Foto: Rückfrage beantworten (Sprache/Notiz) oder überspringen
+            a = m.get("answer") or {"mode": "skip"}
+            cap = answer_photo(cap["capture_id"], a["mode"], text=a.get("text"),
+                               answered_at=f"{DAY}T{a.get('time', m['time'])}:00{TZ}")
         print(f"  {m['time']} {m['kind']:<6} {cap['capture_id']}  → Ereignisse {cap['event_ids']}")
 
     if not args.no_letters:

@@ -179,14 +179,15 @@ def delete_event(event_id: str, actor: str) -> None:
 
 
 # ============================================================================ Erfassungen
-def _purge_derived(cap: dict, actor: str, *, keep_source: bool) -> dict:
-    """Entfernt alles, was aus einer Erfassung abgeleitet wurde. Gibt eine Zusammenfassung zurück."""
+def _purge_derived(cap: dict, actor: str, *, keep_source: bool, keep: Optional[set[str]] = None) -> dict:
+    """Entfernt alles, was aus einer Erfassung abgeleitet wurde. Gibt eine Zusammenfassung zurück.
+    keep: Belege, die erhalten bleiben (z. B. Foto, Ausschnitte, KI-Beobachtungen bei erneuter Analyse)."""
     from .drafting import composer
 
     evs = store.evidence_by_capture(cap["capture_id"])
     ids = {e["evidence_id"] for e in evs}
     source_id = cap["evidence_ids"][0] if cap.get("evidence_ids") else None
-    remove = ids - ({source_id} if keep_source and source_id else set())
+    remove = ids - ({source_id} if keep_source and source_id else set()) - (keep or set())
 
     for l in store.letters(cap["project_id"]):
         if l["status"] in LOCKED_LETTER and remove & set(l["evidence_map"].values()):
@@ -226,6 +227,10 @@ def delete_capture(capture_id: str, actor: str) -> dict:
     cap = store.get("captures", capture_id)
     if not cap:
         raise EditError("Erfassung nicht gefunden")
+    # Abgeleitete Dateien (Foto-Ausschnitte, Detailfoto, Sprachantwort) gehören zur Erfassung
+    derived_files = {e["file"] for e in store.evidence_by_capture(capture_id) if e.get("file")} | \
+        {(cap.get("answer") or {}).get("file")}
+    derived_files -= {None, cap.get("file")}
     summary = _purge_derived(cap, actor, keep_source=False)
     store.execute("DELETE FROM emails WHERE json_extract(doc, '$.capture_id')=?", (capture_id,))
     doc_id = (cap.get("meta") or {}).get("doc_id") or capture_id
@@ -237,6 +242,11 @@ def delete_capture(capture_id: str, actor: str) -> dict:
         if str(f).startswith(str(settings.data_dir().resolve())) and f.is_file():
             f.unlink()
             summary["file_deleted"] = cap["file"]
+    for rel in derived_files:
+        f = (settings.data_dir() / rel).resolve()
+        if str(f).startswith(str((settings.data_dir() / cap["project_id"]).resolve())) and f.is_file():
+            f.unlink()
+            summary.setdefault("derived_files_deleted", []).append(rel)
     store.delete("captures", capture_id)
     store.audit(actor, "capture", capture_id, "delete", before={"kind": cap["kind"], "title": cap["title"],
                                                                  "file": cap.get("file")}, after=summary)
@@ -259,7 +269,30 @@ def update_capture(capture_id: str, patch: dict, actor: str) -> dict:
     if text_changed:
         cap["text"] = patch["text"]
         cap["text_edited"] = True
-    if patch.get("reanalyze"):
+    if patch.get("reanalyze") and cap["kind"] == "photo":
+        # Foto, Ausschnitte und KI-Beobachtungen bleiben; die (korrigierte) Antwort wird neu ausgewertet
+        from .pipeline import _photo_finalize
+
+        ph = cap.get("photo") or {}
+        keep = {x for x in [ph.get("evidence_id"), ph.get("detail_evidence_id")] +
+                [r.get("crop_evidence_id") for r in ph.get("observations", [])] +
+                [r.get("ai_evidence_id") for r in ph.get("observations", [])] if x}
+        _purge_derived(cap, actor, keep_source=False, keep=keep)
+        for e in store.events(cap["project_id"]):  # Ereignisse, die nur noch am Foto hängen, entstehen neu
+            if keep & set(e["evidence"]):
+                others = [x for x in e["evidence"] if x not in keep and (store.evidence(x) or {}).get("capture_id")]
+                if not others:
+                    delete_event(e["event_id"], actor)
+                else:
+                    e["evidence"] = [x for x in e["evidence"] if x not in keep]
+                    store.save_event(e)
+        cap["evidence_ids"] = [x for x in cap["evidence_ids"] if x in keep]
+        cap["event_ids"] = []
+        if text_changed and cap.get("answer"):
+            cap["answer"] = {**cap["answer"], "mode": "note", "transcript": None, "edited": True}
+        _photo_finalize(cap, cap.get("text") or "", store.activities(cap["project_id"]))
+        cap["status"] = "done"
+    elif patch.get("reanalyze"):
         _purge_derived(cap, actor, keep_source=False)
         cap["evidence_ids"], cap["event_ids"] = [], []
         if cap.get("transcript") and text_changed:

@@ -1,187 +1,187 @@
 {
  "language": "de",
- "duration": 10.6,
+ "duration": 17.43,
  "segments": [
   {
    "start": 0.3,
-   "end": 1.18,
+   "end": 1.79,
    "text": "Zehn Uhr zwei.",
    "words": [
     {
      "word": "Zehn",
      "start": 0.3,
-     "end": 0.56,
+     "end": 0.73,
      "score": 0.911
     },
     {
      "word": "Uhr",
-     "start": 0.61,
-     "end": 0.83,
+     "start": 0.83,
+     "end": 1.19,
      "score": 0.931
     },
     {
      "word": "zwei.",
-     "start": 0.88,
-     "end": 1.18,
+     "start": 1.28,
+     "end": 1.79,
      "score": 0.911
     }
    ]
   },
   {
-   "start": 1.24,
-   "end": 5.12,
+   "start": 1.88,
+   "end": 8.42,
    "text": "Der Bagger steht seit 10 Uhr, Hydraulikschlauch am Ausleger geplatzt.",
    "words": [
     {
      "word": "Der",
-     "start": 1.24,
-     "end": 1.45,
+     "start": 1.88,
+     "end": 2.24,
      "score": 0.918
     },
     {
      "word": "Bagger",
-     "start": 1.51,
-     "end": 1.85,
+     "start": 2.34,
+     "end": 2.91,
      "score": 0.974
     },
     {
      "word": "steht",
-     "start": 1.9,
-     "end": 2.2,
+     "start": 3.0,
+     "end": 3.5,
      "score": 0.963
     },
     {
      "word": "seit",
-     "start": 2.26,
-     "end": 2.51,
+     "start": 3.59,
+     "end": 4.03,
      "score": 0.917
     },
     {
      "word": "10",
-     "start": 2.57,
-     "end": 2.75,
+     "start": 4.12,
+     "end": 4.42,
      "score": 0.977
     },
     {
      "word": "Uhr,",
-     "start": 2.8,
-     "end": 3.06,
+     "start": 4.51,
+     "end": 4.94,
      "score": 0.965
     },
     {
      "word": "Hydraulikschlauch",
-     "start": 3.11,
-     "end": 3.9,
+     "start": 5.03,
+     "end": 6.36,
      "score": 0.74
     },
     {
      "word": "am",
-     "start": 3.95,
-     "end": 4.13,
+     "start": 6.45,
+     "end": 6.75,
      "score": 0.965
     },
     {
      "word": "Ausleger",
-     "start": 4.19,
-     "end": 4.61,
+     "start": 6.84,
+     "end": 7.55,
      "score": 0.79
     },
     {
      "word": "geplatzt.",
-     "start": 4.66,
-     "end": 5.12,
+     "start": 7.64,
+     "end": 8.42,
      "score": 0.948
     }
    ]
   },
   {
-   "start": 5.18,
-   "end": 8.28,
+   "start": 8.51,
+   "end": 13.72,
    "text": "Werkstatt ist informiert, der Monteur kommt gegen eins.",
    "words": [
     {
      "word": "Werkstatt",
-     "start": 5.18,
-     "end": 5.64,
+     "start": 8.51,
+     "end": 9.29,
      "score": 0.921
     },
     {
      "word": "ist",
-     "start": 5.69,
-     "end": 5.91,
+     "start": 9.38,
+     "end": 9.75,
      "score": 0.907
     },
     {
      "word": "informiert,",
-     "start": 5.97,
-     "end": 6.51,
+     "start": 9.84,
+     "end": 10.75,
      "score": 0.91
     },
     {
      "word": "der",
-     "start": 6.56,
-     "end": 6.78,
+     "start": 10.84,
+     "end": 11.21,
      "score": 0.914
     },
     {
      "word": "Monteur",
-     "start": 6.84,
-     "end": 7.22,
+     "start": 11.3,
+     "end": 11.94,
      "score": 0.902
     },
     {
      "word": "kommt",
-     "start": 7.27,
-     "end": 7.57,
+     "start": 12.03,
+     "end": 12.54,
      "score": 0.93
     },
     {
      "word": "gegen",
-     "start": 7.62,
-     "end": 7.92,
+     "start": 12.63,
+     "end": 13.13,
      "score": 0.937
     },
     {
      "word": "eins.",
-     "start": 7.98,
-     "end": 8.28,
+     "start": 13.22,
+     "end": 13.72,
      "score": 0.919
     }
    ]
   },
   {
-   "start": 8.33,
-   "end": 10.25,
+   "start": 13.82,
+   "end": 17.04,
    "text": "Aushub BA1 steht solange komplett.",
    "words": [
     {
      "word": "Aushub",
-     "start": 8.33,
-     "end": 8.67,
+     "start": 13.82,
+     "end": 14.39,
      "score": 0.936
     },
     {
      "word": "BA1",
-     "start": 8.72,
-     "end": 8.94,
+     "start": 14.48,
+     "end": 14.85,
      "score": 0.917
     },
     {
      "word": "steht",
-     "start": 9.0,
-     "end": 9.29,
+     "start": 14.94,
+     "end": 15.44,
      "score": 0.963
     },
     {
      "word": "solange",
-     "start": 9.35,
-     "end": 9.73,
+     "start": 15.53,
+     "end": 16.17,
      "score": 0.903
     },
     {
      "word": "komplett.",
-     "start": 9.78,
-     "end": 10.25,
+     "start": 16.26,
+     "end": 17.04,
      "score": 0.903
     }
    ]

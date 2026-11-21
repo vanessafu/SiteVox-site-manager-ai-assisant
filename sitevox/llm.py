@@ -90,7 +90,9 @@ class LLM:
     def _replay(self, schema: Type[T], n: int, fixture, fallback) -> list[T]:
         if fixture:
             project_id, key = fixture
-            path = settings.demo_dir(project_id) / "fixtures" / "llm" / f"{key}.json"
+            # "vision/IMG_0731" → fixtures/vision/IMG_0731.json, sonst fixtures/llm/<key>.json
+            path = settings.demo_dir(project_id) / "fixtures" / (key if "/" in key else f"llm/{key}")
+            path = path.with_name(path.name + ".json")
             if path.exists():
                 samples = _expand_fixture(json.loads(path.read_text(encoding="utf-8")))
                 out = [schema.model_validate(s) for s in samples]
@@ -108,41 +110,47 @@ class LLM:
             self._client = OpenAI(base_url=self.cfg["base_url"], api_key=self.cfg.get("api_key", "local"))
         return self._client
 
-    def _call(self, schema: Type[T], messages: list[dict], *, n: int, temperature: Optional[float]) -> list[T]:
-        if temperature is None:
-            temperature = self.cfg.get("temperature", 0.0) if n == 1 else self.cfg.get("sample_temperature", 0.7)
-        json_schema = schema.model_json_schema()
+    def _complete(self, schema: Type[T], msgs: list[dict], *, n: int, temperature: float) -> list[str]:
+        """Rohtexte von n Stichproben. vLLM/llama.cpp: guided decoding per json_schema.
+        backend="transformers" (nur vision): lokal in-process, Schema steht dann im Prompt."""
+        if self.cfg.get("backend") == "transformers":
+            from .understand import vision  # lazy: lädt torch/transformers erst bei Bedarf
+
+            return [vision.generate_local(msgs, schema, temperature=temperature) for _ in range(n)]
         extra_body: dict[str, Any] = {}
         if "enable_thinking" in self.cfg:
             extra_body["chat_template_kwargs"] = {"enable_thinking": bool(self.cfg["enable_thinking"])}
+        try:
+            resp = self.client.chat.completions.create(
+                model=self.cfg.get("served_name", self.cfg["model"]),
+                messages=msgs,
+                temperature=temperature,
+                max_tokens=self.cfg.get("max_tokens", 2048),
+                n=n,
+                response_format={
+                    "type": "json_schema",
+                    "json_schema": {"name": schema.__name__, "schema": schema.model_json_schema(), "strict": True},
+                },
+                extra_body=extra_body or None,
+            )
+        except Exception as e:  # noqa: BLE001 – Server ohne n>1 (llama.cpp) → einzeln
+            if n > 1 and "n" in str(e):
+                return [r for _ in range(n) for r in self._complete(schema, msgs, n=1, temperature=temperature)]
+            raise LLMError(str(e)) from e
+        return [ch.message.content or "" for ch in resp.choices]
+
+    def _call(self, schema: Type[T], messages: list[dict], *, n: int, temperature: Optional[float]) -> list[T]:
+        if temperature is None:
+            temperature = self.cfg.get("temperature", 0.0) if n == 1 else self.cfg.get("sample_temperature", 0.7)
         results: list[T] = []
         msgs = list(messages)
         attempts = 0
         while len(results) < n and attempts <= self.cfg.get("max_retries", 3):
             attempts += 1
             want = n - len(results)
-            try:
-                resp = self.client.chat.completions.create(
-                    model=self.cfg.get("served_name", self.cfg["model"]),
-                    messages=msgs,
-                    temperature=temperature,
-                    max_tokens=self.cfg.get("max_tokens", 2048),
-                    n=want,
-                    response_format={
-                        "type": "json_schema",
-                        "json_schema": {"name": schema.__name__, "schema": json_schema, "strict": True},
-                    },
-                    extra_body=extra_body or None,
-                )
-            except Exception as e:  # noqa: BLE001 – Server ohne n>1 (llama.cpp) → einzeln
-                if want > 1 and "n" in str(e):
-                    for _ in range(want):
-                        results.extend(self._call(schema, messages, n=1, temperature=temperature))
-                    return results[:n]
-                raise LLMError(str(e)) from e
             errors = []
-            for ch in resp.choices:
-                raw = _strip_json(ch.message.content or "")
+            for content in self._complete(schema, msgs, n=want, temperature=temperature):
+                raw = _strip_json(content)
                 try:
                     results.append(schema.model_validate_json(raw))
                 except ValidationError as ve:
