@@ -48,6 +48,15 @@ def baseline() -> dict[str, Any]:
         return yaml.safe_load(f)
 
 
+# Ausgabesprache der KI-Texte (Zusammenfassungen, Rückfragen, Schreiben) = UI-Sprache. Gesprochen/transkribiert
+# wird weiterhin in de/en/tr/pl; wörtliche Zitate bleiben immer in der Originalsprache.
+OUTPUT_LANGUAGES = {"de": "Deutsch", "en": "Englisch"}
+
+
+def output_language(lang: Any) -> str:
+    return lang if lang in OUTPUT_LANGUAGES else "de"
+
+
 def mode() -> str:
     return models()["runtime"]["mode"]
 

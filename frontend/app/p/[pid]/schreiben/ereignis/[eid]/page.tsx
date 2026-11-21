@@ -22,7 +22,7 @@ export default function EventPage() {
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
   const router = useRouter();
-  const { t } = useT();
+  const { t, lang } = useT();
   if (error) return <div className="p-6 text-bad-text">{error}</div>;
   if (!e) return <div className="p-6 text-slate-500">{t("lädt …")}</div>;
   const letterNeeded = e.recommended_document.requires_letter;
@@ -30,7 +30,7 @@ export default function EventPage() {
   const draft = async () => {
     setBusy(true);
     try {
-      const l = await post(`/api/events/${e.event_id}/draft`);
+      const l = await post(`/api/events/${e.event_id}/draft`, { language: lang });
       router.push(`/p/${pid}/schreiben/${l.letter_id}`);
     } finally {
       setBusy(false);

@@ -31,6 +31,13 @@ NUM_WORDS = {
 DATE_RE = re.compile(r"\b(\d{1,2})\.\s?(\d{1,2})\.(\d{2,4})?")
 DATE_LONG_RE = re.compile(r"\b(\d{1,2})\.\s+(" + "|".join(MONTHS) + r")(?:\s+(\d{4}))?", re.I)
 ISO_RE = re.compile(r"\b(\d{4})-(\d{2})-(\d{2})")
+# Englische Schreiben (UI-Sprache en): "20 November 2026", "20 Nov 2026", "20/11/2026"
+MONTHS_EN = {m.lower(): i for i, m in enumerate(["January", "February", "March", "April", "May", "June", "July",
+                                                    "August", "September", "October", "November", "December"], 1)}
+MONTHS_EN.update({k[:3]: v for k, v in list(MONTHS_EN.items())})
+DATE_EN_RE = re.compile(r"\b(\d{1,2})(?:st|nd|rd|th)?\s+(" + "|".join(sorted(MONTHS_EN, key=len, reverse=True))
+                        + r")\.?(?:\s+(\d{4}))?\b", re.I)
+DATE_SLASH_RE = re.compile(r"\b(\d{1,2})/(\d{1,2})/(\d{2,4})\b")
 TIME_RE = re.compile(r"\b(\d{1,2}):(\d{2})(?:\s*Uhr)?|\b(\d{1,2})\.(\d{2})\s*Uhr\b|\b(\d{1,2})\s*Uhr\b", re.I)
 NUM_RE = re.compile(r"(?<![\w.,])(\d+(?:[.,]\d+)?)(?![\w])")
 LEGAL_RE = re.compile(r"§|\bVOB\b|\bBGB\b|\bAbs\.\s*\d", re.I)
@@ -71,13 +78,18 @@ def _dates_in(text: str, default_year: int | None = None) -> set[tuple[int, int,
         out.add((int(d), MONTHS[mon.lower()], int(y) if y else None))
     for y, m, d in ISO_RE.findall(text):
         out.add((int(d), int(m), int(y)))
+    for d, mon, y in DATE_EN_RE.findall(text):
+        out.add((int(d), MONTHS_EN[mon.lower()], int(y) if y else None))
+    for d, m, y in DATE_SLASH_RE.findall(text):
+        if 1 <= int(m) <= 12 and 1 <= int(d) <= 31:
+            out.add((int(d), int(m), int(y) + (2000 if len(y) == 2 else 0)))
     return out
 
 
 def _times_in(text: str) -> set[int]:
     out = set()
     clean = _numwords_to_digits(text)
-    for rx in (DATE_LONG_RE, ISO_RE):
+    for rx in (DATE_LONG_RE, ISO_RE, DATE_EN_RE, DATE_SLASH_RE):
         clean = rx.sub(" ", clean)
     clean = re.sub(r"\b\d{1,2}\.\d{1,2}\.(\d{2,4})?(?!\s*Uhr)", " ", clean)
     for h, m, h2, m2, h3 in TIME_RE.findall(clean):
@@ -91,7 +103,7 @@ def _times_in(text: str) -> set[int]:
 
 def _strip_dates_times(text: str) -> str:
     text = CITE_RE.sub(" ", text)
-    for rx in (DATE_LONG_RE, DATE_RE, ISO_RE, TIME_RE):
+    for rx in (DATE_LONG_RE, DATE_RE, ISO_RE, DATE_EN_RE, DATE_SLASH_RE, TIME_RE):
         text = rx.sub(" ", text)
     return text
 

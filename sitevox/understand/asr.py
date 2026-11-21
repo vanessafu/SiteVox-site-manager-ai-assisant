@@ -134,6 +134,13 @@ def _run_whisperx(path: Path, language: str) -> dict:
 def _fw_model():
     from faster_whisper import WhisperModel  # type: ignore
 
+    if settings.models()["runtime"]["device"] == "cuda":
+        try:  # torch lädt cuBLAS/cuDNN aus den pip-Paketen in den Prozess; CTranslate2 findet sie sonst oft nicht
+            import torch  # type: ignore  # noqa: F401
+
+            torch.zeros(1, device="cuda") @ torch.zeros(1, device="cuda")
+        except Exception as e:  # noqa: BLE001
+            log.warning("CUDA-Bibliotheken über torch vorladen fehlgeschlagen: %s", e)
     c = _asr_cfg()
     return WhisperModel(c["model"], device=settings.models()["runtime"]["device"],
                         compute_type=c.get("compute_type", "float16"))
@@ -151,7 +158,7 @@ def _run_faster_whisper(path: Path, language: str) -> dict:
     segments, info = model.transcribe(
         audio, language=language, initial_prompt=_prompt_for(language), beam_size=c.get("beam_size", 5),
         word_timestamps=True, vad_filter=c.get("vad_filter", True),
-        hotwords=" ".join(vocab.get("hotwords", [])) or None,
+        hotwords=" ".join(c.get("hotwords", [])) or None,
     )
     segs = []
     for s in segments:
@@ -161,7 +168,7 @@ def _run_faster_whisper(path: Path, language: str) -> dict:
     return {"segments": segs, "duration": info.duration, "language": language, "language_prob": prob}
 
 
-def _run_mlx(path: Path, language: str, vocab: dict) -> dict:
+def _run_mlx(path: Path, language: str) -> dict:
     import mlx_whisper  # type: ignore
 
     c = _asr_cfg()

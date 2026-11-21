@@ -81,14 +81,14 @@ export function EventDetail({ e, onChanged }: { e: any; onChanged?: () => void }
 
 export default function EventCard({ e, pid, onOpen, onChanged }: { e: any; pid: string; onOpen: () => void; onChanged?: () => void }) {
   const router = useRouter();
-  const { t } = useT();
+  const { t, lang } = useT();
   const [busy, setBusy] = useState(false);
   const letterNeeded = e.recommended_document.requires_letter;
   const draft = async (ev: React.MouseEvent) => {
     ev.stopPropagation();
     setBusy(true);
     try {
-      const l = await post(`/api/events/${e.event_id}/draft`);
+      const l = await post(`/api/events/${e.event_id}/draft`, { language: lang });
       router.push(`/p/${pid}/schreiben/${l.letter_id}`);
     } finally {
       setBusy(false);

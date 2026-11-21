@@ -54,10 +54,57 @@ def to16k(wav, sr: int) -> np.ndarray:
     return y / max(1.0, float(np.max(np.abs(y))) / 0.95)
 
 
-def synth(tts, text: str, lang: str, spk: dict) -> np.ndarray:
+def synth(tts, text: str, lang: str, spk: dict, seed: int = 0, temperature: float = 0.75) -> np.ndarray:
+    import torch
+
+    torch.manual_seed(seed)
     kw = {"speaker_wav": spk["ref"]} if spk["kind"] == "clone" else {"speaker": spk["name"]}
-    wav = tts.tts(text=text, language=lang, split_sentences=True, **kw)
+    wav = tts.tts(text=text, language=lang, split_sentences=True, temperature=temperature, **kw)
     return to16k(wav, tts.synthesizer.output_sample_rate)
+
+
+class QC:
+    """Prüft jede TTS-Aufnahme mit einer UNABHÄNGIGEN, kleineren ASR (faster-whisper medium, Sprache fest, ohne
+    Fachbegriff-Prompt). XTTS erzeugt v. a. bei kurzen Sätzen/Stimmklonen Lautbrei am Ende → als Einfügungen sichtbar.
+    Verworfen wird bei Einfügungsquote > max_ins oder WER > max_wer; dann neuer Seed + niedrigere Temperatur."""
+
+    def __init__(self, model: str, max_ins: float, max_wer: float):
+        import torch
+        from faster_whisper import WhisperModel
+
+        sys.path.insert(0, str(ROOT))
+        from evaluation import metrics as M
+
+        self.M, self.max_ins, self.max_wer = M, max_ins, max_wer
+        dev = "cuda" if torch.cuda.is_available() else "cpu"
+        if dev == "cuda":  # cuBLAS/cuDNN über torch in den Prozess laden (CTranslate2 findet sie sonst nicht)
+            torch.zeros(1, device="cuda") @ torch.zeros(1, device="cuda")
+        self.model = WhisperModel(model, device=dev, compute_type="float16" if dev == "cuda" else "int8")
+
+    def check(self, y: np.ndarray, ref: str, lang: str) -> dict:
+        segs, _ = self.model.transcribe(y, language=lang, beam_size=5, vad_filter=False,
+                                        condition_on_previous_text=False)
+        hyp = " ".join(s.text.strip() for s in segs)
+        w = self.M.wer_counts(ref, hyp)
+        n = max(1, w["n_ref"])
+        r = {"qc_hyp": hyp, "qc_wer": round(w["errors"] / n, 3), "qc_ins": round(w["ins"] / n, 3)}
+        r["qc_pass"] = r["qc_ins"] <= self.max_ins and r["qc_wer"] <= self.max_wer
+        return r
+
+
+def synth_checked(tts, qc: "QC | None", text: str, ref: str, lang: str, spk: dict, tries: int):
+    """→ (Audio, QC-Info). Bester Versuch (wenigste Einfügungen) wird behalten, auch wenn keiner besteht."""
+    best = None
+    for k in range(tries if qc else 1):
+        y = synth(tts, text, lang, spk, seed=k, temperature=max(0.45, 0.75 - 0.15 * k))
+        if qc is None:
+            return y, {}
+        info = qc.check(y, ref, lang) | {"qc_tries": k + 1}
+        if best is None or (info["qc_ins"], info["qc_wer"]) < (best[1]["qc_ins"], best[1]["qc_wer"]):
+            best = (y, info)
+        if info["qc_pass"]:
+            break
+    return best
 
 
 def clone_speakers(folder: Path, per_accent: int, accents: set[str] | None) -> list[dict]:
@@ -108,7 +155,8 @@ def run_scenarios(a, tts) -> None:
     a.out.mkdir(parents=True, exist_ok=True)
     print(f"{len(rows)} Szenario-Varianten × {len(speakers)} Stimmen "
           f"({', '.join(s['name'] + '/' + s['accent'] for s in speakers)})", flush=True)
-    n = 0
+    n = n_drop = 0
+    qc = QC(a.qc_model, a.qc_max_ins, a.qc_max_wer) if a.qc_model else None
     with open(a.out / "manifest.jsonl", "w", encoding="utf-8") as man:
         for r in rows:
             if r["lang"] not in XTTS_LANGS:
@@ -121,8 +169,15 @@ def run_scenarios(a, tts) -> None:
                 rid = f"{r['id'].replace('-', '_')}_{tag}"
                 dst = a.out / f"{rid}.wav"
                 spoken = r.get("text_tts") or r["text"]
+                info = {}
                 if not (a.skip_existing and dst.exists()):
-                    sf.write(str(dst), synth(tts, spoken, r["lang"], spk), SR, subtype="PCM_16")
+                    y, info = synth_checked(tts, qc, spoken, r["text"], r["lang"], spk, a.qc_tries)
+                    if qc and not info["qc_pass"] and a.qc_drop:
+                        n_drop += 1
+                        print(f"{rid:32s} VERWORFEN nach {info['qc_tries']} Versuchen (Einfügungen "
+                              f"{info['qc_ins']:.0%}, WER {info['qc_wer']:.0%}): {info['qc_hyp'][:70]}", flush=True)
+                        continue
+                    sf.write(str(dst), y, SR, subtype="PCM_16")
                 dur = sf.info(str(dst)).duration
                 rec = {"id": rid, "file": str(dst), "text": r["text"], "scenario_id": r["scenario_id"],
                        "variant_id": r["id"], "pair_id": r.get("pair_id"), "lang": r["lang"],
@@ -130,11 +185,13 @@ def run_scenarios(a, tts) -> None:
                        "tts_model": "xtts_v2", "split": "dev", "duration_s": round(dur, 2)}
                 if spoken != r["text"]:
                     rec["text_tts"] = spoken
+                rec.update({k: v for k, v in info.items() if k != "qc_hyp"})
                 man.write(json.dumps(rec, ensure_ascii=False) + "\n")
                 man.flush()
                 n += 1
-                print(f"{rid:32s} {dur:5.1f}s  {spk['name']}", flush=True)
-    print(f"{n} Aufnahmen → {a.out / 'manifest.jsonl'}")
+                q = f"  QC WER {info['qc_wer']:.0%} ins {info['qc_ins']:.0%} ×{info['qc_tries']}" if info else ""
+                print(f"{rid:32s} {dur:5.1f}s  {spk['name']}{q}", flush=True)
+    print(f"{n} Aufnahmen → {a.out / 'manifest.jsonl'}" + (f" ({n_drop} verworfen)" if qc else ""))
 
 
 def run_demo(a, tts) -> None:
@@ -163,12 +220,19 @@ def main() -> None:
     ap.add_argument("--out", type=Path, default=ROOT / "data" / "asr_eval" / "clean")
     ap.add_argument("--builtin", nargs="*", default=BUILTIN, help="XTTS-Studio-Stimmen (leer = keine)")
     ap.add_argument("--clone-from", type=Path, default=None, help="Ordner mit CV-Akzent-Clips (data/raw/speech/de_cv)")
-    ap.add_argument("--clones-per-accent", type=int, default=1)
-    ap.add_argument("--accents", nargs="*", default=None, help="z. B. pl-L1 tr-L1 ru-L1 (Standard: alle)")
+    ap.add_argument("--clones-per-accent", type=int, default=2)
+    ap.add_argument("--accents", nargs="*", default=["en-L1", "pl-L1", "tr-L1"],
+                    help="Akzente der Stimmklone (Erstsprache der CV-Sprecher:in)")
     ap.add_argument("--langs", nargs="*", default=None, help="nur diese Szenario-Sprachen")
     ap.add_argument("--all-sources", action="store_true", help="auch source=note/email vertonen")
     ap.add_argument("--demo-speaker", default=DEMO_SPEAKER)
     ap.add_argument("--skip-existing", action="store_true")
+    ap.add_argument("--qc-model", default="medium", help="faster-whisper-Modell für die TTS-Prüfung ('' = aus)")
+    ap.add_argument("--qc-tries", type=int, default=3)
+    ap.add_argument("--qc-max-ins", type=float, default=0.15, help="max. Einfügungen / Referenzwörter")
+    ap.add_argument("--qc-max-wer", type=float, default=0.5)
+    ap.add_argument("--qc-keep", dest="qc_drop", action="store_false",
+                    help="nicht bestandene Aufnahmen behalten (bester Versuch) statt verwerfen")
     ap.add_argument("--device", default=None, help="cuda|cpu (Standard: cuda, falls verfügbar)")
     a = ap.parse_args()
 

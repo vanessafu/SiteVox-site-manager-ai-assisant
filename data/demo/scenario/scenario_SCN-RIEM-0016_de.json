@@ -1,0 +1,974 @@
+{
+  "schema_version": "gold-scenario/0.2-single-person",
+  "scenario_id": "SCN-RIEM-0016",
+  "title": "Ein Tag von Bauleiter J. Hofmann – BV Riem, Montag 23.11.2026",
+  "meta": {
+    "project_id": "BV-RIEM",
+    "project_name": "Neubau Wohnanlage Riem, Baufeld 3",
+    "site_address": "Willy-Brandt-Allee 12, 81829 München",
+    "contract_id": "RI-2026-014",
+    "contract_type": "VOB_B",
+    "report_no": 16,
+    "date": "2026-11-23",
+    "weekday": "Montag",
+    "working_hours": "07:00-17:00",
+    "previous_report": "Bautagesbericht Nr. 15 (2026-11-20)",
+    "report_language": "de-DE"
+  },
+  "persona": {
+    "id": "P-HOFMANN",
+    "name": "J. Hofmann",
+    "role": "Bauleiter des Auftragnehmers (Hofbau Rohbau GmbH)",
+    "note": "Einzige Person im Szenario. Alles, was andere sagen oder mailen, kommt nur über seine eigenen Sprachnotizen, Textnotizen und Fotos in die App.",
+    "devices": [
+      "voice",
+      "text",
+      "photo"
+    ],
+    "input_language": "de"
+  },
+  "registry": {
+    "comment": "Sphäre folgt aus 'contracted_by'. Diese Information steht absichtlich nicht in den Eingaben – das System muss sie aus dem Register holen.",
+    "parties": [
+      {
+        "id": "AG",
+        "name": "Wohnbau Riem GmbH & Co. KG",
+        "role": "Auftraggeber",
+        "contracted_by": null
+      },
+      {
+        "id": "AG-VERTRETER",
+        "name": "Dipl.-Ing. Thomas Wagner",
+        "role": "bevollmächtigter Vertreter des AG",
+        "contracted_by": "AG"
+      },
+      {
+        "id": "AN",
+        "name": "Hofbau Rohbau GmbH",
+        "role": "Auftragnehmer Rohbau (wir)",
+        "contracted_by": null
+      },
+      {
+        "id": "LECHNER",
+        "name": "Architekturbüro Lechner",
+        "role": "Objektplanung (keine Nachtragsvollmacht)",
+        "contracted_by": "AG"
+      },
+      {
+        "id": "BRANDL",
+        "name": "Ingenieurbüro Brandl",
+        "role": "Tragwerksplanung",
+        "contracted_by": "AG"
+      },
+      {
+        "id": "MAIER",
+        "name": "Spezialtiefbau Maier GmbH",
+        "role": "Verbau Baugrube (Vorunternehmer)",
+        "contracted_by": "AG"
+      },
+      {
+        "id": "STAHL-SUED",
+        "name": "Stahlhandel Süd GmbH",
+        "role": "Lieferant Betonstahl/Zubehör",
+        "contracted_by": "AN"
+      }
+    ]
+  },
+  "plan_of_day": {
+    "activities": [
+      {
+        "id": "A20",
+        "name": "Aushub BA1",
+        "unit": "m³",
+        "daily_target": 320,
+        "critical_path": false
+      },
+      {
+        "id": "A35",
+        "name": "Abschalung Bodenplatte Achse D",
+        "unit": "m",
+        "daily_target": 24,
+        "critical_path": false
+      },
+      {
+        "id": "A40",
+        "name": "Bewehrung BP",
+        "unit": "t",
+        "daily_target": 8,
+        "critical_path": true
+      },
+      {
+        "id": "A50",
+        "name": "Betonage BP",
+        "unit": "m³",
+        "daily_target": 0,
+        "critical_path": true,
+        "note": "verschoben auf 26.11. (Folge von EVT-2026-11-20-002)"
+      }
+    ],
+    "crews": [
+      {
+        "id": "K-MUELLER",
+        "name": "Kolonne Müller",
+        "trade": "Bewehrung",
+        "planned": 8
+      },
+      {
+        "id": "K-SCHALUNG",
+        "name": "Kolonne Schalung",
+        "trade": "Schalung",
+        "planned": 4
+      },
+      {
+        "id": "K-ERDBAU",
+        "name": "Erdbau",
+        "trade": "Aushub",
+        "planned": 4
+      }
+    ],
+    "equipment": [
+      {
+        "id": "G-BAGGER",
+        "name": "Bagger",
+        "planned_h": 10
+      },
+      {
+        "id": "G-KRAN",
+        "name": "Turmdrehkran",
+        "planned_h": 10
+      }
+    ],
+    "deliveries_expected": [
+      {
+        "id": "L-01",
+        "supplier": "STAHL-SUED",
+        "item": "Betonstahl B500B Achse C",
+        "qty": 2.5,
+        "unit": "t",
+        "window": "07:00-08:00"
+      },
+      {
+        "id": "L-02",
+        "supplier": "STAHL-SUED",
+        "item": "Unterstützungskörbe und Abstandhalter Achse C",
+        "qty": 1,
+        "unit": "Palette",
+        "window": "09:00-10:00"
+      }
+    ]
+  },
+  "weather_ground_truth": {
+    "source": "DWD via Bright Sky, MUENCHEN-STADT",
+    "temp_min_c": 1.4,
+    "temp_max_c": 5.8,
+    "precip_mm": 1.2,
+    "gust_kmh": 25,
+    "assessment": "übliche Witterung (§ 6 Abs. 2 Nr. 2 VOB/B) – keine Behinderung"
+  },
+  "language": "de",
+  "timeline": [
+    {
+      "id": "IN-01",
+      "time": "06:58",
+      "modality": "voice",
+      "events": [
+        "EVT-01"
+      ],
+      "audio": {
+        "noise": "wind",
+        "snr_db": 20
+      },
+      "language": "de",
+      "text": "Guten Morgen, Montag, 23. November. Personal heute 15 statt 16. Bei der Kolonne Schalung fehlt einer, krank, die sind heute nur 3 Mann. Kolonne Müller ist mit 8 Mann komplett, Erdbau mit 4. Wetter trocken, kalt, so um die 2 Grad."
+    },
+    {
+      "id": "IN-02",
+      "time": "07:25",
+      "modality": "photo",
+      "events": [
+        "RTN-01"
+      ],
+      "scene_en": "Truck flatbed with bundled reinforcing steel being lifted by a tower crane hook; a delivery note in a clear plastic sleeve lies on a steel bundle in the foreground. Grey November morning, wet asphalt. Driver seen only from behind, no readable licence plate.",
+      "vlm_visible": [
+        "Stahllieferung wird abgeladen",
+        "Kran im Einsatz",
+        "Lieferschein vorhanden"
+      ],
+      "not_visible": [
+        "Menge 2,5 t",
+        "Lieferant",
+        "pünktlich"
+      ],
+      "exif": {
+        "datetime": "2026-11-23T07:25:00+01:00",
+        "gps": [
+          48.1305,
+          11.69551
+        ]
+      },
+      "language": "de",
+      "text": "Stahllieferung Stahlhandel Süd, 2,5 t Betonstahl für Achse C, pünktlich um 07:20, Lieferschein LS-448213."
+    },
+    {
+      "id": "IN-03",
+      "time": "08:15",
+      "modality": "voice",
+      "events": [
+        "EVT-02"
+      ],
+      "audio": {
+        "noise": "excavator",
+        "snr_db": 10
+      },
+      "language": "de",
+      "text": "08:15. Die Bewehrungspläne für Achse C, Index b, sind um 08:10 per Mail vom Ingenieurbüro Brandl gekommen. Die Kolonne Müller fängt um 08:30 in Achse C an. Die Betonage der Bodenplatte bleibt für Mittwoch, den 26.11., geplant."
+    },
+    {
+      "id": "IN-04",
+      "time": "09:35",
+      "modality": "voice",
+      "events": [
+        "EVT-03"
+      ],
+      "audio": {
+        "noise": "excavator",
+        "snr_db": 5
+      },
+      "language": "de",
+      "text": "09:35. Der Bagger steht seit 09:30 an der Nordseite vom BA1. Der Verbau an Achse 4 von Spezialtiefbau Maier ist nicht fertig, es fehlen noch 2 Felder, ohne Verbau dürfen wir nicht tiefer baggern. 3 Mann vom Erdbau warten, der Baggerfahrer auch. Maier sagt, sie kommen erst nach dem Mittag."
+    },
+    {
+      "id": "IN-05",
+      "time": "09:37",
+      "modality": "photo",
+      "events": [
+        "EVT-03"
+      ],
+      "scene_en": "Edge of an excavation pit: a parked excavator with lowered bucket, engine off. Next to it a soldier-pile wall where two bays have no timber lagging, exposed soil visible. Three workers in hi-vis vests stand waiting with hands in pockets, faces turned away.",
+      "vlm_visible": [
+        "Bagger steht",
+        "Verbau mit Lücken",
+        "Arbeiter warten"
+      ],
+      "not_visible": [
+        "wer den Verbau ausführt und wer ihn beauftragt hat",
+        "seit 09:30",
+        "Vorgang A20"
+      ],
+      "exif": {
+        "datetime": "2026-11-23T09:37:00+01:00",
+        "gps": [
+          48.13071,
+          11.69523
+        ]
+      },
+      "language": "de",
+      "text": "Achse 4 Nordseite: Verbau mit 2 offenen Feldern, Bagger steht."
+    },
+    {
+      "id": "IN-06",
+      "time": "09:50",
+      "modality": "voice",
+      "events": [
+        "NM-01"
+      ],
+      "audio": {
+        "noise": "clean",
+        "snr_db": null
+      },
+      "language": "de",
+      "text": "Hab mir den Bagger nochmal angeschaut, die Hydraulik ist dicht, der neue Schlauch vom Freitag hält. Mit der Maschine ist alles in Ordnung."
+    },
+    {
+      "id": "IN-07",
+      "time": "10:05",
+      "modality": "text",
+      "events": [
+        "EVT-04"
+      ],
+      "language": "de",
+      "text": "10:05 Unterstützungskörbe + Abstandhalter Achse C nicht da (Fenster 9–10 Uhr). Stahlhandel Süd: kommt 11:00. Müller verlegt untere Lage weiter, 2 Mann warten ca. 1 h."
+    },
+    {
+      "id": "IN-08",
+      "time": "10:50",
+      "modality": "voice",
+      "events": [
+        "EVT-05"
+      ],
+      "audio": {
+        "noise": "vibrator",
+        "snr_db": 10
+      },
+      "language": "de",
+      "text": "10:50. Bei der Abschalung der Bodenplatte an Achse D haben wir einen Versatz von 2 Zentimetern gebaut, die Schnur war verrutscht, unser Fehler. Wir bauen 3 Meter zurück und stellen neu, das dauert ungefähr 1,5 Stunden."
+    },
+    {
+      "id": "IN-09",
+      "time": "10:52",
+      "modality": "photo",
+      "events": [
+        "EVT-05"
+      ],
+      "scene_en": "Close-up of timber edge formwork of a ground slab with a taut string line; one board visibly sits out of line with the others, a yellow folding rule laid across for scale.",
+      "vlm_visible": [
+        "Schalung nicht in der Flucht",
+        "Zollstock als Maßstab"
+      ],
+      "not_visible": [
+        "eigene Leistung (nicht Vorleistung)",
+        "Maß 2 cm genau"
+      ],
+      "exif": {
+        "datetime": "2026-11-23T10:52:00+01:00",
+        "gps": [
+          48.13048,
+          11.6956
+        ]
+      },
+      "language": "de",
+      "text": "Randschalung Achse D, Brett ca. 2 cm aus der Flucht."
+    },
+    {
+      "id": "IN-10",
+      "time": "11:45",
+      "modality": "voice",
+      "events": [
+        "EVT-06"
+      ],
+      "audio": {
+        "noise": "clean",
+        "snr_db": null
+      },
+      "language": "de",
+      "text": "11:45. Herr Wagner, der bevollmächtigte Vertreter vom Bauherrn, hat um 11:40 gemailt: Wegen der neuen Technikzentrale wird die Bodenplatte in Achse A bis B von 25 auf 30 Zentimeter verstärkt, Fläche ungefähr 140 Quadratmeter. Die geänderten Bewehrungspläne kommen bis Dienstag. Er will, dass wir das bei der Betonage am 26.11. berücksichtigen. Ich schätze das auf gut 7 Kubik mehr Beton."
+    },
+    {
+      "id": "IN-11",
+      "time": "12:10",
+      "modality": "voice",
+      "events": [
+        "EVT-07"
+      ],
+      "audio": {
+        "noise": "clean",
+        "snr_db": null
+      },
+      "language": "de",
+      "text": "12:10. Noch zu den Kernbohrungen vom Freitag: Architekt Lechner hat angerufen und gefragt, wann wir bohren. Vom Bauherrn gibt es aber noch keine Bestätigung zu den Kosten. Wir fangen damit noch nicht an."
+    },
+    {
+      "id": "IN-12",
+      "time": "14:05",
+      "modality": "voice",
+      "events": [
+        "EVT-03"
+      ],
+      "audio": {
+        "noise": "excavator",
+        "snr_db": 0
+      },
+      "language": "de",
+      "text": "14:05. Maier ist mit den 2 Feldern an Achse 4 fertig, der Bagger läuft seit 14:00 wieder."
+    },
+    {
+      "id": "IN-13",
+      "time": "14:20",
+      "modality": "photo",
+      "events": [
+        "EVT-08"
+      ],
+      "scene_en": "View into the excavation at a slab edge: a steel waler of the soldier-pile shoring wall protrudes clearly past the inner face of the edge formwork into the future slab area; a folding rule measures the overlap. Lean concrete blinding layer visible.",
+      "vlm_visible": [
+        "Bauteil ragt in den Bodenplattenbereich",
+        "Zollstock als Maßstab"
+      ],
+      "not_visible": [
+        "Bauteil gehört zum Verbau von MAIER",
+        "Maß 8 cm",
+        "Folge für die Bodenplatte"
+      ],
+      "exif": {
+        "datetime": "2026-11-23T14:20:00+01:00",
+        "gps": [
+          48.13045,
+          11.69566
+        ]
+      },
+      "language": "de",
+      "text": "Achse D: Gurtung vom Verbau ragt ca. 8 cm in die Bodenplatte."
+    },
+    {
+      "id": "IN-14",
+      "time": "14:22",
+      "modality": "voice",
+      "events": [
+        "EVT-08"
+      ],
+      "audio": {
+        "noise": "wind",
+        "snr_db": 5
+      },
+      "language": "de",
+      "text": "14:22. An Achse D ragt die Gurtung vom Verbau Maier etwa 8 Zentimeter in die Bodenplatte. So können wir die Bodenplatte dort nicht in voller Dicke herstellen, die Bewehrung kollidiert. Wir arbeiten an den anderen Achsen weiter, Achse D bleibt offen, bis geklärt ist, wie das gelöst wird."
+    },
+    {
+      "id": "IN-15",
+      "time": "15:35",
+      "modality": "voice",
+      "events": [
+        "NM-02"
+      ],
+      "audio": {
+        "noise": "rain",
+        "snr_db": 10
+      },
+      "language": "de",
+      "text": "15:35. Kurz Nieselregen, wir arbeiten weiter, kein Problem."
+    },
+    {
+      "id": "IN-16",
+      "time": "16:35",
+      "modality": "voice",
+      "events": [
+        "RTN-02"
+      ],
+      "audio": {
+        "noise": "clean",
+        "snr_db": null
+      },
+      "language": "de",
+      "text": "16:35. Tagesleistung 23. November: Aushub BA1 ungefähr 150 Kubik, der Bagger stand von 09:30 bis 14:00. Bewehrung Bodenplatte 7,2 Tonnen, Achse C ab 08:30. Abschalung Achse D 21 Meter, davon 3 Meter neu gestellt. Betonage 0, bleibt am 26.11. Kernbohrungen nicht begonnen."
+    }
+  ],
+  "events": [
+    {
+      "event_id": "EVT-01",
+      "kind": "incident",
+      "type": "worker_shortage",
+      "cause": "worker_shortage",
+      "summary": "Kolonne Schalung: 1 Mann krank, 3 statt 4",
+      "time": {
+        "start": "07:00",
+        "end": null
+      },
+      "actor": null,
+      "crew": {
+        "crew_id": "K-SCHALUNG",
+        "planned": 4,
+        "actual": 3,
+        "idle": 0
+      },
+      "affected_activities": [
+        "A35"
+      ],
+      "label": {
+        "sphere": "AN",
+        "document": null,
+        "deadline": null,
+        "internal_action": "Interne Warnung; AG kann bei unzureichender Besetzung Abhilfe verlangen (§ 5 Abs. 3 VOB/B)"
+      },
+      "evidence": [
+        "IN-01"
+      ]
+    },
+    {
+      "event_id": "EVT-02",
+      "kind": "follow_up",
+      "type": "plan_delivery_delay",
+      "cause": "plan_delivery_late",
+      "continues": "EVT-2026-11-20-002",
+      "summary": "Bewehrungspläne Achse C Index b eingegangen – Behinderung beendet, Arbeit wieder aufgenommen",
+      "time": {
+        "start": "2026-11-20T07:30",
+        "end": "08:10",
+        "resumed": "08:30"
+      },
+      "actor": "BRANDL",
+      "crew": {
+        "crew_id": "K-MUELLER",
+        "planned": 8,
+        "actual": 8,
+        "idle": 0
+      },
+      "affected_activities": [
+        "A40",
+        "A50"
+      ],
+      "label": {
+        "sphere": "AG",
+        "document": "Mitteilung Wiederaufnahme der Arbeiten",
+        "basis": [
+          "§ 6 Abs. 3 VOB/B"
+        ],
+        "deadline": "unverzueglich",
+        "internal_action": "Behinderungsdauer 20.11. 07:30 – 23.11. 08:10 in DOC-001 übernehmen"
+      },
+      "evidence": [
+        "IN-03"
+      ]
+    },
+    {
+      "event_id": "EVT-03",
+      "kind": "incident",
+      "type": "third_party_interference",
+      "cause": "predecessor_not_finished",
+      "summary": "Bagger steht: Verbau Achse 4 von Spezialtiefbau Maier (Vorunternehmer des AG) nicht fertig",
+      "contrastive_pair": {
+        "with": "EVT-2026-11-20-003",
+        "same_surface": "Bagger steht",
+        "differs_in": "Hydraulikschlauch (AN) vs. Vorunternehmer des AG (AG)"
+      },
+      "time": {
+        "start": "09:30",
+        "end": "14:00",
+        "duration_h": 4.5
+      },
+      "actor": "MAIER",
+      "crew": {
+        "crew_id": "K-ERDBAU",
+        "planned": 4,
+        "actual": 4,
+        "idle": 4,
+        "idle_note": "3 Mann + Baggerfahrer"
+      },
+      "equipment": [
+        {
+          "id": "G-BAGGER",
+          "status": "Stillstand",
+          "from": "09:30",
+          "to": "14:00"
+        }
+      ],
+      "quantities": [
+        {
+          "activity": "A20",
+          "planned": 320,
+          "actual": 150,
+          "unit": "m³"
+        }
+      ],
+      "affected_activities": [
+        "A20"
+      ],
+      "label": {
+        "sphere": "AG",
+        "document": "Behinderungsanzeige",
+        "basis": [
+          "§ 6 Abs. 1 VOB/B",
+          "§ 6 Abs. 2 Nr. 1 a VOB/B"
+        ],
+        "deadline": "unverzueglich",
+        "recipient": "AG-VERTRETER"
+      },
+      "evidence": [
+        "IN-04",
+        "IN-05",
+        "IN-12"
+      ]
+    },
+    {
+      "event_id": "EVT-04",
+      "kind": "incident",
+      "type": "material_delay",
+      "cause": "material_late",
+      "summary": "Unterstützungskörbe Achse C ca. 1 h zu spät (eigener Lieferant)",
+      "time": {
+        "start": "10:00",
+        "end": "11:00",
+        "duration_h": 1
+      },
+      "actor": "STAHL-SUED",
+      "crew": {
+        "crew_id": "K-MUELLER",
+        "planned": 8,
+        "actual": 8,
+        "idle": 2
+      },
+      "affected_activities": [
+        "A40"
+      ],
+      "label": {
+        "sphere": "AN",
+        "document": null,
+        "deadline": null,
+        "internal_action": "Kein Schreiben an AG. Lieferverzug dokumentieren, ggf. Regress beim Lieferanten"
+      },
+      "evidence": [
+        "IN-07"
+      ]
+    },
+    {
+      "event_id": "EVT-05",
+      "kind": "incident",
+      "type": "quality_defect",
+      "cause": "own_quality_defect",
+      "summary": "Abschalung Achse D 2 cm versetzt – eigener Fehler, 3 m zurückgebaut",
+      "contrastive_pair": {
+        "with": "EVT-08",
+        "same_surface": "Abweichung an der Bodenplattenkante Achse D",
+        "differs_in": "eigene Leistung (AN) vs. Vorleistung eines AG-Gewerks (AG)"
+      },
+      "time": {
+        "start": "10:50",
+        "end": "12:20",
+        "duration_h": 1.5
+      },
+      "actor": "AN",
+      "crew": {
+        "crew_id": "K-SCHALUNG",
+        "planned": 4,
+        "actual": 3,
+        "idle": 0
+      },
+      "quantities": [
+        {
+          "activity": "A35",
+          "rework": 3,
+          "unit": "m"
+        }
+      ],
+      "affected_activities": [
+        "A35"
+      ],
+      "label": {
+        "sphere": "AN",
+        "document": null,
+        "deadline": null,
+        "internal_action": "Mängeldokumentation intern, Nacharbeit"
+      },
+      "evidence": [
+        "IN-08",
+        "IN-09"
+      ]
+    },
+    {
+      "event_id": "EVT-06",
+      "kind": "incident",
+      "type": "change_order",
+      "cause": "change_order",
+      "summary": "AG-Vertreter ordnet an: Bodenplatte Achse A–B 30 statt 25 cm, ca. 140 m²",
+      "time": {
+        "start": "11:40",
+        "end": null
+      },
+      "actor": "AG-VERTRETER",
+      "quantities": [
+        {
+          "item": "Mehrbeton (Schätzung Bauleitung)",
+          "value": 7,
+          "unit": "m³"
+        }
+      ],
+      "affected_activities": [
+        "A40",
+        "A50"
+      ],
+      "label": {
+        "sphere": "AG",
+        "document": "Mehrkostenanzeige (Nachtragsankündigung)",
+        "basis": [
+          "§ 2 Abs. 5 VOB/B",
+          "§ 1 Abs. 3 VOB/B"
+        ],
+        "deadline": "vor_ausfuehrung",
+        "deadline_date": "2026-11-26",
+        "recipient": "AG-VERTRETER"
+      },
+      "evidence": [
+        "IN-10"
+      ]
+    },
+    {
+      "event_id": "EVT-07",
+      "kind": "follow_up",
+      "type": "additional_work",
+      "cause": "additional_work_order",
+      "continues": "EVT-2026-11-20-004",
+      "summary": "Kernbohrungen DN150 weiter offen – Architekt fragt nach, keine Kostenbestätigung des AG",
+      "time": {
+        "start": "2026-11-20T11:02",
+        "end": null
+      },
+      "actor": "LECHNER",
+      "affected_activities": [],
+      "label": {
+        "sphere": "AG",
+        "document": "Mehrkostenanzeige",
+        "basis": [
+          "§ 2 Abs. 6 Nr. 1 VOB/B"
+        ],
+        "deadline": "vor_ausfuehrung",
+        "recipient": "AG-VERTRETER",
+        "warning": "Architekt ohne Nachtragsvollmacht – an Wagner richten, nicht vor Versand ausführen"
+      },
+      "evidence": [
+        "IN-11"
+      ]
+    },
+    {
+      "event_id": "EVT-08",
+      "kind": "incident",
+      "type": "quality_defect",
+      "cause": "predecessor_defect",
+      "summary": "Gurtung des Verbaus (Maier) ragt ca. 8 cm in die Bodenplatte Achse D",
+      "contrastive_pair": {
+        "with": "EVT-05",
+        "differs_in": "Vorleistung eines AG-Gewerks → Bedenkenanzeige"
+      },
+      "time": {
+        "start": "14:20",
+        "end": null
+      },
+      "actor": "MAIER",
+      "affected_activities": [
+        "A35",
+        "A40",
+        "A50"
+      ],
+      "label": {
+        "sphere": "AG",
+        "document": "Bedenkenanzeige",
+        "basis": [
+          "§ 4 Abs. 3 VOB/B",
+          "§ 13 Abs. 3 VOB/B"
+        ],
+        "deadline": "unverzueglich",
+        "recipient": "AG-VERTRETER",
+        "note": "Kein Arbeitsstopp (andere Achsen laufen) → noch keine Behinderungsanzeige"
+      },
+      "evidence": [
+        "IN-13",
+        "IN-14"
+      ]
+    },
+    {
+      "event_id": "RTN-01",
+      "kind": "routine",
+      "type": null,
+      "summary": "Lieferung 2,5 t Betonstahl pünktlich 07:20",
+      "label": {
+        "sphere": null,
+        "document": null
+      },
+      "evidence": [
+        "IN-02"
+      ]
+    },
+    {
+      "event_id": "RTN-02",
+      "kind": "routine",
+      "type": null,
+      "summary": "Tagesleistung",
+      "quantities": [
+        {
+          "activity": "A20",
+          "planned": 320,
+          "actual": 150,
+          "unit": "m³"
+        },
+        {
+          "activity": "A35",
+          "planned": 24,
+          "actual": 21,
+          "unit": "m"
+        },
+        {
+          "activity": "A40",
+          "planned": 8,
+          "actual": 7.2,
+          "unit": "t"
+        },
+        {
+          "activity": "A50",
+          "planned": 0,
+          "actual": 0,
+          "unit": "m³"
+        }
+      ],
+      "label": {
+        "sphere": null,
+        "document": null
+      },
+      "evidence": [
+        "IN-16"
+      ]
+    },
+    {
+      "event_id": "NM-01",
+      "kind": "near_miss",
+      "type": "equipment_failure",
+      "summary": "Bagger geprüft – kein Defekt",
+      "label": {
+        "sphere": null,
+        "document": null,
+        "must_not_create_event": true
+      },
+      "evidence": [
+        "IN-06"
+      ]
+    },
+    {
+      "event_id": "NM-02",
+      "kind": "near_miss",
+      "type": "weather",
+      "summary": "Nieselregen ohne Unterbrechung",
+      "label": {
+        "sphere": null,
+        "document": null,
+        "must_not_create_event": true
+      },
+      "evidence": [
+        "IN-15"
+      ]
+    }
+  ],
+  "expected_report": {
+    "1_witterung": {
+      "temp_min_c": 1.4,
+      "temp_max_c": 5.8,
+      "precip_mm": 1.2,
+      "gust_kmh": 25,
+      "bewertung": "übliche Witterung – keine Behinderung"
+    },
+    "2_personal": [
+      {
+        "crew": "Kolonne Müller",
+        "soll": 8,
+        "ist": 8,
+        "stillstand_mann_h": 2
+      },
+      {
+        "crew": "Kolonne Schalung",
+        "soll": 4,
+        "ist": 3,
+        "stillstand_mann_h": 0
+      },
+      {
+        "crew": "Erdbau",
+        "soll": 4,
+        "ist": 4,
+        "stillstand_mann_h": 18
+      }
+    ],
+    "2_personal_summe": {
+      "soll": 16,
+      "ist": 15
+    },
+    "3_geraete": [
+      {
+        "device": "Bagger",
+        "soll_h": 10,
+        "ist_h": 5.5,
+        "ausfall": "09:30-14:00",
+        "ursache": "Verbau Achse 4 (Spezialtiefbau Maier) nicht fertig"
+      }
+    ],
+    "4_lieferungen": [
+      {
+        "supplier": "Stahlhandel Süd",
+        "item": "Betonstahl",
+        "qty": "2,5 t",
+        "planned": "07:00-08:00",
+        "actual": "07:20",
+        "on_time": true
+      },
+      {
+        "supplier": "Stahlhandel Süd",
+        "item": "Unterstützungskörbe/Abstandhalter",
+        "qty": "1 Palette",
+        "planned": "09:00-10:00",
+        "actual": "11:00",
+        "on_time": false
+      }
+    ],
+    "5_leistungen": [
+      {
+        "vorgang": "A20",
+        "tagessoll": 320,
+        "ist": 150,
+        "einheit": "m³"
+      },
+      {
+        "vorgang": "A35",
+        "tagessoll": 24,
+        "ist": 21,
+        "einheit": "m"
+      },
+      {
+        "vorgang": "A40",
+        "tagessoll": 8,
+        "ist": 7.2,
+        "einheit": "t"
+      },
+      {
+        "vorgang": "A50",
+        "tagessoll": 0,
+        "ist": 0,
+        "einheit": "m³"
+      }
+    ],
+    "7_besondere_vorkommnisse": [
+      "EVT-01",
+      "EVT-02",
+      "EVT-03",
+      "EVT-04",
+      "EVT-05",
+      "EVT-06",
+      "EVT-07",
+      "EVT-08"
+    ],
+    "documents_to_draft": [
+      {
+        "doc": "Behinderungsanzeige",
+        "event": "EVT-03",
+        "deadline": "unverzueglich"
+      },
+      {
+        "doc": "Mitteilung Wiederaufnahme (§ 6 Abs. 3 VOB/B)",
+        "event": "EVT-02",
+        "deadline": "unverzueglich"
+      },
+      {
+        "doc": "Mehrkostenanzeige § 2 Abs. 5",
+        "event": "EVT-06",
+        "deadline": "vor Betonage 26.11."
+      },
+      {
+        "doc": "Bedenkenanzeige",
+        "event": "EVT-08",
+        "deadline": "unverzueglich"
+      }
+    ],
+    "documents_must_not_draft": [
+      {
+        "event": "EVT-01",
+        "reason": "Personalmangel – AN"
+      },
+      {
+        "event": "EVT-04",
+        "reason": "eigener Lieferant – AN"
+      },
+      {
+        "event": "EVT-05",
+        "reason": "eigener Ausführungsfehler – AN"
+      },
+      {
+        "event": "NM-01",
+        "reason": "kein Defekt"
+      },
+      {
+        "event": "NM-02",
+        "reason": "Regen ohne Auswirkung"
+      }
+    ],
+    "open_items_carried": [
+      "EVT-07 Kernbohrungen: Mehrkostenanzeige offen, nicht ausführen vor Versand an AG"
+    ]
+  },
+  "generation": {
+    "voice": "TTS: 'text' wörtlich in der Dateisprache sprechen lassen (eine Stimme = Bauleiter), danach Rauschen 'audio.noise' mit 'audio.snr_db' beimischen. 'clean' = ohne Rauschen.",
+    "text": "'text' unverändert als Textnotiz in die App.",
+    "photo": "Bild aus 'scene_en' erzeugen (Bildmodelle verstehen Englisch am besten). 'text' ist die Bildunterschrift, die der Bauleiter dazu tippt. Gesichter abgewandt oder verpixelt."
+  }
+}

@@ -11,7 +11,7 @@ from difflib import SequenceMatcher
 from typing import Any, Optional
 
 from .. import llm, settings
-from ..prompts import EXTRACT_PHOTO_CONTEXT, EXTRACT_SYSTEM, EXTRACT_USER, MINUTES_SYSTEM
+from ..prompts import EXTRACT_PHOTO_CONTEXT, EXTRACT_USER, MINUTES_SYSTEM, extract_system
 from ..schemas import Extraction, LLMEvent, LLMProgress, LLMStaffing, MinutesSummary
 
 # ----------------------------------------------------------------------------- activity matching
@@ -136,13 +136,14 @@ def photo_context(question: str, analysis: dict) -> str:
 
 def extract(text: str, *, project_id: str, date: str, time: str, source: str, acts: list[dict],
             fixture_key: Optional[str] = None, context: str = "",
-            hint_subtypes: Optional[list[str]] = None) -> dict[str, Any]:
+            hint_subtypes: Optional[list[str]] = None, out_lang: str = "de") -> dict[str, Any]:
     """Gibt {"main": Extraction, "samples": [Extraction, ...]} zurück.
+    out_lang: Sprache der freien Textfelder (summary, description, …) = UI-Sprache; Zitate bleiben im Original.
     context: z. B. photo_context(...) – zusätzliche Einordnung, aus der NICHT zitiert werden darf."""
     pcfg = settings.project_cfg(project_id)
     cfg = settings.models()["llm"]["extractor"]
     msgs = [
-        {"role": "system", "content": EXTRACT_SYSTEM},
+        {"role": "system", "content": extract_system(out_lang)},
         {"role": "user", "content": EXTRACT_USER.format(
             project=pcfg["title"], date=date, time=time, source=source,
             activities=", ".join(a["name"] for a in acts),

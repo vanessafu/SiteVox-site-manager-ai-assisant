@@ -103,10 +103,8 @@ def stream(repo, config, split, **kw):
 
 
 # ----------------------------------------------------------------- speech
-FLEURS = {  # our language tag -> FLEURS config
-    "pl": "pl_pl", "ro": "ro_ro", "cs": "cs_cz", "sk": "sk_sk", "hu": "hu_hu", "bg": "bg_bg",
-    "hr": "hr_hr", "sr": "sr_rs", "uk": "uk_ua", "ru": "ru_ru", "tr": "tr_tr", "ar": "ar_eg",
-    "fa": "fa_ir", "ckb": "ckb_iq", "de": "de_de", "zh": "cmn_hans_cn",
+FLEURS = {  # our language tag -> FLEURS config (nur die Projektsprachen de/en/pl/tr)
+    "de": "de_de", "en": "en_us", "pl": "pl_pl", "tr": "tr_tr",
 }
 
 
@@ -139,19 +137,20 @@ def speech_mls(rows, lang, cfg):
 
 # Common Voice 17 (CC0) über den Community-Mirror fsicoli/common_voice_17_0 – das offizielle HF-Repo ist seit
 # 10/2025 leer (nur noch Mozilla Data Collective). Deutsch hat ein freies Feld "accents"; wir nehmen ALLE Clips mit
-# L2-Akzent aus dev+test (~120 Clips, ~30 Sprecher:innen) plus eine kleine L1-Stichprobe als Vergleich.
+# en-/pl-/tr-Akzent aus dev+test (~100 Clips) plus eine kleine L1-Stichprobe (Deutschland Deutsch) als Vergleich.
 CV_REPO = "https://huggingface.co/datasets/fsicoli/common_voice_17_0/resolve/main"
-CV_L2 = {  # Sprachkürzel -> Teilstring im accents-Feld (kleingeschrieben)
-    "pl": "polnisch", "tr": "türkisch", "ru": "russisch", "ro": "rumänisch", "hu": "ungarisch", "cs": "tschechisch",
-    "sk": "slowakisch", "bg": "bulgarisch", "hr": "kroatisch", "sr": "serbisch", "uk": "ukrainisch", "ar": "arabisch",
+CV_L2 = {  # Erstsprache -> Teilstrings im accents-Feld (kleingeschrieben); nur Projektsprachen en/pl/tr
+    "en": ("amerikanisch", "britisch", "kanadisch", "australisch", "irisch", "englisch"),
+    "pl": ("polnisch",),
+    "tr": ("türkisch",),
 }
 CV_N_NATIVE = 20   # L1-Vergleich: "Deutschland Deutsch", höchstens 2 Clips je Sprecher:in
 
 
 def cv_accent(raw):
     a = raw.lower()
-    for k, v in CV_L2.items():
-        if v in a:
+    for k, keys in CV_L2.items():
+        if any(v in a for v in keys):
             return f"{k}-L1"
     if a.strip() in ("deutschland deutsch", "hochdeutsch", "deutschland deutsch,hochdeutsch"):
         return "de-L1"
@@ -220,7 +219,8 @@ def noise_roadwork():
     got = 0
     for v in ("a_steady", "b_eventful", "c_dynamic"):
         p = hf_hub_download("routsourav1729/open-noise", f"noise/roadwork/roadwork__{v}.wav", repo_type="dataset")
-        shutil.copy(p, dst / f"roadwork__{v}.wav")
+        if not (dst / f"roadwork__{v}.wav").exists():  # HF-Cache-Dateien sind schreibgeschützt
+            shutil.copyfile(p, dst / f"roadwork__{v}.wav")
         got += 1
     return f"{got} files (license: non-commercial, share-alike)"
 
@@ -344,7 +344,6 @@ def main():
     for lang, cfg in FLEURS.items():
         speech_fleurs(rows, lang, cfg)
     speech_mediaspeech(rows, "tr")
-    speech_mediaspeech(rows, "ar")
     speech_mls(rows, "de", "german")
     speech_mls(rows, "pl", "polish")
     speech_commonvoice_de(rows)

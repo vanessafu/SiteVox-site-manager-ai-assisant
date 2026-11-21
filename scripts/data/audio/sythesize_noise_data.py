@@ -14,7 +14,13 @@ synthetischer Lärm (Motorbrummen, Rüttler, Hämmern, Wind, Regen) nur, wenn ke
 Ausgabe: <out>/<id>_snr<k>.wav, <out>/noise_only/*.wav und <out>/manifest.jsonl im Format von evaluation/eval_asr.py:
   {"id", "file", "text", "snr_db", "noise", "noise_file", "clean_file", ...alle Felder der Eingabe...}
 Mit --clean (Standard) steht zusätzlich je Eingabe eine Zeile snr_db="clean" (Originaldatei) im Manifest.
-SNR-Richtwerte: 20 dB Lärm hörbar · 10 dB laute Baustelle · 5 dB Maschine daneben · 0 dB so laut wie die Stimme.
+Pegelmodell (--level):
+  phone (Standard)  Handy direkt vor dem Mund: Stimme fest auf --speech-dbfs (−18 dBFS aktive Sprache), Lärm wird
+                    ABSOLUT lauter; Übersteuerung → weicher Limiter (Lärmspitzen sättigen, Stimme bleibt laut).
+                    SNR 15 10 5 0 −5 dB. Optional --codec opus (wie MediaRecorder im Browser).
+  relative          altes Verhalten: Lärm relativ skaliert, danach Peak-Normalisierung → Stimme wird bei 0 dB leiser.
+SNR (bezogen auf aktive Sprache): 15 dB ruhige Baustelle · 5 dB Bagger in 10 m · 0 dB Rüttler/Säge daneben ·
+−5 dB Presslufthammer direkt daneben (Handy am Mund hält meist noch ≥ −5 dB).
 """
 from __future__ import annotations
 
@@ -107,9 +113,67 @@ class NoiseBank:
 
 
 def mix(speech: np.ndarray, noise: np.ndarray, snr_db: float) -> np.ndarray:
+    """level=relative (alt): Lärm relativ zur Sprache skaliert, danach Peak-Normalisierung des Mixes – bei niedrigem
+    SNR wird damit auch die STIMME leiser (unrealistisch für ein Handy direkt vor dem Mund)."""
     ps, pn = np.mean(speech ** 2) + 1e-12, np.mean(noise ** 2) + 1e-12
     y = speech + noise * np.sqrt(ps / (pn * 10 ** (snr_db / 10)))
     return (y / max(1.0, np.max(np.abs(y)) / 0.98)).astype(np.float32)
+
+
+def dbfs(x: np.ndarray) -> float:
+    return float(20 * np.log10(np.sqrt(np.mean(x ** 2)) + 1e-12))
+
+
+def active_rms(x: np.ndarray, frame: int = 400) -> float:
+    """RMS nur über Sprach-Frames (Energie > Median−… ), damit Pausen den Pegel nicht verdünnen."""
+    n = len(x) // frame
+    if n < 3:
+        return float(np.sqrt(np.mean(x ** 2)) + 1e-12)
+    e = np.sqrt(np.mean(x[: n * frame].reshape(n, frame) ** 2, axis=1))
+    thr = max(np.percentile(e, 30), 0.1 * e.max())
+    return float(np.sqrt(np.mean(e[e >= thr] ** 2)) + 1e-12)
+
+
+def soft_limit(y: np.ndarray, knee: float = 0.7) -> tuple[np.ndarray, float]:
+    """Weicher Limiter wie im Handy-Aufnahmepfad: unter knee linear, darüber tanh-Sättigung bis 1.0.
+    → Lärmspitzen werden verzerrt/abgeflacht, die Stimme bleibt laut. Rückgabe: Signal, Anteil gesättigter Samples."""
+    a = np.abs(y)
+    over = a > knee
+    out = y.copy()
+    out[over] = np.sign(y[over]) * (knee + (1 - knee) * np.tanh((a[over] - knee) / (1 - knee)))
+    return (out * 0.99).astype(np.float32), float(over.mean())
+
+
+def mix_phone(speech: np.ndarray, noise: np.ndarray, snr_db: float, speech_dbfs: float) -> tuple[np.ndarray, dict]:
+    """level=phone: Handy-Nahbesprechung. Die Stimme wird auf einen festen, lauten Pegel gebracht (Mund ~5 cm vom
+    Mikrofon) und bleibt dort; der Lärm wird ABSOLUT lauter gemacht (SNR bezogen auf die aktive Sprache). Übersteuerung
+    fängt ein weicher Limiter ab (statt den ganzen Mix leiser zu rechnen)."""
+    s = speech * (10 ** (speech_dbfs / 20) / active_rms(speech))
+    n = noise * (10 ** ((speech_dbfs - snr_db) / 20) / (np.sqrt(np.mean(noise ** 2)) + 1e-12))
+    y, sat = soft_limit(s + n)
+    return y, {"speech_dbfs": round(speech_dbfs, 1), "noise_dbfs": round(dbfs(n), 1),
+               "mix_dbfs": round(dbfs(y), 1), "limited_frac": round(sat, 4)}
+
+
+def opus_roundtrip(y: np.ndarray, kbps: int) -> np.ndarray:
+    """Wie im Browser (MediaRecorder audio/webm;codecs=opus): 48 kHz Opus kodieren und zurück auf 16 kHz."""
+    import shutil
+    import subprocess
+    import tempfile
+
+    import soundfile as sf
+
+    ff = shutil.which("ffmpeg")
+    if not ff:
+        raise SystemExit("--codec opus braucht ffmpeg im PATH (z. B. pip imageio-ffmpeg, siehe eval_asr.sbatch)")
+    with tempfile.TemporaryDirectory() as d:
+        src, enc, dst = Path(d) / "in.wav", Path(d) / "x.webm", Path(d) / "out.wav"
+        sf.write(str(src), y, SR)
+        subprocess.run([ff, "-v", "error", "-y", "-i", str(src), "-ar", "48000", "-c:a", "opus", "-strict", "-2",
+                        "-b:a", f"{kbps}k", str(enc)], check=True)
+        subprocess.run([ff, "-v", "error", "-y", "-i", str(enc), "-ar", str(SR), "-ac", "1", str(dst)], check=True)
+        out, _ = sf.read(str(dst), dtype="float32")
+    return out[: len(y)] if len(out) >= len(y) else np.pad(out, (0, len(y) - len(out)))
 
 
 def find_transcripts(speech_dir: Path, explicit: Optional[str]) -> dict[str, dict]:
@@ -163,7 +227,17 @@ def main() -> None:
                     help=f"Ordner mit echtem Lärm, rekursiv (Standard {DEFAULT_NOISE}; fehlt er → synthetisch)")
     ap.add_argument("--synthetic-noise", action="store_true", help="echten Lärm ignorieren, nur synthetisch")
     ap.add_argument("--out", required=True, type=Path)
-    ap.add_argument("--snr", nargs="+", type=float, default=[20, 10, 5, 0])
+    ap.add_argument("--snr", nargs="+", type=float, default=None,
+                    help="Standard: phone 15 10 5 0 -5 · relative 20 10 5 0")
+    ap.add_argument("--level", choices=["phone", "relative"], default="phone",
+                    help="phone: Stimme fest laut, Lärm absolut lauter + Limiter (Standard) · relative: altes Verhalten")
+    ap.add_argument("--speech-dbfs", type=float, default=-18.0,
+                    help="Pegel der aktiven Sprache bei --level phone (Handy direkt vor dem Mund ≈ −20…−14 dBFS)")
+    ap.add_argument("--codec", choices=["none", "opus"], default="none",
+                    help="opus: wie MediaRecorder im Browser kodieren/dekodieren (braucht ffmpeg)")
+    ap.add_argument("--opus-kbps", type=int, default=32)
+    ap.add_argument("--langs", nargs="*", default=["de", "en", "pl", "tr"],
+                    help="nur Aufnahmen dieser Sprachen (Feld lang); leer = alle")
     ap.add_argument("--noise-only", type=int, default=3, help="reine Lärm-Clips je Lärmklasse (text \"\")")
     ap.add_argument("--silence", type=int, default=3, help="Clips mit fast-Stille (−60 dBFS Rauschen, text \"\")")
     ap.add_argument("--no-clean", dest="clean", action="store_false", help="keine snr_db=clean-Zeilen")
@@ -172,11 +246,17 @@ def main() -> None:
     ap.add_argument("--transcripts", default=None, help="transcripts.csv (Standard: automatisch suchen)")
     ap.add_argument("--seed", type=int, default=7)
     a = ap.parse_args()
+    a.snr = a.snr or ([15, 10, 5, 0, -5] if a.level == "phone" else [20, 10, 5, 0])
     rng = np.random.default_rng(a.seed)
     a.out.mkdir(parents=True, exist_ok=True)
 
     bank = NoiseBank(None if a.synthetic_noise else a.noise, rng)
     rows = rows_from_manifest(a.manifest) if a.manifest else rows_from_folder(a.speech, a.fixtures, a.transcripts)
+    if a.langs:
+        skipped = [r for r in rows if r.get("lang") and r["lang"] not in a.langs]
+        rows = [r for r in rows if not r.get("lang") or r["lang"] in a.langs]
+        if skipped:
+            print(f"{len(skipped)} Aufnahmen in anderen Sprachen übersprungen (--langs {' '.join(a.langs)})")
     print(f"{len(rows)} Sprachdateien · Lärm: {'synthetisch' if bank.synthetic else 'echt'} "
           f"({', '.join(bank.names())})")
 
@@ -199,14 +279,30 @@ def main() -> None:
             # damit alle SNR-Varianten einer Aufnahme im selben Cluster landen
             base.setdefault("scenario_id", r.get("speaker") or r["id"])
             if a.clean:
-                emit({**base, "snr_db": "clean", "noise": None, "clean_file": r["file"]})
+                if a.level == "phone" or a.codec != "none":  # gleiche Kette ohne Lärm → fairer Vergleich
+                    y = s * (10 ** (a.speech_dbfs / 20) / active_rms(s)) if a.level == "phone" else s
+                    y, _ = soft_limit(y)
+                    y = opus_roundtrip(y, a.opus_kbps) if a.codec == "opus" else y
+                    dst = a.out / f"{r['id']}_clean.wav"
+                    sf.write(str(dst), y, SR)
+                    emit({**base, "id": f"{r['id']}_clean", "file": str(dst), "snr_db": "clean", "noise": None,
+                          "clean_file": r["file"], "level": a.level, "codec": a.codec})
+                else:
+                    emit({**base, "snr_db": "clean", "noise": None, "clean_file": r["file"]})
             for snr in a.snr:
                 cls, nfile, nz = bank.sample(len(s))
-                dst = a.out / f"{r['id']}_snr{int(snr)}.wav"
-                sf.write(str(dst), mix(s, nz, snr), SR)
+                tag = f"snr{int(snr)}" if snr >= 0 else f"snrm{int(-snr)}"
+                dst = a.out / f"{r['id']}_{tag}.wav"
+                if a.level == "phone":
+                    y, lv = mix_phone(s, nz, snr, a.speech_dbfs)
+                else:
+                    y, lv = mix(s, nz, snr), {}
+                y = opus_roundtrip(y, a.opus_kbps) if a.codec == "opus" else y
+                sf.write(str(dst), y, SR)
                 emit({**base, "id": dst.stem, "file": str(dst), "clean_file": r["file"], "snr_db": snr,
-                      "noise": cls, "noise_file": nfile})
-                print(f"{dst.name:44s} SNR {snr:>4} dB  Lärm {cls}/{nfile}")
+                      "noise": cls, "noise_file": nfile, "level": a.level, "codec": a.codec, **lv})
+                print(f"{dst.name:44s} SNR {snr:>5} dB  Lärm {cls:28s} {lv.get('noise_dbfs', ''):>6} dBFS"
+                      f"  begrenzt {100 * lv.get('limited_frac', 0):.1f} %")
 
         # Halluzinationstest: reiner Lärm und fast-Stille, 5–15 s, Pegel wie ein typischer Mix
         nod = a.out / "noise_only"

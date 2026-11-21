@@ -21,12 +21,13 @@ from jinja2 import Environment, FileSystemLoader, StrictUndefined
 from .. import confidence as conf
 from .. import llm, rag, settings, store, verify
 from ..engine import deviation
-from ..prompts import DRAFT_SYSTEM, DRAFT_USER
-from ..schemas import DOC_KIND_LABELS, EVENT_TYPE_LABELS, DraftBody, DraftSentence, Letter, LetterField
+from ..prompts import DRAFT_USER, draft_system
+from ..schemas import DraftBody, DraftSentence, Letter, LetterField, labels
 
 TEMPLATES = Path(__file__).parent / "templates"
 _env = Environment(loader=FileSystemLoader(TEMPLATES), undefined=StrictUndefined, keep_trailing_newline=False)
 SECTION_TITLES = {"sachverhalt": "Sachverhalt", "auswirkungen": "Auswirkungen"}
+SECTION_TITLES_EN = {"sachverhalt": "Facts", "auswirkungen": "Effects"}
 CHECKLIST = {
     "recipient_is_client": "Empfänger ist der Auftraggeber bzw. dessen bevollmächtigter Vertreter",
     "contract_no": "Vertragsnummer korrekt",
@@ -34,6 +35,40 @@ CHECKLIST = {
     "delivery_proof": "Zustellweg mit Nachweis festgelegt (E-Mail vorab + Einschreiben/Bote)",
 }
 DELIVERY_DEFAULT = "E-Mail vorab an bevollmächtigten Vertreter, Original per Einschreiben mit Rückschein"
+DELIVERY_DEFAULT_EN = "E-mail in advance to the authorised representative, original by registered mail with return receipt"
+MONTHS_EN = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October",
+             "November", "December"]
+WEEKDAYS = {"de": ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"],
+            "en": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]}
+
+
+_TITLE_EN = [("Sprachmemo", "Voice memo"), ("Foto", "Photo"), ("Notiz", "Note"), ("Dokument", "Document"),
+             ("Mail", "E-mail")]
+
+
+def _title(d: dict, lang: str) -> str:
+    """Beleg-Titel (beim Erfassen auf Deutsch angelegt) für englische Schreiben übersetzen."""
+    t = d.get("title", "")
+    if lang == "en":
+        for de, en in _TITLE_EN:
+            if t.startswith(de + " "):
+                return en + t[len(de):]
+    return t
+
+
+def _lang(letter: dict) -> str:
+    return (letter.get("sections", {}).get("meta") or {}).get("language", "de")
+
+
+def _date(iso: str, lang: str = "de") -> str:
+    """de: 20.11.2026 · en: 20 November 2026 (beide Formen erkennt verify)."""
+    d = date.fromisoformat(iso[:10])
+    return f"{d.day} {MONTHS_EN[d.month - 1]} {d.year}" if lang == "en" else d.strftime("%d.%m.%Y")
+
+
+def _dt(iso: str, lang: str = "de") -> str:
+    dt = datetime.fromisoformat(iso)
+    return f"{_date(iso, 'en')}, {dt:%H:%M}" if lang == "en" else dt.strftime("%d.%m.%Y, %H:%M Uhr")
 
 
 def _de_date(iso: str) -> str:
@@ -45,71 +80,93 @@ def _de_dt(iso: str) -> str:
     return dt.strftime("%d.%m.%Y, %H:%M Uhr")
 
 
-def _safe_de_dt(v: Any) -> str:
+def _safe_de_dt(v: Any, lang: str = "de") -> str:
     try:
-        return _de_dt(str(v))
+        return _dt(str(v), lang)
     except (ValueError, TypeError):
         return str(v or "")
 
 
-def _fmt(x: float) -> str:
-    return f"{x:g}".replace(".", ",")
+def _fmt(x: float, lang: str = "de") -> str:
+    return f"{x:g}" if lang == "en" else f"{x:g}".replace(".", ",")
 
 
 # ----------------------------------------------------------------------------- engine facts
-def engine_facts(event: dict, analysis: dict) -> tuple[list[str], str]:
+def engine_facts(event: dict, analysis: dict, lang: str = "de") -> tuple[list[str], str]:
+    en = lang == "en"
+    D = lambda iso: _date(iso, lang)  # noqa: E731
+    F = lambda x: _fmt(x, lang)  # noqa: E731
     rows = {r["id"]: r for r in analysis["activities"]}
-    lines = [f"Terminplan-Berechnung (Stand {_de_date(analysis['date'])}, Prognose bei aktuellem Tempo):"]
+    lines = [f"Programme calculation (as of {D(analysis['date'])}, forecast at current rate):" if en else
+             f"Terminplan-Berechnung (Stand {D(analysis['date'])}, Prognose bei aktuellem Tempo):"]
     for aid in event["activity_ids"]:
         r = rows.get(aid)
         if not r:
             continue
         if r["today"]["soll"]:
             pct = round(100 * r["today"]["ratio"]) if r["today"]["ratio"] is not None else 0
-            lines.append(f"Tagesleistung {r['name']} am {_de_date(analysis['date'])}: {_fmt(r['today']['ist'])} "
-                         f"{r['unit']} von {_fmt(r['today']['soll'])} {r['unit']} Tagessoll ({pct} %).")
-        lines.append(f"{r['name']}: geplantes Ende {_de_date(r['planned_finish'])}, prognostiziertes Ende "
-                     f"{_de_date(r['forecast_finish'])}, Verzug {r['delay_days']} Arbeitstage"
-                     f"{' (kritischer Pfad)' if r['critical'] else ''}.")
+            lines.append(
+                f"Daily output {r['name']} on {D(analysis['date'])}: {F(r['today']['ist'])} {r['unit']} of "
+                f"{F(r['today']['soll'])} {r['unit']} daily target ({pct} %)." if en else
+                f"Tagesleistung {r['name']} am {D(analysis['date'])}: {F(r['today']['ist'])} "
+                f"{r['unit']} von {F(r['today']['soll'])} {r['unit']} Tagessoll ({pct} %).")
+        crit = (" (critical path)" if en else " (kritischer Pfad)") if r["critical"] else ""
+        lines.append(
+            f"{r['name']}: planned finish {D(r['planned_finish'])}, forecast finish {D(r['forecast_finish'])}, "
+            f"delay {r['delay_days']} working days{crit}." if en else
+            f"{r['name']}: geplantes Ende {D(r['planned_finish'])}, prognostiziertes Ende "
+            f"{D(r['forecast_finish'])}, Verzug {r['delay_days']} Arbeitstage{crit}.")
     for ch in analysis["impact"]:
         if ch["root"] in event["activity_ids"]:
             for aid, r in rows.items():
                 if r["delay_days"] > 0 and aid not in event["activity_ids"] and r["kind"] != "milestone" and \
                         r["name"] in ch["text"]:
-                    lines.append(f"Folgevorgang {r['name']}: geplant {_de_date(r['planned_start'])} bis "
-                                 f"{_de_date(r['planned_finish'])}, prognostiziert {_de_date(r['forecast_start'])} "
-                                 f"bis {_de_date(r['forecast_finish'])}.")
+                    lines.append(
+                        f"Subsequent activity {r['name']}: planned {D(r['planned_start'])} to "
+                        f"{D(r['planned_finish'])}, forecast {D(r['forecast_start'])} to {D(r['forecast_finish'])}."
+                        if en else
+                        f"Folgevorgang {r['name']}: geplant {D(r['planned_start'])} bis "
+                        f"{D(r['planned_finish'])}, prognostiziert {D(r['forecast_start'])} "
+                        f"bis {D(r['forecast_finish'])}.")
             for m in analysis["milestones"]:
                 if m["overrun_days"] > 0 and m["name"] in ch["text"]:
-                    lines.append(f"{m['name']} am {_de_date(m['date'])}: Prognose {_de_date(m['forecast'])}, "
-                                 f"Überschreitung um {m['overrun_days']} Arbeitstage.")
+                    lines.append(
+                        f"{m['name']} on {D(m['date'])}: forecast {D(m['forecast'])}, exceeded by "
+                        f"{m['overrun_days']} working days." if en else
+                        f"{m['name']} am {D(m['date'])}: Prognose {D(m['forecast'])}, "
+                        f"Überschreitung um {m['overrun_days']} Arbeitstage.")
     if event.get("blocked_until"):
         d = date.fromisoformat(event["blocked_until"])
-        wd = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"][d.weekday()]
-        lines.append(f"Blockade bis voraussichtlich {wd}, {_de_date(event['blocked_until'])} (laut Beleg).")
+        wd = WEEKDAYS["en" if en else "de"][d.weekday()]
+        lines.append(f"Blocked until probably {wd}, {D(event['blocked_until'])} (according to evidence)." if en else
+                     f"Blockade bis voraussichtlich {wd}, {D(event['blocked_until'])} (laut Beleg).")
     if event["type"] == "additional_work" and event["attrs"].get("not_in_lv"):
-        lines.append("Abgleich Leistungsverzeichnis: keine passende Position vorhanden.")
+        lines.append("Comparison with the bill of quantities: no matching item." if en else
+                     "Abgleich Leistungsverzeichnis: keine passende Position vorhanden.")
     return lines, "\n".join(lines)
 
 
 # ----------------------------------------------------------------------------- LLM body
-def _fallback_body(ev_list: list[tuple[str, dict]], engine_ref: str, facts: list[str]) -> DraftBody:
+def _fallback_body(ev_list: list[tuple[str, dict]], engine_ref: str, facts: list[str], lang: str = "de") -> DraftBody:
     sv = []
     for ref, d in ev_list:
         if d["source"] in ("engine", "contract", "weather") or not verify.counts_as_evidence(d):
             continue  # KI-Beobachtungen sind kein Beleg → nicht als Sachverhalt zitieren
-        when = _de_dt(d["captured_at"]) if d.get("captured_at") else ""
+        when = _dt(d["captured_at"], lang) if d.get("captured_at") else ""
         q = re.sub(r"\s+", " ", d.get("quote", "")).strip().rstrip(".")
         if q:
-            sv.append(DraftSentence(text=f"{d['title']} ({when}): „{q}“.", evidence=[ref]))
+            sv.append(DraftSentence(text=f"{_title(d, lang)} ({when}): “{q}”." if lang == "en" else
+                                    f"{d['title']} ({when}): „{q}“.", evidence=[ref]))
     aw = [DraftSentence(text=f, evidence=[engine_ref]) for f in facts[1:]] or \
-         [DraftSentence(text="Die Auswirkungen auf den Bauablauf werden derzeit ermittelt.", evidence=[engine_ref])]
-    return DraftBody(sachverhalt=sv[:5] or [DraftSentence(text="Siehe Anlagen.", evidence=[engine_ref])],
+         [DraftSentence(text="The effects on the construction schedule are currently being determined." if lang == "en"
+                        else "Die Auswirkungen auf den Bauablauf werden derzeit ermittelt.", evidence=[engine_ref])]
+    return DraftBody(sachverhalt=sv[:5] or [DraftSentence(text="See enclosures." if lang == "en" else "Siehe Anlagen.",
+                                                          evidence=[engine_ref])],
                      auswirkungen=aw[:5])
 
 
-def _ev_line(ref: str, d: dict) -> str:
-    head = (f"[{ref}] {d['title']} ({d['source']}{', ' + _de_dt(d['captured_at']) if d.get('captured_at') else ''}"
+def _ev_line(ref: str, d: dict, lang: str = "de") -> str:
+    head = (f"[{ref}] {_title(d, lang)} ({d['source']}{', ' + _dt(d['captured_at'], lang) if d.get('captured_at') else ''}"
             f"{', S. ' + str(d['page']) if d.get('page') else ''})")
     if verify.is_ai_observation(d) and not verify.counts_as_evidence(d):
         head += " [KI-Beobachtung, KEIN Beleg – nicht als Tatsache darstellen]"
@@ -118,28 +175,33 @@ def _ev_line(ref: str, d: dict) -> str:
     return f"{head}: {d.get('quote') or d.get('full_text', '')[:400]}"
 
 
-def _llm_body(event: dict, kind: str, ev_list: list[tuple[str, dict]], engine_ref: str, facts: list[str]) -> DraftBody:
-    ev_txt = "\n".join(_ev_line(ref, d) for ref, d in ev_list)
-    msgs = [{"role": "system", "content": DRAFT_SYSTEM},
+def _llm_body(event: dict, kind: str, ev_list: list[tuple[str, dict]], engine_ref: str, facts: list[str],
+              lang: str = "de") -> DraftBody:
+    ev_labels, kind_labels = labels(lang)
+    ev_txt = "\n".join(_ev_line(ref, d, lang) for ref, d in ev_list)
+    msgs = [{"role": "system", "content": draft_system(lang)},
             {"role": "user", "content": DRAFT_USER.format(
-                kind_label=DOC_KIND_LABELS[kind], event_label=EVENT_TYPE_LABELS[event["type"]],
+                kind_label=kind_labels[kind], event_label=ev_labels[event["type"]],
                 description=event["description"], engine_id=engine_ref, facts="\n".join(facts), evidence=ev_txt)}]
-    return llm.get("drafter").structured(DraftBody, msgs, n=1, fixture=(event["project_id"], f"draft_{event['type']}_{event['date']}"),
-                                         fallback=lambda: _fallback_body(ev_list, engine_ref, facts))[0]
+    fx = f"draft_{event['type']}_{event['date']}" + ("_en" if lang == "en" else "")  # Demo: dt. Fixture nur für de
+    return llm.get("drafter").structured(DraftBody, msgs, n=1, fixture=(event["project_id"], fx),
+                                         fallback=lambda: _fallback_body(ev_list, engine_ref, facts, lang))[0]
 
 
 # ----------------------------------------------------------------------------- render
 def render(letter: dict) -> list[dict[str, Any]]:
     """Rendert die Vorlage mit aktuellen Feldwerten; LLM-Sätze werden an [[...]] eingesetzt."""
     project = settings.project_cfg(letter["project_id"])
+    lang = _lang(letter)
     f = {k: v["value"] for k, v in letter["fields"].items()}
     ctx = {
         "project": project, "company": settings.baseline()["company"], "f": f,
         "event_label": letter["sections"]["meta"]["event_label"],
-        "contract_date": _de_date(project["contract_date"]),
-        "start_de": _safe_de_dt(f.get("event_start")),
+        "contract_date": _date(project["contract_date"], lang),
+        "start_de": _safe_de_dt(f.get("event_start"), lang),
     }
-    text = _env.get_template(f"{letter['kind']}.j2").render(**ctx)
+    text = _env.get_template(f"{letter['kind']}{'.en' if lang == 'en' else ''}.j2").render(**ctx)
+    titles = SECTION_TITLES_EN if lang == "en" else SECTION_TITLES
     out = []
     for block in re.split(r"(?m)^### ", text):
         if not block.strip():
@@ -147,7 +209,7 @@ def render(letter: dict) -> list[dict[str, Any]]:
         key, _, body = block.partition("\n")
         key = key.strip()
         if body.strip() in ("[[SACHVERHALT]]", "[[AUSWIRKUNGEN]]"):
-            out.append({"key": key, "title": SECTION_TITLES[key], "sentences": letter["sections"]["llm"][key]})
+            out.append({"key": key, "title": titles[key], "sentences": letter["sections"]["llm"][key]})
         else:
             out.append({"key": key, "text": body.strip()})
     return out
@@ -177,7 +239,8 @@ def _field(key: str, label: str, value: Any, c: dict | float, evidence_ids: list
                        importance=conf.importance(key), note=note)
 
 
-def create_letter(event_id: str, actor: str = "ai", kind: Optional[str] = None) -> dict:
+def create_letter(event_id: str, actor: str = "ai", kind: Optional[str] = None, language: str = "de") -> dict:
+    """language (de|en) = UI-Sprache: Vorlage, KI-Sätze und Datumsformat; Zitate aus Belegen bleiben im Original."""
     from ..pipeline import new_evidence  # zirkulären Import vermeiden
 
     event = store.get("events", event_id)
@@ -189,8 +252,12 @@ def create_letter(event_id: str, actor: str = "ai", kind: Optional[str] = None) 
     pid = event["project_id"]
     project = settings.project_cfg(pid)
     analysis = deviation.analyze(pid, date.fromisoformat(event["date"]))
-    facts, facts_text = engine_facts(event, analysis)
-    eng = new_evidence(project_id=pid, source="engine", title="Terminplan-Berechnung (SiteVox-Engine)",
+    lang = settings.output_language(language)
+    ev_labels, kind_labels = labels(lang)
+    facts, facts_text = engine_facts(event, analysis, lang)
+    eng = new_evidence(project_id=pid, source="engine",
+                       title="Programme calculation (SiteVox engine)" if lang == "en" else
+                       "Terminplan-Berechnung (SiteVox-Engine)",
                        quote=facts_text, full_text=facts_text, captured_at=analysis["date"] + "T17:00:00")
 
     # Beleg-Nummerierung E-01 ...: Kernbelege, Stammdaten, Engine; danach Foto-Ableitungen
@@ -211,7 +278,7 @@ def create_letter(event_id: str, actor: str = "ai", kind: Optional[str] = None) 
     engine_ref = inv[eng.evidence_id]
     ev_list = [(inv[eid], store.evidence(eid)) for eid in ev_ids if store.evidence(eid)] + [
         (engine_ref, eng.model_dump())]
-    body = _llm_body(event, kind, ev_list, engine_ref, facts)
+    body = _llm_body(event, kind, ev_list, engine_ref, facts, lang)
 
     ec = event["confidence"]["fields"]
     client = project["client"]
@@ -219,7 +286,8 @@ def create_letter(event_id: str, actor: str = "ai", kind: Optional[str] = None) 
     legal_rel = legal_hits[0]["relevance"] if legal_hits else None
     fields = {
         "recipient": _field("recipient", "Empfänger",
-                            f"{client['name']}, z. Hd. {client['representative']} ({client['representative_role']})",
+                            f"{client['name']}, {'attn.' if lang == 'en' else 'z. Hd.'} {client['representative']} "
+                            f"({client['representative_role']})",
                             conf.combine(n_evidence=len(master_ids), consistency=1.0, rule_ok=True), master_ids,
                             "aus Vertragsstammdaten"),
         "contract_no": _field("contract_no", "Vertragsnummer", project["contract_no"],
@@ -240,7 +308,8 @@ def create_letter(event_id: str, actor: str = "ai", kind: Optional[str] = None) 
                               conf.combine(n_evidence=1 if legal_hits else 0, retrieval=legal_rel, consistency=1.0,
                                            rule_ok=not event["warnings"] or None),
                               [], "Normzitat ausschließlich aus Vorlage"),
-        "delivery_method": _field("delivery_method", "Zustellweg", DELIVERY_DEFAULT, 0.6, [],
+        "delivery_method": _field("delivery_method", "Zustellweg", DELIVERY_DEFAULT_EN if lang == "en" else
+                                  DELIVERY_DEFAULT, 0.6, [],
                                   "Firmenstandard – bitte bestätigen"),
     }
     if event["impact_estimate_days"]["value"] is None:
@@ -251,7 +320,7 @@ def create_letter(event_id: str, actor: str = "ai", kind: Optional[str] = None) 
         letter_id=lid, project_id=pid, event_id=event_id, kind=kind, fields=fields,
         sections={"llm": {"sachverhalt": [s.model_dump() for s in body.sachverhalt],
                           "auswirkungen": [s.model_dump() for s in body.auswirkungen]},
-                  "meta": {"event_label": EVENT_TYPE_LABELS[event["type"]], "kind_label": DOC_KIND_LABELS[kind]}},
+                  "meta": {"event_label": ev_labels[event["type"]], "kind_label": kind_labels[kind], "language": lang}},
         evidence_map=evidence_map, checklist={k: False for k in CHECKLIST}, created_at=now, updated_at=now,
     ).model_dump(mode="json")
     letter = reverify(letter)

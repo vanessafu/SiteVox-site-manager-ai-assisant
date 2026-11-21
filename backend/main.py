@@ -19,7 +19,7 @@ from typing import Any, Optional
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, UploadFile  # noqa: E402
+from fastapi import BackgroundTasks, Body, FastAPI, File, Form, HTTPException, UploadFile  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 from fastapi.responses import FileResponse  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
@@ -126,7 +126,9 @@ async def upload_capture(pid: str, background: BackgroundTasks, kind: str = Form
     # `language` ist die UI-Sprache und erzwingt KEINE Whisper-Sprache mehr (türkisch sprechender Polier
     # mit deutscher UI). Standard: automatische Erkennung unter de/en/tr/pl; explizit nur via asr_language.
     if asr_language in ("de", "en", "tr", "pl", "auto"):
-        meta["language"] = asr_language  # Schreiben an den AG bleiben deutsch
+        meta["language"] = asr_language
+    # UI-Sprache (de|en) bestimmt die Sprache der KI-Texte (Zusammenfassung, Rückfrage); Zitate bleiben im Original
+    meta["output_language"] = settings.output_language(language)
     if lat is not None and lon is not None:
         meta["gps"] = {"lat": lat, "lon": lon}
     # Foto: Aufnahmezeit aus EXIF, sofern der Client keine Zeit mitschickt (Datum ← EXIF)
@@ -216,14 +218,16 @@ def dismiss(eid: str, body: NoteIn) -> dict:
 
 
 @app.post("/api/events/{eid}/draft")
-def create_draft(eid: str) -> dict:
+def create_draft(eid: str, body: Optional[dict] = Body(None)) -> dict:
+    """body.language (de|en) = UI-Sprache → Sprache des Schreibens (Vorlage + KI-Sätze)."""
     e = store.get("events", eid)
     if not e:
         raise HTTPException(404)
     if e.get("letter_id"):
         return views.letter_view(_letter(e["letter_id"]))
     try:
-        return views.letter_view(composer.create_letter(eid, actor=ACTOR))
+        return views.letter_view(composer.create_letter(
+            eid, actor=ACTOR, language=settings.output_language((body or {}).get("language"))))
     except ValueError as ex:
         raise HTTPException(409, str(ex)) from ex
 

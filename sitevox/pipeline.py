@@ -140,6 +140,11 @@ def _ingest_body(cap, project_id, kind, captured_at, day, file, text, title, met
     return cap
 
 
+def _out_lang(cap: dict) -> str:
+    """Sprache der KI-Texte für diese Erfassung = UI-Sprache beim Hochladen (meta.output_language), sonst Deutsch."""
+    return settings.output_language((cap.get("meta") or {}).get("output_language"))
+
+
 def _analyze(cap: dict, body: str, acts: list[dict], fixture_key: Optional[str] = None) -> None:
     """Belege + Extraktion für eine Erfassung (auch für erneute Analyse nach manueller Korrektur)."""
     project_id, day, kind, meta, captured_at = cap["project_id"], cap["date"], cap["kind"], cap.get("meta", {}), \
@@ -165,7 +170,8 @@ def _extract_into(cap: dict, body: str, acts: list[dict], fixture_key: Optional[
     Gibt die IDs der angelegten/ergänzten Ereignisse zurück."""
     project_id, day, kind, captured_at = cap["project_id"], cap["date"], cap["kind"], cap["captured_at"]
     res = extract.extract(body, project_id=project_id, date=day, time=captured_at[11:16], source=kind, acts=acts,
-                          fixture_key=fixture_key, context=context, hint_subtypes=hint_subtypes)
+                          fixture_key=fixture_key, context=context, hint_subtypes=hint_subtypes,
+                          out_lang=_out_lang(cap))
     main, samples = res["main"], res["samples"]
     cap["summary"] = main.summary
     cap["progress_found"] = bool(main.progress)
@@ -240,7 +246,7 @@ def _photo_analyze(cap: dict, file: Optional[Path], acts: list[dict]) -> None:
     pid, day = cap["project_id"], cap["date"]
     planned = _planned_today(acts, day)
     vis = vision.analyze(file, pid, activities_today=[a["name"] for a in planned],
-                         tz_hint=cap["captured_at"][19:] or None) if file else \
+                         tz_hint=cap["captured_at"][19:] or None, out_lang=_out_lang(cap)) if file else \
         {"exif": {}, "analysis": vision._fallback().model_dump(), "backend": None, "model": None}
     analysis = vis["analysis"]
     cap["vision"] = {**vis["exif"], **{k: v for k, v in vis.items() if k != "exif"}}
@@ -277,7 +283,7 @@ def _photo_analyze(cap: dict, file: Optional[Path], acts: list[dict]) -> None:
         cap["evidence_ids"].append(aev.evidence_id)
         obs_refs.append({"index": i, "ai_evidence_id": aev.evidence_id, "crop_evidence_id": crop_id})
     cap["photo"] = {"evidence_id": photo_ev.evidence_id, "observations": obs_refs}
-    cap["followup"] = {**vision.followup(analysis), "asked_at": now_iso()}
+    cap["followup"] = {**vision.followup(analysis, _out_lang(cap)), "asked_at": now_iso()}
     cap["summary"] = "KI-Beobachtung: " + (analysis.get("summary") or "–")
     cap["text"] = ""
     cap["status"] = "awaiting_answer"
@@ -356,7 +362,8 @@ def _photo_finalize(cap: dict, body: str, acts: list[dict]) -> None:
     if not body.strip():
         _link_to_events(cap, photo_ids + ai_ids,
                         " ".join([analysis.get("summary") or ""] + [o["description"] for o in obs]))
-        cap["summary"] = "KI-Beobachtung: " + (analysis.get("summary") or "–")
+        cap["summary"] = ("AI observation: " if _out_lang(cap) == "en" else "KI-Beobachtung: ") + \
+            (analysis.get("summary") or "–")
         if any(o["category"] == "progress" for o in obs):
             cap["hints"].append("Foto zeigt Arbeitsfortschritt – Menge bitte per Sprache oder Notiz nachtragen "
                                 "(wird nicht aus dem Foto geschätzt).")

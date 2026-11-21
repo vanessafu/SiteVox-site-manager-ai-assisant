@@ -1,0 +1,17 @@
+### betreff
+Notice of obstruction pursuant to Section 6(1) VOB/B – {{ event_label }}{% if f.affected_activities %} ({{ f.affected_activities | join(', ') }}){% endif %}
+### bezug
+Construction project {{ project.title }}, construction contract no. {{ f.contract_no }} dated {{ contract_date }}; {{ project.contract_basis }}
+### anrede
+Dear Sir or Madam,
+### einleitung
+We hereby notify you pursuant to Section 6(1) VOB/B that we are obstructed in the proper performance of our contractual works. The obstruction has existed since {{ start_de }}.
+### sachverhalt
+[[SACHVERHALT]]
+### auswirkungen
+[[AUSWIRKUNGEN]]
+### forderung
+We ask you to remove the obstructing circumstances without delay and to inform us from when the works can be continued without hindrance. We will do everything that can reasonably be expected of us to enable the continuation of the works and, once the obstruction has ceased, will resume the works without delay and notify you accordingly (Section 6(3) VOB/B).
+### vorbehalt
+We reserve the right to claim an extension of the completion periods pursuant to Section 6(2) and (4) VOB/B as well as claims under Section 6(6) VOB/B and Section 642 BGB. These will be quantified separately as soon as the duration and extent of the obstruction have been established.
+{% include "_gruss.en.j2" %}

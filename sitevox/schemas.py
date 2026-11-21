@@ -52,6 +52,31 @@ DOC_KIND_LABELS: dict[str, str] = {
     "bautagebuch": "Bautagebuch-Eintrag",
     "interne_warnung": "Interne Warnung",
 }
+EVENT_TYPE_LABELS_EN: dict[str, str] = {
+    "material_delay": "Delay in material delivery",
+    "equipment_failure": "Equipment failure",
+    "weather_interruption": "Weather",
+    "worker_shortage": "Labour shortage",
+    "third_party_interference": "Obstruction by third parties",
+    "design_error": "Design error",
+    "quality_defect": "Quality defect",
+    "additional_work": "Additional work",
+    "planlieferverzug": "Late delivery of drawings / lack of cooperation",
+    "leistungsaenderung": "Change of work (client instruction)",
+}
+DOC_KIND_LABELS_EN: dict[str, str] = {
+    "behinderungsanzeige": "Notice of obstruction",
+    "mehrkostenankuendigung": "Notice of additional costs",
+    "nachtragsankuendigung": "Notice of change (modified work)",
+    "bedenkenanzeige": "Notice of concerns",
+    "bautagebuch": "Site diary entry",
+    "interne_warnung": "Internal warning",
+}
+
+
+def labels(lang: str = "de") -> tuple[dict[str, str], dict[str, str]]:
+    """(Ereignistyp-, Dokumentart-Labels) in der Ausgabesprache."""
+    return (EVENT_TYPE_LABELS_EN, DOC_KIND_LABELS_EN) if lang == "en" else (EVENT_TYPE_LABELS, DOC_KIND_LABELS)
 
 
 # ---------------------------------------------------------------------------

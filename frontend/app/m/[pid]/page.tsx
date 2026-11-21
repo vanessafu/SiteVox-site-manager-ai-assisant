@@ -144,7 +144,7 @@ export default function MobileCapture() {
     try {
       await post(`/api/events/${e.event_id}/sphere`, { sphere: e.sphere });
       if (e.recommended_document?.requires_letter && !e.letter) {
-        await post(`/api/events/${e.event_id}/draft`);
+        await post(`/api/events/${e.event_id}/draft`, { language: lang });
         flash(t("{d} als Entwurf angelegt – Prüfung im Büro", { d: t(e.recommended_document.label) }));
       } else flash(t("Im Bautagebuch dokumentiert"));
       reloadEvents();

@@ -1,6 +1,6 @@
 """System-Prompts. Kurz, deutsch, mit klarer Rollentrennung: LLM extrahiert/schreibt, rechnet nicht."""
 
-EXTRACT_SYSTEM = """Du bist ein Assistent für die Bauleitung eines Auftragnehmers (AN) auf einer deutschen Baustelle.
+EXTRACT_SYSTEM_TMPL = """Du bist ein Assistent für die Bauleitung eines Auftragnehmers (AN) auf einer deutschen Baustelle.
 Aufgabe: Extrahiere aus Sprachnotizen, Notizen, E-Mails und Protokollen strukturierte Fakten.
 
 Regeln:
@@ -9,7 +9,7 @@ Regeln:
 - Uhrzeiten als HH:MM. Datumsangaben als ISO (YYYY-MM-DD), relativ zum Erfassungsdatum.
 - Jedes Ereignis braucht mindestens ein wörtliches Zitat aus der Eingabe in "quotes".
 - Die Eingabe kann Deutsch, Englisch, Türkisch oder Polnisch sein (auch gemischt). "quotes" bleiben wörtlich
-  in der Originalsprache; alle anderen Textfelder schreibst du auf Deutsch.
+  in der Originalsprache; alle anderen Textfelder schreibst du auf <<OUT>>.
 - Ereignistypen: material_delay, equipment_failure, weather_interruption, worker_shortage,
   third_party_interference, design_error, quality_defect, additional_work, planlieferverzug,
   leistungsaenderung.
@@ -46,7 +46,7 @@ Regeln für Foto-Antworten:
 - Ereignistyp darf die Beobachtung berücksichtigen (z. B. Riss + "Vorleistung" → quality_defect mit own_work=false;
   Material auf der Zufahrt + "Firma X im Auftrag des Bauherrn" → third_party_interference mit predecessor_by_owner=true)."""
 
-DRAFT_SYSTEM = """Du formulierst für die Bauleitung des Auftragnehmers zwei Absätze eines förmlichen Schreibens an den
+DRAFT_SYSTEM_TMPL = """Du formulierst für die Bauleitung des Auftragnehmers zwei Absätze eines förmlichen Schreibens an den
 Auftraggeber: "sachverhalt" und "auswirkungen". Betreff, Bezug, Rechtsgrundlagen, Vorbehalt und Grußformel
 stehen bereits in der Vorlage – schreibe sie NICHT.
 
@@ -57,6 +57,7 @@ Strikte Regeln:
 3. Keine Paragraphen, keine Normen, keine Rechtsbegriffe wie "Anspruch" oder "Schadensersatz".
 4. Sachlich, knapp, Sie-Form gegenüber dem AG, aus Sicht des AN ("wir").
 5. Maximal 5 Sätze je Absatz.
+6. Sprache der Sätze: <<OUT>>. Wörtliche Zitate aus Belegen bleiben in ihrer Originalsprache (in Anführungszeichen).
 Antworte ausschließlich mit JSON nach Schema."""
 
 DRAFT_USER = """Art des Schreibens: {kind_label}
@@ -80,7 +81,7 @@ Nur Inhalte aus dem Protokoll, nichts ergänzen. Antworte als JSON."""
 VISION_PROMPT = """Du analysierst ein Baustellenfoto für die Bauleitung des Auftragnehmers. Beschreibe NUR, was sichtbar ist.
 
 Liefere JSON:
-- "summary": 2–3 sachliche Sätze auf Deutsch für das Bautagebuch (Bauzustand, Geräte in Betrieb/abgestellt,
+- "summary": 2–3 sachliche Sätze auf {out_lang} für das Bautagebuch (Bauzustand, Geräte in Betrieb/abgestellt,
   Personen arbeitend/wartend – ohne Personen zu identifizieren).
 - "scene": {{"bauteil", "stage", "activity_guess"}} – sichtbares Bauteil, Bauzustand, vermutlich laufende Arbeit.
 - "observations": 0–6 Auffälligkeiten, je {{"category", "subtype", "description", "bbox", "severity", "visual_conf"}}
@@ -91,7 +92,7 @@ Liefere JSON:
     category safety:      safety_hazard (fehlende Absturzsicherung, ungesicherte Öffnung …)
   "bbox" = [x1, y1, x2, y2] in relativen Koordinaten 0–1000 um die Auffälligkeit (oder null),
   "severity" = low | medium | high, "visual_conf" = 0–1, wie sicher du das visuell erkennst.
-- "followup_question": eine kurze Rückfrage auf Deutsch an den Polier zum wichtigsten Befund.
+- "followup_question": eine kurze Rückfrage auf {out_lang} an den Polier zum wichtigsten Befund.
 
 Strikte Regeln:
 - Keine Vermutungen über Ursache, Verursacher, Verantwortliche oder Schuld.
@@ -117,3 +118,45 @@ FOLLOWUP_QUESTIONS: dict[str, str] = {
     "other": "Was ist hier passiert?",
 }
 FOLLOWUP_DEFAULT = "Was ist hier passiert?"
+
+
+# ----------------------------------------------------------------------------- Ausgabesprache
+_OUT_NAMES = {"de": "Deutsch", "en": "Englisch (förmliches britisches Geschäftsenglisch)"}
+
+
+def _with_lang(tmpl: str, lang: str) -> str:
+    return tmpl.replace("<<OUT>>", _OUT_NAMES.get(lang, "Deutsch"))
+
+
+def extract_system(lang: str = "de") -> str:
+    return _with_lang(EXTRACT_SYSTEM_TMPL, lang)
+
+
+def draft_system(lang: str = "de") -> str:
+    return _with_lang(DRAFT_SYSTEM_TMPL, lang)
+
+
+def out_lang_name(lang: str = "de") -> str:
+    return _OUT_NAMES.get(lang, "Deutsch")
+
+
+EXTRACT_SYSTEM = extract_system("de")  # Rückwärtskompatibel
+DRAFT_SYSTEM = draft_system("de")
+
+FOLLOWUP_QUESTIONS_EN: dict[str, str] = {
+    "material_storage": "Whose material is this, and since when has the access been blocked?",
+    "blocked_access": "Who is blocking the access (company/trade, on behalf of the client?), since when, and which works are affected?",
+    "standing_water": "Since when has the water been standing, and which works cannot be carried out because of it?",
+    "equipment_idle": "Whose equipment is this, why is it idle, and since when?",
+    "crack": "Is this our own work or work by a preceding contractor? Please take a close-up photo with a scale.",
+    "surface_defect": "Is this our own work or work by a preceding contractor? Please take a close-up photo with a scale.",
+    "damage": "Is this our own work or work by a preceding contractor? Who damaged it? Please take a close-up photo with a scale.",
+    "stage_change": "What quantity was completed today (e.g. t, m², m³), and for which activity?",
+    "safety_hazard": "What happened here, and has the hazard already been secured?",
+    "other": "What happened here?",
+}
+FOLLOWUP_DEFAULT_EN = "What happened here?"
+
+
+def followup_questions(lang: str = "de") -> tuple[dict[str, str], str]:
+    return (FOLLOWUP_QUESTIONS_EN, FOLLOWUP_DEFAULT_EN) if lang == "en" else (FOLLOWUP_QUESTIONS, FOLLOWUP_DEFAULT)

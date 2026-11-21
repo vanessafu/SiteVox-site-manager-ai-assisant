@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Any, Optional, Type
 
 from .. import llm, settings
-from ..prompts import FOLLOWUP_DEFAULT, FOLLOWUP_QUESTIONS, VISION_CONTEXT, VISION_PROMPT
+from ..prompts import FOLLOWUP_DEFAULT, VISION_CONTEXT, VISION_PROMPT, followup_questions, out_lang_name
 from ..schemas import PhotoAnalysis
 
 log = logging.getLogger(__name__)
@@ -205,8 +205,8 @@ def live_in_demo() -> bool:
 
 
 def analyze(path: Path, project_id: str, *, activities_today: Optional[list[str]] = None,
-            tz_hint: Optional[str] = None) -> dict[str, Any]:
-    """Foto → {exif, analysis (PhotoAnalysis), backend, model}. Wirft keine Fehler wegen des Modells:
+            tz_hint: Optional[str] = None, out_lang: str = "de") -> dict[str, Any]:
+    """Foto → {exif, analysis (PhotoAnalysis), backend, model}. out_lang: Sprache von summary/Rückfrage. Wirft keine Fehler wegen des Modells:
     schlägt das VLM fehl, bleibt das Foto Beleg und die Rückfrage allgemein (analysis_error gesetzt)."""
     path = Path(path)
     cfg = settings.models()["llm"]["vision"]
@@ -215,7 +215,7 @@ def analyze(path: Path, project_id: str, *, activities_today: Optional[list[str]
     if settings.is_demo():
         meta = {**meta, **_demo_exif(project_id, path.stem)}
     ctx = VISION_CONTEXT.format(activities=", ".join(activities_today)) if activities_today else ""
-    prompt = VISION_PROMPT.format(context=ctx)
+    prompt = VISION_PROMPT.format(context=ctx, out_lang=out_lang_name(out_lang))
     content: list[dict] = [{"type": "text", "text": prompt}]
     if live or not settings.is_demo():
         b64 = base64.b64encode(_clean_jpeg(path, cfg.get("max_image_side", 1536))).decode()
@@ -251,15 +251,16 @@ def primary_observation(analysis: dict) -> Optional[int]:
                                                -float(obs[i].get("visual_conf") or 0)))
 
 
-def followup(analysis: dict) -> dict[str, Any]:
+def followup(analysis: dict, out_lang: str = "de") -> dict[str, Any]:
     """Genau eine Rückfrage, deterministisch aus dem wichtigsten Befund. Die VLM-Frage dient nur als Rückfall
     für 'other' – so fragt die App immer, was das Regelwerk braucht (Verursacher, Beginn, eigene Leistung, Menge)."""
+    questions, default = followup_questions(out_lang)
     i = primary_observation(analysis)
     if i is None:
-        return {"question": FOLLOWUP_DEFAULT, "category": None, "subtype": None, "observation": None}
+        return {"question": default, "category": None, "subtype": None, "observation": None}
     o = analysis["observations"][i]
-    q = FOLLOWUP_QUESTIONS.get(o["subtype"])
+    q = questions.get(o["subtype"])
     if o["subtype"] == "other" or not q:
-        q = (analysis.get("followup_question") or "").strip() or FOLLOWUP_DEFAULT
+        q = (analysis.get("followup_question") or "").strip() or default
     return {"question": q, "category": o["category"], "subtype": o["subtype"], "observation": i,
             "wants_detail_photo": o["category"] == "defect"}

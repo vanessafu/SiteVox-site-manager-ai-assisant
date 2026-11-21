@@ -61,6 +61,7 @@ def run(manifest: list[dict], hyps: dict[str, dict] | None) -> list[dict]:
 
 
 NUM_KINDS = ("time", "date", "quantity", "number")
+_nk = lambda k: "other_number" if k == "number" else k  # noqa: E731
 
 
 def accent_group(r: dict) -> str | None:
@@ -136,9 +137,10 @@ def summarize(rows: list[dict]) -> dict:
         "CER": M.cluster_bootstrap(items, M.ratio("char_errors", "n_chars")),
         "term_recall": M.cluster_bootstrap(items, M.ratio("term_hit", "term_total")),
         "number_recall": M.cluster_bootstrap(items, M.ratio("num_hit", "num_total")),
-        **{f"{k}_recall": M.cluster_bootstrap(items, M.ratio(f"{k}_hit", f"{k}_total")) for k in NUM_KINDS},
+        # je Art; "number" (sonstige Zahl) als other_number_*, damit number_recall (alle Zahlen) erhalten bleibt
+        **{f"{_nk(k)}_recall": M.cluster_bootstrap(items, M.ratio(f"{k}_hit", f"{k}_total")) for k in NUM_KINDS},
         "n_terms": sum(i["term_total"] for i in items),
-        **{f"n_{k}": sum(i[f"{k}_total"] for i in items) for k in NUM_KINDS},
+        **{f"n_{_nk(k)}": sum(i[f"{k}_total"] for i in items) for k in NUM_KINDS},
         "lang_id_acc": M.cluster_bootstrap([i for i in items if i["lang_ok"] is not None], M.mean_of("lang_ok")),
         "n": len(items),
     }
@@ -175,7 +177,7 @@ def to_markdown(s: dict) -> str:
              "Fachbegriff-Vorkommen der Referenz, die in der Hypothese fehlen. Zahlen: Uhrzeit/Datum/Menge (Zahl + "
              "Einheit)/sonstige Zahl, Schreibweisen vereinheitlicht (7.30 Uhr = 07:30, 190 Kubik = 190 m³).", ""]
     hdr = ("| Gruppe | n | WER ↓ | CER ↓ | Fachbegriff-Fehler ↓ (n) | Uhrzeit ↑ (n) | Datum ↑ (n) | Menge ↑ (n) "
-           "| Zahl ↑ (n) | Sprach-ID ↑ |")
+           "| sonst. Zahl ↑ (n) | Sprach-ID ↑ |")
     sep = "|---|---|---|---|---|---|---|---|---|---|"
 
     def cell(d, n):
@@ -185,7 +187,7 @@ def to_markdown(s: dict) -> str:
         return (f"| {name} | {d['n']} | {M.fmt_ci(d['WER'])} | {M.fmt_ci(d['CER'])} "
                 f"| {cell(_err(d['term_recall']), d['n_terms'])} | {cell(d['time_recall'], d['n_time'])} "
                 f"| {cell(d['date_recall'], d['n_date'])} | {cell(d['quantity_recall'], d['n_quantity'])} "
-                f"| {cell(d['number_recall'], d['n_number'])} | {M.fmt_ci(d['lang_id_acc'])} |")
+                f"| {cell(d['other_number_recall'], d['n_other_number'])} | {M.fmt_ci(d['lang_id_acc'])} |")
     lines += [hdr, sep, row("gesamt", s["overall"])]
     for key in ["by_" + "_x_".join(k) for k in GROUPINGS]:
         if s.get(key):
