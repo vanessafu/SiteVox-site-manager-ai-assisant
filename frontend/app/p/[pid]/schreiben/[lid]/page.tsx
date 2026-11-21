@@ -2,13 +2,20 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Fragment, useMemo, useState } from "react";
-import { ArrowLeft, Check, CheckCircle2, Download, Lock, Mail, Pencil, Send, ShieldCheck, X } from "lucide-react";
+import { ArrowLeft, Check, CheckCheck, CheckCircle2, Download, Lock, Mail, Pencil, RotateCcw, Send, ShieldCheck, X } from "lucide-react";
 import { band, dLong, post, put, useApi } from "@/lib/api";
 import { EvidenceCard } from "@/components/EvidenceViewer";
 import { BandDot, ConfidencePill, Disclaimer, Elapsed, SphereChip, StatusChip } from "@/components/ui";
 import { useT } from "@/lib/i18n";
 
 type Sel = { kind: "field"; key: string } | { kind: "sentence"; section: string; idx: number } | { kind: "ref"; ref: string } | null;
+
+/** Eine Stufe zurück (Backend: POST /revoke, Begründung Pflicht). */
+const REVOKE: Record<string, { label: string; prompt: string }> = {
+  Geprüft: { label: "Freigabe zurückziehen", prompt: "Freigabe zurückziehen – das Schreiben wird wieder zum Entwurf. Begründung (geht ins Audit-Log):" },
+  Versendet: { label: "Versand zurücknehmen", prompt: "Versand-Markierung zurücknehmen – Status wird wieder „Geprüft“. Begründung (geht ins Audit-Log):" },
+  Verworfen: { label: "Wiederherstellen", prompt: "Verworfenes Schreiben wiederherstellen – es wird wieder zum Entwurf und kann geprüft und freigegeben werden. Begründung (geht ins Audit-Log):" },
+};
 
 const BAND_BORDER: Record<string, string> = { green: "border-l-ok", yellow: "border-l-warn", red: "border-l-bad", none: "border-l-slate-200" };
 
@@ -75,6 +82,8 @@ export default function ReviewEditor() {
   const locked = L.status !== "Entwurf";
   const issuesFor = (section: string, idx: number) => L.issues.filter((i: any) => i.section === section && i.sentence === idx);
   const red = L.issues.filter((i: any) => i.status === "unverified");
+  const pending = L.fields.filter((f: any) => f.status === "pending").length;
+  const toChecklist = () => document.getElementById("freigabe")?.scrollIntoView({ behavior: "smooth", block: "start" });
 
   return (
     <div className="flex h-full flex-col">
@@ -84,9 +93,14 @@ export default function ReviewEditor() {
           <Link href={`/p/${pid}/schreiben`} className="rounded p-1 hover:bg-slate-100"><ArrowLeft className="h-[18px] w-[18px]" /></Link>
           <div className="min-w-0">
             <div className="flex items-center gap-2 font-semibold">{t(L.kind_label)} <StatusChip status={L.status} /></div>
-            <div className="text-2xs text-slate-600">{L.letter_id} · {t(L.event?.label || "")} · {L.event && <Elapsed from={L.event.detected_at} level={L.event.deadline.level} label={L.event.deadline.label} />}</div>
+            <div className="text-2xs text-slate-600">{L.letter_id} · <Link className="underline decoration-slate-300 hover:text-slate-900" href={`/p/${pid}/schreiben/ereignis/${L.event_id}`}>{t(L.event?.label || "")}</Link> ·{L.event && <Elapsed from={L.event.detected_at} level={L.event.deadline.level} label={L.event.deadline.label} />}</div>
           </div>
           <div className="ml-auto flex items-center gap-2">
+            {L.status === "Entwurf" && L.blockers.length > 0 && (
+              <button className="pill border border-bad bg-bad-soft text-bad-text" onClick={toChecklist} title={L.blockers.map((b: string) => t(b)).join("\n")}>
+                {t("{n} Punkte offen", { n: L.blockers.length })} ↓
+              </button>
+            )}
             {L.status === "Entwurf" && (
               <button className="btn-primary" disabled={L.blockers.length > 0} title={L.blockers.map((b: string) => t(b)).join("\n")}
                 onClick={() => act(() => post(`/api/letters/${lid}/release`))}>
@@ -94,6 +108,14 @@ export default function ReviewEditor() {
               </button>
             )}
             {L.status === "Entwurf" && <button className="btn" onClick={() => act(() => post(`/api/letters/${lid}/reject`, { note: "" }))}><X className="h-[18px] w-[18px]" /> {t("Verwerfen")}</button>}
+            {REVOKE[L.status] && (
+              <button className="btn" onClick={() => {
+                const note = window.prompt(t(REVOKE[L.status].prompt)) ?? "";
+                if (note.trim()) act(() => post(`/api/letters/${lid}/revoke`, { note }));
+              }}>
+                <RotateCcw className="h-[18px] w-[18px]" /> {t(REVOKE[L.status].label)}
+              </button>
+            )}
           </div>
         </div>
         {L.queue.some((q: any) => q.band !== "green") && !locked && (
@@ -114,7 +136,15 @@ export default function ReviewEditor() {
         {/* Links: Entwurf */}
         <div className="space-y-4 overflow-y-auto border-r border-slate-200 p-4">
           <div className="card divide-y divide-slate-100">
-            <div className="px-3 py-2 text-2xs uppercase tracking-wide text-slate-500">{t("Felder · Farbe = Konfidenz")} · <span className="normal-case">{t("Schreibentext bleibt deutsch (an deutschen AG nach VOB/B).")}</span></div>
+            <div className="flex items-center gap-2 px-3 py-2">
+              <span className="text-2xs uppercase tracking-wide text-slate-500">{t("Felder · Farbe = Konfidenz")} · <span className="normal-case">{t("Schreibentext bleibt deutsch (an deutschen AG nach VOB/B).")}</span></span>
+              {!locked && pending > 0 && (
+                <button className="btn-xs ml-auto shrink-0 bg-ok-soft" title={t("Übernimmt alle noch offenen Felder. Bearbeitete und verworfene Felder bleiben unverändert.")}
+                  onClick={() => act(() => post(`/api/letters/${lid}/fields/accept-all`))}>
+                  <CheckCheck className="h-3.5 w-3.5" /> {t("Alle übernehmen ({n})", { n: pending })}
+                </button>
+              )}
+            </div>
             {L.fields.map((f: any) => {
               const isSel = sel?.kind === "field" && sel.key === f.key;
               return (
@@ -207,7 +237,7 @@ export default function ReviewEditor() {
           </div>
 
           {/* Checkliste + Freigabe */}
-          <div className="card p-3">
+          <div id="freigabe" className="card scroll-mt-28 p-3">
             <div className="mb-2 text-sm font-medium">{t("Checkliste vor Freigabe")}</div>
             {Object.entries(L.checklist_labels).map(([k, label]: any) => (
               <label key={k} className="flex items-center gap-2 py-0.5 text-sm">

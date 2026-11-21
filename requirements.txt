@@ -10,6 +10,7 @@ openai>=1.40            # OpenAI-kompatibler Client für vLLM / llama.cpp
 rank_bm25>=0.2.2
 openpyxl>=3.1           # Bauzeitenplan-Import (Excel)
 python-docx>=1.1        # DOCX-Export
+reportlab>=4.2          # PDF-Bautagesbericht (ohne LibreOffice)
 numpy>=1.26
 pillow>=10.0            # EXIF, Demo-Fotos
 opencv-python-headless>=4.9,<5   # Gesichter verpixeln (Haar-Kaskaden fehlen in OpenCV 5)

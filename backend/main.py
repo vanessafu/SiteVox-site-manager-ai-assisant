@@ -26,7 +26,7 @@ from pydantic import BaseModel  # noqa: E402
 
 from sitevox import DISCLAIMER, editing, pipeline, rag, settings, store  # noqa: E402
 from sitevox.drafting import composer  # noqa: E402
-from sitevox.export import docx_export, outlook  # noqa: E402
+from sitevox.export import daily_report as daily_report_export, docx_export, outlook  # noqa: E402
 
 from . import views  # noqa: E402
 
@@ -155,6 +155,14 @@ def confirm_sphere(eid: str, body: SphereIn) -> dict:
     return views.event_card(pipeline.confirm_sphere(eid, body.sphere, ACTOR))
 
 
+@app.post("/api/events/{eid}/sphere/reset")
+def reset_sphere(eid: str) -> dict:
+    """Bestätigte Sphäre zurücksetzen → wieder Regel-Vorschlag."""
+    if not store.get("events", eid):
+        raise HTTPException(404)
+    return views.event_card(pipeline.reset_sphere(eid, ACTOR))
+
+
 class NoteIn(BaseModel):
     note: str = ""
 
@@ -202,6 +210,15 @@ class FieldAction(BaseModel):
     value: Any = None
 
 
+@app.post("/api/letters/{lid}/fields/accept-all")
+def fields_accept_all(lid: str) -> dict:
+    """Alle offenen Felder übernehmen (vor der generischen /fields/{key}-Route registriert)."""
+    try:
+        return views.letter_view(composer.accept_all_fields(lid, ACTOR))
+    except ValueError as ex:
+        raise HTTPException(400, str(ex)) from ex
+
+
 @app.post("/api/letters/{lid}/fields/{key}")
 def field_action(lid: str, key: str, body: FieldAction) -> dict:
     try:
@@ -241,6 +258,15 @@ def release(lid: str) -> dict:
         return views.letter_view(composer.release(lid, ACTOR))
     except PermissionError as ex:
         raise HTTPException(409, {"blockers": str(ex).split("; ")}) from ex
+
+
+@app.post("/api/letters/{lid}/revoke")
+def revoke(lid: str, body: NoteIn) -> dict:
+    """Eine Stufe zurück: Versendet → Geprüft bzw. Geprüft → Entwurf (Begründung Pflicht, Audit-Log)."""
+    try:
+        return views.letter_view(composer.revoke(lid, ACTOR, body.note))
+    except ValueError as ex:
+        raise HTTPException(409, str(ex)) from ex
 
 
 @app.post("/api/letters/{lid}/reject")
@@ -290,11 +316,16 @@ def export(lid: str, fmt: str) -> FileResponse:
 
 
 @app.get("/api/projects/{pid}/daily-report")
-def daily_report(pid: str, date: Optional[str] = None, fmt: str = "docx") -> FileResponse:
-    paths = docx_export.daily_report_docx(pid, date or views.default_day(pid))
-    p = paths.get(fmt) or paths["docx"]
+def daily_report(pid: str, date: Optional[str] = None, fmt: str = "pdf") -> FileResponse:
+    """Bautagesbericht als PDF, DOCX (gleiches Layout) oder JSON (Rohdaten)."""
+    if fmt not in ("pdf", "docx", "json"):
+        raise HTTPException(400, "fmt muss pdf, docx oder json sein")
+    paths = daily_report_export.export_files(pid, date or views.default_day(pid))
+    p = paths[fmt]
     store.audit(ACTOR, "export", pid, "daily_report", after=paths)
-    return FileResponse(p, filename=Path(p).name)
+    media = {"pdf": "application/pdf", "json": "application/json",
+             "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"}[fmt]
+    return FileResponse(p, media_type=media, filename=Path(p).name)
 
 
 # ------------------------------------------------------------------------------------------- mailbox / KB

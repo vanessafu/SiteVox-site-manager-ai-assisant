@@ -72,7 +72,7 @@ export function StatusChip({ status }: { status: string }) {
 }
 
 export function Ratio({ r }: { r: number | null | undefined }) {
-  const cls = r === null || r === undefined ? "text-slate-500" : r < 0.6 ? "text-bad-text" : r < 0.9 ? "text-warn-text" : "text-ok-text";
+  const cls = r === null || r === undefined ? "text-slate-500" : r < 0.6 ? "text-bh-red" : r < 0.9 ? "text-warn-text" : "text-bh-blue"; // passend zu den Bauhaus-Balken
   return <span className={`font-medium tabular-nums ${cls}`}>{pct(r)}</span>;
 }
 
@@ -84,7 +84,7 @@ export function Disclaimer({ className = "" }: { className?: string }) {
 export function Legend({ items }: { items: { cls: string; label: string }[] }) {
   const { t } = useT();
   return (
-    <div className="mt-2 flex flex-wrap gap-3 text-2xs text-slate-600">
+    <div className="mt-2 flex flex-wrap gap-3 text-xs text-slate-600">
       {items.map((i) => (
         <span key={i.label} className="inline-flex items-center gap-1">
           <span className={`inline-block h-3 w-4 rounded-sm ${i.cls}`} /> {t(i.label)}

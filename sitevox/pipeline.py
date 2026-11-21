@@ -420,5 +420,17 @@ def confirm_sphere(event_id: str, sphere: str, actor: str) -> dict:
     return store.get("events", event_id)
 
 
+def reset_sphere(event_id: str, actor: str) -> dict:
+    """Bestätigung zurücknehmen: Sphäre wieder Vorschlag des Regelwerks (Empfehlung/Konfidenz neu berechnet)."""
+    e = store.get("events", event_id)
+    before = {"sphere": e["sphere"], "confirmed": e.get("sphere_confirmed", False)}
+    e["sphere_confirmed"] = False
+    store.save_event(e)
+    refresh_day(e["project_id"], date.fromisoformat(e["date"]))
+    e = store.get("events", event_id)
+    store.audit(actor, "event", event_id, "reset_sphere", before=before, after={"sphere": e["sphere"], "confirmed": False})
+    return e
+
+
 def now_iso() -> str:
     return datetime.now().astimezone().isoformat(timespec="seconds")

@@ -37,7 +37,7 @@ export function DrawerProvider({ children }: { children: ReactNode }) {
       {children}
       <div className={`fixed inset-0 z-40 bg-slate-900/20 transition-opacity ${item ? "opacity-100" : "pointer-events-none opacity-0"}`} onClick={close} />
       <aside
-        className={`fixed right-0 top-0 z-50 flex h-full w-full max-w-md flex-col border-l border-slate-200 bg-white shadow-xl transition-transform duration-200 ${item ? "translate-x-0" : "translate-x-full"}`}
+        className={`fixed right-0 top-0 z-50 flex h-full w-full max-w-[720px] flex-col border-l border-slate-200 bg-white shadow-xl transition-transform duration-200 ${item ? "translate-x-0" : "translate-x-full"}`}
         aria-hidden={!item}
       >
         {item && (
