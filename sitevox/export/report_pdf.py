@@ -77,6 +77,11 @@ MO = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "S
       "Dezember"]
 W = A4[0] - 25 * mm - 20 * mm  # Satzspiegel (DIN 5008: links 25, rechts 20)
 
+# Beleg-IDs (VOICE-01, PHOTO-02 …) im Berichtstext und Quellenanhang. Die Belege bleiben im Datenmodell und
+# werden im Dashboard per Seitenleiste gezeigt; im Bericht würden die IDs ohne Anhang ins Leere zeigen.
+# True = alter Stand (Spalte/Zeile "Belege" + Abschnitt "Quellen und Belege").
+SHOW_EVIDENCE_REFS = False
+
 
 # ------------------------------------------------------------------------------------------- text helpers
 def e(t: Any) -> str:
@@ -164,6 +169,11 @@ def orig(src: dict) -> str:
 
 # ------------------------------------------------------------------------------------------- tables
 def grid(rows: list, widths: list, header: bool = True, extra: Optional[list] = None) -> Table:
+    if header and len(rows) > 1:  # Kopf über rechtsbündigen Zahlenspalten ebenfalls rechtsbündig (wie im DOCX)
+        for j, h in enumerate(rows[0]):
+            body = [r[j] for r in rows[1:] if j < len(r) and isinstance(r[j], Paragraph)]
+            if isinstance(h, Paragraph) and body and all(p.style.name.startswith("cellr") for p in body):
+                h.style = S["thr"]
     t = Table(rows, colWidths=widths, repeatRows=1 if header else 0)
     st = [("VALIGN", (0, 0), (-1, -1), "TOP"),
           ("LEFTPADDING", (0, 0), (-1, -1), 4), ("RIGHTPADDING", (0, 0), (-1, -1), 4),
@@ -298,21 +308,26 @@ def story(d: dict, photo_files: dict[str, Path]) -> list:
 
     # 2 Personal
     out += H("Personaleinsatz")
-    rows = [[P(h, "th") for h in ["Firma / Kolonne", "Gewerk", "Soll", "Ist", "Stunden", "davon Stillstand", "Belege"]]]
+    refs = SHOW_EVIDENCE_REFS
+    rows = [[P(h, "th") for h in ["Firma / Kolonne", "Gewerk", "Soll", "Ist", "Stunden", "davon Stillstand"]
+             + (["Belege"] if refs else [])]]
     wf = d["workforce"]
     for r in wf:
         ist = "–" if r["count"] is None else str(r["count"]) + (" *" if r.get("derived") else "")
         rows.append([PX(f'{e(r["crew"])}<br/><font size="7.5" color="#595959">{e(r["company"])}</font>'), P(r["trade"]),
                      P(r["planned"], "cellr"), P(ist, "cellrb" if r["count"] is not None and r["count"] < r["planned"] else "cellr"),
                      P(numsmart(r.get("hours_total")), "cellr"),
-                     P(f"{numsmart(r['idle_hours'])} h" if r.get("idle_hours") else "–", "cellr"),
-                     P(", ".join(r.get("source_refs", [])) or "–", "small")])
+                     P(f"{numsmart(r['idle_hours'])} h" if r.get("idle_hours") else "–", "cellr")]
+                    + ([P(", ".join(r.get("source_refs", [])) or "–", "small")] if refs else []))
     known = [r for r in wf if r["count"] is not None]
-    rows.append([P("Summe", "cellb"), P(""), P(sum(r["planned"] for r in wf), "cellrb"),
+    rows.append([P("Summe", "cellb"), Paragraph("", S["cell"]), P(sum(r["planned"] for r in wf), "cellrb"),
                  P(sum(r["count"] for r in known) if known else "–", "cellrb"),
                  P(numsmart(sum(r["hours_total"] or 0 for r in wf)), "cellrb"),
-                 P(f"{numsmart(idle)} h" if (idle := sum(r["idle_hours"] or 0 for r in wf)) else "–", "cellrb"), P("")])
-    out.append(grid(rows, [44 * mm, 24 * mm, 13 * mm, 13 * mm, 17 * mm, 22 * mm, W - 133 * mm],
+                 P(f"{numsmart(idle)} h" if (idle := sum(r["idle_hours"] or 0 for r in wf)) else "–", "cellrb")]
+                + ([P("")] if refs else []))
+    widths = ([44 * mm, 24 * mm, 13 * mm, 13 * mm, 17 * mm, 22 * mm, W - 133 * mm] if refs
+              else [W - 89 * mm, 24 * mm, 13 * mm, 13 * mm, 17 * mm, 22 * mm])
+    out.append(grid(rows, widths,
                     extra=[("LINEABOVE", (0, -1), (-1, -1), 0.9, BLACK)]))
     if any(r.get("derived") for r in wf):
         out += [Spacer(1, 2), P("* nicht einzeln erfasst – aus der gemeldeten Gesamtzahl abgeleitet.", "smallg")]
@@ -361,15 +376,12 @@ def story(d: dict, photo_files: dict[str, Path]) -> list:
     if d.get("deviations") or d.get("milestones_at_risk") or d.get("impact_chains"):
         out += H("Soll-Ist-Abweichungen")
         if d.get("deviations"):
-            rows = [[P(h, "th") for h in ["Vorgang", "Kennzahl", "Soll", "Ist", "Abweichung", "Bewertung", "Ereignis"]]]
+            rows = [[P(h, "th") for h in ["Vorgang", "Kennzahl", "Soll", "Ist", "Abweichung", "Ereignis"]]]
             for r in d["deviations"]:
-                sev = r["severity"]
-                strong = sev in ("hoch", "kritisch")
                 soll, ist, dev = fmt_deviation(r)
                 rows.append([P(r["activity_id"]), P(r["metric"]), P(soll, "cellr"), P(ist, "cellr"), P(dev, "cellrb"),
-                             P(sev.upper() if strong else sev, "cellb" if strong else "cell"),
                              PX("<br/>".join(e(x) for x in r.get("linked_incident_ids", [])) or "–", "small")])
-            out.append(grid(rows, [13 * mm, W - 119 * mm, 17 * mm, 17 * mm, 19 * mm, 19 * mm, 34 * mm]))
+            out.append(grid(rows, [13 * mm, W - 100 * mm, 17 * mm, 17 * mm, 19 * mm, 34 * mm]))
         for txt in d.get("milestones_at_risk", []):
             out += [Spacer(1, 3), PX(f'<font name="DIN-B">Meilenstein gefährdet:</font> {e(txt)}', "body")]
         for txt in d.get("impact_chains", []):
@@ -395,8 +407,9 @@ def story(d: dict, photo_files: dict[str, Path]) -> list:
         if r.get("warnings"):
             pairs.append(("Warnung", PX("<br/>".join(f'<font name="DIN-B">{e(x)}</font>' for x in r["warnings"]))))
         pairs += [("Status", r.get("notice_status")),
-                  ("Konfidenz", num(r["confidence"]) if r.get("confidence") is not None else None),
-                  ("Belege", ", ".join(r.get("source_refs", [])) or None)]
+                  ("Konfidenz", num(r["confidence"]) if r.get("confidence") is not None else None)]
+        if refs:
+            pairs.append(("Belege", ", ".join(r.get("source_refs", [])) or None))
         box = Table([[head], [kv(pairs)]], colWidths=[W])
         box.setStyle(TableStyle([("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 0),
                                  ("TOPPADDING", (0, 0), (-1, -1), 0), ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
@@ -418,15 +431,16 @@ def story(d: dict, photo_files: dict[str, Path]) -> list:
         out.append(grid(rows, [17 * mm, 39 * mm, 27 * mm, W - 121 * mm, 38 * mm]))
         out += [Spacer(1, 2), P("Gesichter vor dem Export automatisch verpixelt (DSGVO).", "smallg")]
 
-    # 9 Quellen
-    out += H("Quellen und Belege")
-    rows = [[P(h, "th") for h in ["ID", "Art", "Zeitpunkt", "Verfasser", "Inhalt"]]]
-    for s in d["sources"]:
-        rows.append([P(s["source_id"], "small"), P(s["type"], "small"), P(dtime(s.get("timestamp")), "small"),
-                     P(s.get("author"), "small"), PX(orig(s), "small")])
-    out.append(grid(rows, [25 * mm, 21 * mm, 24 * mm, 30 * mm, W - 100 * mm]))
+    # Quellenanhang nur mit SHOW_EVIDENCE_REFS – sonst Belege nur im Dashboard
+    if refs:
+        out += H("Quellen und Belege")
+        rows = [[P(h, "th") for h in ["ID", "Art", "Zeitpunkt", "Verfasser", "Inhalt"]]]
+        for s in d["sources"]:
+            rows.append([P(s["source_id"], "small"), P(s["type"], "small"), P(dtime(s.get("timestamp")), "small"),
+                         P(s.get("author"), "small"), PX(orig(s), "small")])
+        out.append(grid(rows, [25 * mm, 21 * mm, 24 * mm, 30 * mm, W - 100 * mm]))
 
-    # 10 Prüfung
+    # 9 Prüfung
     rv = d["review"]
     out += H("Prüfung und Freigabe")
     items: list = [("Status", rv["status"])]

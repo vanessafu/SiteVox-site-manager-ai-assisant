@@ -2,6 +2,7 @@
 import { useT } from "@/lib/i18n";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { AlertTriangle, Mail } from "lucide-react";
 import { dLong, useApi } from "@/lib/api";
 import { ConfidencePill, Elapsed, SphereChip, StatusChip } from "@/components/ui";
 
@@ -23,6 +24,9 @@ export default function Letters() {
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 font-medium">{t(l.kind_label)} <span className="text-xs font-normal text-slate-500">{l.letter_id}</span></div>
               <div className="truncate text-xs text-slate-600">{l.betreff}</div>
+              {l.recipient_email_status !== "rejected" && (l.recipient_email
+                ? <div className="flex items-center gap-1 truncate text-xs text-slate-700"><Mail className="h-3.5 w-3.5 shrink-0" /> {t("An:")} {l.recipient_email}</div>
+                : l.status === "Entwurf" && <div className="flex items-center gap-1 text-xs font-medium text-bad-text"><AlertTriangle className="h-3.5 w-3.5 shrink-0" /> {t("E-Mail-Adresse des AG fehlt – bitte prüfen und eintragen")}</div>)}
               <div className="text-2xs text-slate-500">{t("erstellt {d}", { d: dLong(l.created_at) })}{l.deadline && l.status !== "Versendet" && <> · <Elapsed from={l.deadline.detected_at} level={l.deadline.level} label={l.deadline.label} /></>}</div>
             </div>
             {l.open_issues > 0 && <span className="pill bg-bad-soft text-bad-text">{t("{n} nicht belegt", { n: l.open_issues })}</span>}

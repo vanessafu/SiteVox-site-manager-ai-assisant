@@ -46,6 +46,10 @@ def forget(account_id: str) -> None:
     _secrets.pop(account_id, None)
 
 
+def secret(account_id: str) -> str | None:
+    return _secrets.get(account_id)
+
+
 def has_secret(account_id: str) -> bool:
     return account_id in _secrets
 

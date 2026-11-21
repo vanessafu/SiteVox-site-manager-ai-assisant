@@ -253,13 +253,16 @@ def create_draft(eid: str, body: Optional[dict] = Body(None)) -> dict:
 def letters(pid: str) -> list[dict]:
     out = []
     for l in store.letters(pid):
+        l = composer.ensure_recipient_email(l)
         ev = store.get("events", l["event_id"]) or {}
+        fe = l["fields"].get("recipient_email") or {}
         out.append({"letter_id": l["letter_id"], "kind": l["kind"], "kind_label": views.DOC_KIND_LABELS[l["kind"]],
                     "status": l["status"], "event_id": l["event_id"], "event_label": ev.get("label"),
                     "betreff": next((s["text"] for s in l.get("rendered", []) if s["key"] == "betreff"), ""),
                     "created_at": l["created_at"], "sent_at": l.get("sent_at"),
                     "open_issues": len([i for i in l["issues"] if i["status"] in ("unverified", "needs_confirmation")]),
-                    "deadline": views.event_card(ev)["deadline"] if ev else None})
+                    "deadline": views.event_card(ev)["deadline"] if ev else None,
+                    "recipient_email": fe.get("value"), "recipient_email_status": fe.get("status")})
     return out
 
 
@@ -353,6 +356,51 @@ class GraphIn(BaseModel):
     access_token: str
 
 
+@app.get("/api/letters/{lid}/send-preview")
+def letter_send_preview(lid: str) -> dict:
+    _letter(lid)
+    return composer.send_preview(lid)
+
+
+@app.post("/api/letters/{lid}/send-email")
+def letter_send_email(lid: str, body: dict) -> dict:
+    """Nur nach Bestätigung im Sendedialog; Freigabe allein sendet nie."""
+    _letter(lid)
+    if not body.get("confirm"):
+        raise HTTPException(400, "Versand muss im Dialog bestätigt werden")
+    try:
+        if body.get("to") and body["to"].strip() != composer.recipient_email(_letter(lid)):
+            composer.set_recipient_email(lid, body["to"], ACTOR)  # im Dialog geänderter Empfänger (Audit-Log)
+        composer.send_email(lid, body.get("account_id") or "", body.get("cc") or [], ACTOR)
+    except KeyError as e:
+        raise HTTPException(404, "Postfach nicht gefunden") from e
+    except ValueError as e:
+        raise HTTPException(409, str(e)) from e
+    except imap_mail.MailError as e:
+        raise HTTPException(502, str(e)) from e
+    return views.letter_view(store.get("letters", lid))
+
+
+@app.put("/api/letters/{lid}/recipient-email")
+def letter_recipient_email(lid: str, body: dict) -> dict:
+    _letter(lid)
+    try:
+        composer.set_recipient_email(lid, body.get("value") or "", ACTOR)
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
+    return views.letter_view(store.get("letters", lid))
+
+
+@app.post("/api/letters/{lid}/original-sent")
+def letter_original_sent(lid: str, body: dict) -> dict:
+    _letter(lid)
+    try:
+        composer.original_sent(lid, ACTOR, body.get("method") or "Einschreiben mit Rückschein")
+    except ValueError as e:
+        raise HTTPException(409, str(e)) from e
+    return views.letter_view(store.get("letters", lid))
+
+
 @app.post("/api/letters/{lid}/outlook-draft")
 def outlook_draft(lid: str, body: GraphIn) -> dict:
     """Optional: Entwurf im Outlook-Postfach anlegen (Graph, Mail.ReadWrite). Kein Versand."""
@@ -376,6 +424,14 @@ def export(lid: str, fmt: str) -> FileResponse:
     media = {"docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
              "pdf": "application/pdf", "eml": "message/rfc822"}[fmt]
     return FileResponse(p, media_type=media, filename=Path(p).name)
+
+
+@app.get("/api/projects/{pid}/report")
+def report_sections(pid: str, date: Optional[str] = None) -> dict:
+    """Abschnitte des Bautagesberichts als JSON fürs Dashboard – dieselbe Funktion wie PDF/DOCX."""
+    if pid not in {p["id"] for p in store.list_projects()}:
+        raise HTTPException(404, "Projekt unbekannt")
+    return views.report_sections(pid, date or views.default_day(pid))
 
 
 @app.get("/api/projects/{pid}/daily-report")
@@ -601,6 +657,20 @@ class StaffIn(BaseModel):
 @app.put("/api/projects/{pid}/staffing")
 def set_staffing(pid: str, body: StaffIn) -> dict:
     _edit(editing.set_staffing, pid, body.date, body.crew, body.present, body.planned, ACTOR)
+    return {"ok": True}
+
+
+class ReportRowIn(BaseModel):
+    date: str
+    section: str  # workforce | equipment
+    key: str  # Kolonne bzw. Gerät
+    action: str = "set"  # set | delete | reset
+    data: Optional[dict] = None
+
+
+@app.put("/api/projects/{pid}/report-rows")
+def set_report_row(pid: str, body: ReportRowIn) -> dict:
+    _edit(editing.set_report_row, pid, body.date, body.section, body.key, body.data, body.action, ACTOR)
     return {"ok": True}
 
 

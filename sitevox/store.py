@@ -28,6 +28,8 @@ CREATE TABLE IF NOT EXISTS weather    (project_id TEXT, date TEXT, doc TEXT NOT 
 CREATE TABLE IF NOT EXISTS audit      (id INTEGER PRIMARY KEY AUTOINCREMENT, ts TEXT, actor TEXT, entity TEXT,
                                        entity_id TEXT, action TEXT, before TEXT, after TEXT, note TEXT);
 CREATE TABLE IF NOT EXISTS counters   (name TEXT PRIMARY KEY, value INTEGER);
+CREATE TABLE IF NOT EXISTS report_rows (project_id TEXT, date TEXT, section TEXT, key TEXT, doc TEXT NOT NULL,
+                                        PRIMARY KEY(project_id, date, section, key));
 CREATE INDEX IF NOT EXISTS ix_captures_pd ON captures(project_id, date);
 CREATE INDEX IF NOT EXISTS ix_events_pd ON events(project_id, date);
 """
@@ -138,6 +140,21 @@ def save_staffing(project_id: str, date: str, crew: str, present: int, planned: 
         "INSERT OR REPLACE INTO staffing VALUES(?,?,?,?,?,?)", (project_id, date, crew, present, planned, evidence_id)
     )
     c.commit()
+
+
+def report_rows(project_id: str, date: str, section: str) -> dict[str, dict]:
+    """Manuelle Korrekturen an Berichtszeilen (Personal/Geräte) eines Tages: key → Felder (oder {"deleted": True})."""
+    rows = connect().execute("SELECT key, doc FROM report_rows WHERE project_id=? AND date=? AND section=?",
+                             (project_id, date, section))
+    return {r["key"]: json.loads(r["doc"]) for r in rows.fetchall()}
+
+
+def save_report_row(project_id: str, date: str, section: str, key: str, doc: Optional[dict]) -> None:
+    if doc is None:
+        execute("DELETE FROM report_rows WHERE project_id=? AND date=? AND section=? AND key=?",
+                (project_id, date, section, key))
+    else:
+        put("report_rows", doc, project_id=project_id, date=date, section=section, key=key)
 
 
 def staffing(project_id: str, date: str) -> list[dict]:

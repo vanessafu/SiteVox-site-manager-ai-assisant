@@ -11,6 +11,8 @@ export type DrawerItem = {
   body?: ReactNode;
   evidence?: string[];
   edit?: { label?: string; href?: string; onClick?: () => void };
+  /** Belege sofort aufgeklappt zeigen (Dashboard-Knöpfe „Evidence“) */
+  showEvidence?: boolean;
 };
 
 const Ctx = createContext<{ open: (i: DrawerItem) => void; close: () => void }>({ open: () => {}, close: () => {} });
@@ -24,7 +26,7 @@ export function DrawerProvider({ children }: { children: ReactNode }) {
   const { t } = useT();
   const open = useCallback((i: DrawerItem) => {
     setItem(i);
-    setShowEv(false);
+    setShowEv(!!i.showEvidence);
   }, []);
   const close = useCallback(() => setItem(null), []);
   useEffect(() => {
@@ -51,7 +53,7 @@ export function DrawerProvider({ children }: { children: ReactNode }) {
             </header>
             <div className="flex-1 space-y-3 overflow-y-auto p-4 text-sm">
               {item.body}
-              <div className="flex gap-2 pt-1">
+              {(item.evidence !== undefined || item.edit) && !item.showEvidence && <div className="flex gap-2 pt-1">
                 <button className="btn" disabled={!item.evidence?.length} onClick={() => setShowEv((s) => !s)}>
                   <FolderOpen className="h-[18px] w-[18px]" /> {t("Belege öffnen")}{item.evidence?.length ? ` (${item.evidence.length})` : ""}
                 </button>
@@ -59,7 +61,7 @@ export function DrawerProvider({ children }: { children: ReactNode }) {
                   onClick={() => { if (item.edit?.onClick) item.edit.onClick(); else if (item.edit?.href) { router.push(item.edit.href); close(); } }}>
                   <Pencil className="h-[18px] w-[18px]" /> {t(item.edit?.label || "Bearbeiten")}
                 </button>
-              </div>
+              </div>}
               {showEv && <EvidenceSources ids={item.evidence!} />}
             </div>
           </>

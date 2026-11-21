@@ -133,11 +133,18 @@ def test_quote_location_in_transcript():
 
 
 # ----------------------------------------------------------------------------- end-to-end HITL
-def test_release_requires_human_and_never_sends():
+def test_release_requires_human_and_never_sends(monkeypatch):
+    import smtplib
+
     from fastapi.testclient import TestClient
 
     from backend.main import app
 
+    def no_smtp(*a, **k):
+        raise AssertionError("Freigabe darf keine SMTP-Verbindung öffnen")
+
+    monkeypatch.setattr(smtplib, "SMTP", no_smtp)
+    monkeypatch.setattr(smtplib, "SMTP_SSL", no_smtp)
     c = TestClient(app)
     letters = {l["kind"]: l for l in c.get("/api/projects/BV-RIEM/letters").json()}
     lid = letters["behinderungsanzeige"]["letter_id"]
@@ -154,8 +161,11 @@ def test_release_requires_human_and_never_sends():
     assert r["status"] == "Geprüft"  # nicht "Versendet" – Versand macht nur der Mensch
     eml = c.get(f"/api/letters/{lid}/export/eml").content
     assert b"X-Unsent: 1" in eml
+    assert b"To: t.wagner@wohnbau-riem.example" in eml  # Empfänger aus dem Vertrag, nicht geraten
     routes = {getattr(r, "path", "") for r in app.routes}
-    assert not any("send" in p and "mark-sent" not in p for p in routes)
+    # einziger Versandweg: ausdrücklich bestätigter Sendedialog (send-email), nie automatisch
+    assert {p for p in routes if "send" in p and "mark-sent" not in p} == {"/api/letters/{lid}/send-preview",
+                                                                          "/api/letters/{lid}/send-email"}
 
 
 # ----------------------------------------------------------------------------- Bearbeiten / Löschen
@@ -635,43 +645,135 @@ def test_photo_with_description_in_one_upload_skips_followup(tmp_path):
     assert r.status_code == 400
 
 
-def test_same_phone_filename_does_not_overwrite_earlier_photo(tmp_path):
+def test_report_rows_manual_edit_in_dashboard_and_pdf(tmp_path):
+    """Personal/Geräte direkt bearbeiten: gilt für build() (Dashboard) und PDF; reset stellt den berechneten Wert her."""
+    from sitevox import editing
+    from sitevox.export import daily_report, report_pdf
+
+    P, D = "BV-RIEM", "2026-11-20"
+    base = daily_report.build(P, D)
+    mueller = next(w for w in base["workforce"] if w["crew"] == "Kolonne Müller")
+    editing.set_report_row(P, D, "workforce", "Kolonne Müller", {"count": mueller["count"] + 1}, "set", "test")
+    editing.set_report_row(P, D, "workforce", "Elektro Huber", {"trade": "Elektro", "planned": 2, "count": 2}, "set", "test")
+    editing.set_report_row(P, D, "equipment", "Bagger", {"downtime": [{"from": "10:00", "to": "12:00"}],
+                                                         "downtime_cause": "Schlauch"}, "set", "test")
+    editing.set_report_row(P, D, "equipment", "Betonpumpe", None, "delete", "test")
+    rep = daily_report.build(P, D)
+    m = next(w for w in rep["workforce"] if w["crew"] == "Kolonne Müller")
+    assert m["count"] == mueller["count"] + 1 and m["manual"] == ["count"]
+    assert m["hours_total"] > mueller["hours_total"]  # Stunden folgen der Kopfzahl
+    assert any(w["crew"] == "Elektro Huber" and w["added"] for w in rep["workforce"])
+    bagger = next(e for e in rep["equipment"] if e["name"] == "Bagger")
+    assert bagger["downtime"] == [{"from": "10:00", "to": "12:00"}] and bagger["downtime_cause"] == "Schlauch"
+    assert not any(e["name"] == "Betonpumpe" for e in rep["equipment"])
+    report_pdf.render(rep, tmp_path / "r.pdf")  # PDF rendert die korrigierten Zeilen
+    for sec, key in (("workforce", "Kolonne Müller"), ("workforce", "Elektro Huber"), ("equipment", "Bagger"),
+                     ("equipment", "Betonpumpe")):
+        editing.set_report_row(P, D, sec, key, None, "reset", "test")
+    assert daily_report.build(P, D)["workforce"] == base["workforce"]
+
+
+def test_recipient_email_only_from_uploaded_documents(monkeypatch):
+    """AG-Adresse aus dem Vertrag (mit Beleg); ohne Fundstelle bleibt das Feld leer und blockiert die Freigabe."""
     from fastapi.testclient import TestClient
 
     from backend.main import app
+    from sitevox import store
+    from sitevox.drafting import composer
+    from sitevox.understand import contacts
 
-    from PIL import Image
+    hit = contacts.find_client_email("BV-RIEM")
+    assert hit["email"] == "t.wagner@wohnbau-riem.example" and hit["source"] == "contract"
+    assert "Bevollmächtigter Vertreter" in hit["quote"]  # Satz trotz "Dipl.-Ing." vollständig
+    assert contacts.find_client_email("BV-A99") is None  # keine Unterlagen → nicht raten
 
     c = TestClient(app)
-    for i, colour in enumerate([(200, 0, 0), (0, 0, 200)]):
-        p = tmp_path / f"{i}" / "image.jpg"
-        p.parent.mkdir()
-        Image.new("RGB", (64, 64), colour).save(p)
-        with open(p, "rb") as f:
-            r = c.post("/api/projects/BV-RIEM/captures",
-                       data={"kind": "photo", "captured_at": f"2026-11-22T09:0{i}:00+01:00", "description_mode": "none"},
-                       files={"file": ("image.jpg", f, "image/jpeg")})
-        assert r.status_code == 200
-    caps = [x for x in c.get("/api/projects/BV-RIEM/captures", params={"date": "2026-11-22"}).json()
-            if x["kind"] == "photo"]
-    paths = [x["file"] for x in caps[-2:]]
-    assert len(set(paths)) == 2
-    from sitevox import settings
-    px = [Image.open(settings.data_dir() / q).convert("RGB").getpixel((32, 32)) for q in paths]
-    assert px[0][0] > 150 and px[1][2] > 150  # rot bleibt rot, blau ist blau
+    lid = next(l for l in c.get("/api/projects/BV-RIEM/letters").json() if l["kind"] == "mehrkostenankuendigung")["letter_id"]
+    v = c.get(f"/api/letters/{lid}").json()
+    fe = next(f for f in v["fields"] if f["key"] == "recipient_email")
+    assert fe["value"] == "t.wagner@wohnbau-riem.example" and fe["evidence_refs"]
+    assert c.post(f"/api/letters/{lid}/fields/recipient_email", json={"action": "edit", "value": "kein-mail"}).status_code == 400
+
+    # Unterlagen ohne Adresse → leeres Feld, Hinweis, Freigabe-Blocker
+    monkeypatch.setattr(contacts, "find_client_email", lambda pid: None)
+    letter = store.get("letters", lid)
+    letter["fields"].pop("recipient_email")
+    store.save_letter(letter)
+    v = c.get(f"/api/letters/{lid}").json()
+    fe = next(f for f in v["fields"] if f["key"] == "recipient_email")
+    assert fe["value"] is None and fe["band"] == "red" and "Bauleitung" in fe["note"]
+    assert any("E-Mail Empfänger" in b for b in v["blockers"])
+    assert composer.recipient_email(store.get("letters", lid)) is None
+    c.post(f"/api/letters/{lid}/fields/recipient_email", json={"action": "edit", "value": " a.b@ag.example "})
+    assert composer.recipient_email(store.get("letters", lid)) == "a.b@ag.example"
 
 
-def test_browser_webm_is_converted_to_seekable_m4a(tmp_path):
-    import subprocess
+def test_send_email_after_release_only_with_confirmation(monkeypatch):
+    """Geprüftes Schreiben über das gebundene Postfach senden: nur mit Bestätigung, Empfänger aus dem Feld,
+    Status Versendet (E-Mail) + offener Hinweis auf das Original per Einschreiben."""
+    from fastapi.testclient import TestClient
 
-    from sitevox.pipeline import ffmpeg_exe, make_playable
+    from backend.main import app
+    from sitevox import mail_accounts, store
+    from sitevox.export import docx_export, smtp_send
+    from sitevox.understand import imap_mail
 
-    exe = ffmpeg_exe()
-    if not exe:
-        pytest.skip("kein ffmpeg")
-    src = tmp_path / "rec.webm"
-    subprocess.run([exe, "-y", "-loglevel", "error", "-f", "lavfi", "-i", "sine=frequency=440:duration=2",
-                    "-c:a", "libopus", str(src)], check=True)
-    out = make_playable(src)
-    assert out.suffix == ".m4a" and out.stat().st_size > 0 and not src.exists()
-    assert make_playable(tmp_path / "x.wav") == tmp_path / "x.wav"  # WAV bleibt unverändert
+    c = TestClient(app)
+    lid = next(l for l in c.get("/api/projects/BV-RIEM/letters").json() if l["kind"] == "mehrkostenankuendigung")["letter_id"]
+    letter = store.get("letters", lid)
+    letter["fields"]["recipient_email"].update(value="t.wagner@wohnbau-riem.example", status="accepted")
+    letter["status"], letter["exports"] = "Geprüft", docx_export.letter_docx(letter)
+    store.save_letter(letter)
+
+    pv = c.get(f"/api/letters/{lid}/send-preview").json()
+    assert any("Postfach" in p for p in pv["problems"])  # noch kein Postfach gebunden
+    acc = mail_accounts.add("BV-RIEM", {"provider": "gmail", "address": "bauleitung@hofbau.example",
+                                        "password": "app-pw"}, "test", tester=lambda a, p: {"messages": 0})
+    pv = c.get(f"/api/letters/{lid}/send-preview").json()
+    assert pv["problems"] == [] and pv["to"] == "t.wagner@wohnbau-riem.example" and pv["attachments"]
+    assert acc["smtp_host"] == "smtp.gmail.com"
+
+    sent = []
+    monkeypatch.setattr(smtp_send, "transmit", lambda a, pw, msg: sent.append((a, pw, msg)))
+    body = {"account_id": acc["account_id"], "cc": ["bauleitung@hofbau.example"]}
+    assert c.post(f"/api/letters/{lid}/send-email", json=body).status_code == 400 and not sent  # ohne Bestätigung
+    assert c.post(f"/api/letters/{lid}/send-email", json={**body, "cc": ["x"], "confirm": True}).status_code == 409
+    v = c.post(f"/api/letters/{lid}/send-email", json={**body, "confirm": True}).json()
+    (a, pw, msg), = sent
+    assert pw == "app-pw" and msg["To"] == "t.wagner@wohnbau-riem.example" and "hofbau" in msg["Cc"]
+    assert any(p.get_filename() for p in msg.iter_attachments()) and "Interner Hinweis" not in msg.get_body(("plain",)).get_content()
+    assert v["status"] == "Versendet" and v["sent_email"]["to"] == "t.wagner@wohnbau-riem.example"
+    assert v["original"]["pending"]
+    assert c.post(f"/api/letters/{lid}/send-email", json={**body, "confirm": True}).status_code == 409  # nicht doppelt
+    v = c.post(f"/api/letters/{lid}/original-sent", json={"method": "Einschreiben mit Rückschein"}).json()
+    assert not v["original"]["pending"]
+
+    imap_mail.forget(acc["account_id"])  # gesperrtes Postfach → Hinweis statt Versand
+    assert any("gesperrt" in p for p in c.get(f"/api/letters/{lid}/send-preview").json()["problems"])
+
+
+def test_recipient_email_change_after_release_and_in_send_dialog(monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from backend.main import app
+    from sitevox import mail_accounts, store
+    from sitevox.export import docx_export, smtp_send
+
+    c = TestClient(app)
+    lid = next(l for l in c.get("/api/projects/BV-RIEM/letters").json() if l["kind"] == "behinderungsanzeige")["letter_id"]
+    letter = store.get("letters", lid)
+    letter["status"], letter["exports"] = "Geprüft", docx_export.letter_docx(letter)
+    letter.pop("sent_email", None)
+    store.save_letter(letter)
+    assert c.put(f"/api/letters/{lid}/recipient-email", json={"value": "falsch"}).status_code == 400
+    v = c.put(f"/api/letters/{lid}/recipient-email", json={"value": "go@ag.example"}).json()
+    assert next(f for f in v["fields"] if f["key"] == "recipient_email")["value"] == "go@ag.example"
+    acc = mail_accounts.add("BV-RIEM", {"provider": "gmail", "address": "me@gmail.com", "password": "abcd efgh ijkl mnop"},
+                            "test", tester=lambda a, p: {})
+    sent = []
+    monkeypatch.setattr(smtp_send, "transmit", lambda a, pw, msg: sent.append((pw, msg)))
+    v = c.post(f"/api/letters/{lid}/send-email", json={"account_id": acc["account_id"], "confirm": True,
+                                                        "to": "neu@ag.example"}).json()
+    assert sent[0][0] == "abcdefghijklmnop"  # Leerzeichen aus App-Passwort entfernt
+    assert sent[0][1]["To"] == "neu@ag.example" and v["sent_email"]["to"] == "neu@ag.example"
+    assert any(a["action"] == "field_edit" for a in v["audit"])

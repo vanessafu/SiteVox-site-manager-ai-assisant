@@ -239,6 +239,52 @@ def _field(key: str, label: str, value: Any, c: dict | float, evidence_ids: list
                        importance=conf.importance(key), note=note)
 
 
+EMAIL_LABEL = "E-Mail Empfänger (AG)"
+EMAIL_MISSING = ("Keine E-Mail-Adresse des AG bzw. seines bevollmächtigten Vertreters in den hochgeladenen Unterlagen "
+                 "gefunden – Bauleitung bitte prüfen und eintragen (oder verwerfen, wenn nur per Post zugestellt wird).")
+EMAIL_FORMAT = re.compile(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$")
+
+
+def recipient_email_field(pid: str) -> tuple[LetterField, Optional[str]]:
+    """E-Mail des Empfängers nur aus Belegen (Vertrag, Dokumente, Mails). Nichts gefunden → leer + Hinweis."""
+    from ..pipeline import new_evidence
+    from ..understand import contacts
+
+    hit = contacts.find_client_email(pid)
+    if not hit:
+        return _field("recipient_email", EMAIL_LABEL, None, 0.0, [], EMAIL_MISSING), None
+    ev = new_evidence(project_id=pid, source=hit["source"], title=hit.get("title") or "", quote=hit["quote"],
+                      full_text=hit["quote"], capture_id=hit.get("capture_id"),
+                      meta={"doc_id": hit.get("doc_id"), "role": "recipient_email"})
+    return (_field("recipient_email", EMAIL_LABEL, hit["email"],
+                   conf.combine(n_evidence=1, consistency=1.0, rule_ok=True), [ev.evidence_id],
+                   f"gefunden in: {hit.get('title') or hit['source']}"), ev.evidence_id)
+
+
+def ensure_recipient_email(letter: dict) -> dict:
+    """Ältere Entwürfe ohne E-Mail-Feld nachrüsten (einmalig, wird gespeichert)."""
+    if "recipient_email" in letter["fields"] or letter["status"] != "Entwurf":
+        return letter
+    f, eid = recipient_email_field(letter["project_id"])
+    if eid:
+        letter["evidence_map"][f"E-{max([int(k[2:]) for k in letter['evidence_map']] or [0]) + 1:02d}"] = eid
+    items = list(letter["fields"].items())
+    pos = next((i + 1 for i, (k, _) in enumerate(items) if k == "recipient"), 0)
+    items.insert(pos, ("recipient_email", f.model_dump()))
+    letter["fields"] = dict(items)
+    store.save_letter(letter)
+    store.audit("ai", "letter", letter["letter_id"], "field_add", after={"recipient_email": f.value})
+    return letter
+
+
+def recipient_email(letter: dict) -> Optional[str]:
+    """Adresse für den Outlook-Entwurf: nur ein übernommener/bearbeiteter, nicht verworfener Wert."""
+    f = letter["fields"].get("recipient_email")
+    if not f or f["status"] == "rejected" or not f.get("value"):
+        return None
+    return str(f["value"]).strip()
+
+
 def create_letter(event_id: str, actor: str = "ai", kind: Optional[str] = None, language: str = "de") -> dict:
     """language (de|en) = UI-Sprache: Vorlage, KI-Sätze und Datumsformat; Zitate aus Belegen bleiben im Original."""
     from ..pipeline import new_evidence  # zirkulären Import vermeiden
@@ -270,9 +316,11 @@ def create_letter(event_id: str, actor: str = "ai", kind: Optional[str] = None, 
     derived = [i for i in event["evidence"] if _derived(i)]
     ev_ids = core + derived
     master = [e for e in store.project_evidence(pid) if e["source"] == "contract" and e["meta"].get("master")]
+    email_field, email_ev = recipient_email_field(pid)
     legal_hits = rag.index().search(event["recommended_document"]["basis"] or kind, collection="legal", k=1)
     evidence_map: dict[str, str] = {}
-    for i, eid in enumerate(core + [m["evidence_id"] for m in master] + [eng.evidence_id] + derived, start=1):
+    for i, eid in enumerate(core + [m["evidence_id"] for m in master] + [eng.evidence_id] + derived
+                            + ([email_ev] if email_ev else []), start=1):
         evidence_map[f"E-{i:02d}"] = eid
     inv = {v: k for k, v in evidence_map.items()}
     engine_ref = inv[eng.evidence_id]
@@ -290,6 +338,7 @@ def create_letter(event_id: str, actor: str = "ai", kind: Optional[str] = None, 
                             f"({client['representative_role']})",
                             conf.combine(n_evidence=len(master_ids), consistency=1.0, rule_ok=True), master_ids,
                             "aus Vertragsstammdaten"),
+        "recipient_email": email_field,
         "contract_no": _field("contract_no", "Vertragsnummer", project["contract_no"],
                               conf.combine(n_evidence=len(master_ids), consistency=1.0, rule_ok=True), master_ids),
         "event_start": _field("event_start", "Beginn des Ereignisses", event["start"], ec.get("start", 0.0),
@@ -343,6 +392,11 @@ def field_action(letter_id: str, key: str, action: str, actor: str, value: Any =
     if action == "accept":
         f["status"] = "accepted"
     elif action == "edit":
+        if key == "recipient_email":
+            value = (value or "").strip()
+            if value and not EMAIL_FORMAT.match(value):
+                raise ValueError(f"Keine gültige E-Mail-Adresse: {value}")
+            value = value or None
         f["value"], f["status"], f["confidence"] = value, "edited", 1.0
     elif action == "reject":
         f["status"] = "rejected"
@@ -419,6 +473,8 @@ def release_blockers(letter: dict) -> list[str]:
             b.append(f"Feld „{f['label']}“ unsicher – bitte übernehmen, bearbeiten oder verwerfen")
         if f["status"] == "rejected" and k in ("recipient", "contract_no", "legal_basis"):
             b.append(f"Pflichtfeld „{f['label']}“ verworfen")
+        if k == "recipient_email" and f["status"] in ("accepted", "edited") and not f.get("value"):
+            b.append(f"„{f['label']}“ fehlt – Adresse eintragen oder Feld verwerfen (nur Postversand)")
     for k, ok in letter["checklist"].items():
         if not ok:
             b.append(f"Checkliste: {CHECKLIST[k]}")
@@ -443,6 +499,92 @@ def release(letter_id: str, actor: str) -> dict:
     ev["status"] = "released"
     store.save_event(ev)
     store.audit(actor, "letter", letter_id, "release", after={"exports": letter["exports"]})
+    return letter
+
+
+ORIGINAL_REMINDER = "Original per Einschreiben mit Rückschein versenden (E-Mail allein wahrt die Schriftform ggf. nicht)"
+
+
+def send_preview(letter_id: str) -> dict:
+    """Inhalt des Sendedialogs: Empfänger, Betreff, Text, Anhang, Postfächer und was den Versand noch verhindert."""
+    from .. import mail_accounts
+    from ..export import smtp_send
+
+    letter = store.get("letters", letter_id)
+    to = recipient_email(letter)
+    accs = mail_accounts.accounts(letter["project_id"])
+    problems = []
+    if letter["status"] != "Geprüft":
+        problems.append("Erst freigeben – nur geprüfte Schreiben können gesendet werden")
+    if not to:
+        problems.append("Keine E-Mail-Adresse des AG im Feld „E-Mail Empfänger (AG)“")
+    if not accs:
+        problems.append("Kein Postfach gebunden – unter „Postfach“ verbinden")
+    elif not any(a["connected"] for a in accs):
+        problems.append("Postfach gesperrt – Passwort eingeben")
+    if not smtp_send.attachments(letter) and letter["status"] == "Geprüft":
+        problems.append("Kein Export des Schreibens vorhanden")
+    return {"to": to, "subject": smtp_send.subject(letter), "body": smtp_send.body(letter),
+            "attachments": [p.name for p in smtp_send.attachments(letter)], "accounts": accs, "problems": problems,
+            "original_reminder": ORIGINAL_REMINDER}
+
+
+def set_recipient_email(letter_id: str, value: str, actor: str) -> dict:
+    """Empfänger-Adresse ändern – auch nach der Freigabe (ändert nur den Versandweg, nicht den Brieftext)."""
+    letter = store.get("letters", letter_id)
+    if letter["status"] not in ("Entwurf", "Geprüft"):
+        raise ValueError("Nach dem Versand nicht mehr änderbar")
+    value = (value or "").strip()
+    if not EMAIL_FORMAT.match(value):
+        raise ValueError(f"Keine gültige E-Mail-Adresse: {value}")
+    f = letter["fields"]["recipient_email"]
+    before = {"value": f["value"], "status": f["status"]}
+    f["value"], f["status"], f["confidence"] = value, "edited", 1.0
+    store.save_letter(letter)
+    store.audit(actor, "letter", letter_id, "field_edit", before={"recipient_email": before},
+                after={"recipient_email": {"value": value, "status": "edited"}})
+    return letter
+
+
+def send_email(letter_id: str, account_id: str, cc: list[str], actor: str, transport=None) -> dict:
+    """Ausdrücklich bestätigter Versand (Sendedialog) über das gebundene Postfach. Status → Versendet (E-Mail);
+    Hinweis auf das Original per Einschreiben bleibt offen, bis die Bauleitung es als versendet markiert."""
+    from .. import mail_accounts
+    from ..export import smtp_send
+
+    letter = store.get("letters", letter_id)
+    if letter["status"] != "Geprüft":
+        raise ValueError("Nur freigegebene (geprüfte) Schreiben können gesendet werden")
+    to = recipient_email(letter)
+    if not to:
+        raise ValueError("Keine E-Mail-Adresse des AG – Feld „E-Mail Empfänger (AG)“ ausfüllen")
+    cc = [c.strip() for c in cc if c and c.strip()]
+    bad = [c for c in cc if not EMAIL_FORMAT.match(c)]
+    if bad:
+        raise ValueError(f"Keine gültige E-Mail-Adresse: {', '.join(bad)}")
+    acc = mail_accounts._get(letter["project_id"], account_id)
+    info = smtp_send.send(letter, acc, to, cc, transport)
+    now = store.now_iso()
+    letter["status"], letter["sent_at"], letter["sent_method"] = "Versendet", now, "E-Mail (SiteVox)"
+    letter["sent_email"] = {**info, "at": now, "by": actor}
+    letter["original"] = {"pending": True, "reminder": ORIGINAL_REMINDER}
+    letter.setdefault("exports", {})["sent_eml"] = info["eml"]
+    store.save_letter(letter)
+    ev = store.get("events", letter["event_id"])
+    ev["status"], ev["sent_at"] = "sent", now
+    store.save_event(ev)
+    store.audit(actor, "letter", letter_id, "send_email",
+                after={k: info[k] for k in ("from", "to", "cc", "subject", "message_id", "attachments")})
+    return letter
+
+
+def original_sent(letter_id: str, actor: str, method: str) -> dict:
+    letter = store.get("letters", letter_id)
+    if not (letter.get("original") or {}).get("pending"):
+        raise ValueError("Kein offener Originalversand")
+    letter["original"] = {"pending": False, "method": method, "at": store.now_iso(), "by": actor}
+    store.save_letter(letter)
+    store.audit(actor, "letter", letter_id, "original_sent", after={"method": method})
     return letter
 
 

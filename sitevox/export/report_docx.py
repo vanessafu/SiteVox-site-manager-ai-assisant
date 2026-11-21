@@ -17,6 +17,7 @@ from docx.oxml.ns import qn
 from docx.shared import Mm, Pt, RGBColor
 
 from .. import DISCLAIMER
+from . import report_pdf
 from .report_pdf import dtime, fmt_deviation, longdate, num, numsmart, pct, tspan
 
 FONT = "Arial"
@@ -263,20 +264,27 @@ def render(d: dict, out: Path, photo_files: Optional[dict[str, Path]] = None) ->
     # 2 Personal
     H("Personaleinsatz")
     wf = d["workforce"]
+    refs = report_pdf.SHOW_EVIDENCE_REFS  # gemeinsamer Schalter für PDF und Word
     rows, strong = [], []
     for r in wf:
         ist = "–" if r["count"] is None else str(r["count"]) + (" *" if r.get("derived") else "")
         rows.append([[(r["crew"], {}), ("\n" + r["company"], {"g": True, "s": 7.5})], r["trade"], str(r["planned"]), ist,
-                     numsmart(r.get("hours_total")), f"{numsmart(r['idle_hours'])} h" if r.get("idle_hours") else "–",
-                     [(", ".join(r.get("source_refs", [])) or "–", {"s": 8})]])
-        strong.append([False, False, False, r["count"] is not None and r["count"] < r["planned"], False, False, False])
+                     numsmart(r.get("hours_total")), f"{numsmart(r['idle_hours'])} h" if r.get("idle_hours") else "–"]
+                    + ([[(", ".join(r.get("source_refs", [])) or "–", {"s": 8})]] if refs else []))
+        strong.append([False, False, False, r["count"] is not None and r["count"] < r["planned"], False, False]
+                      + ([False] if refs else []))
     known = [r for r in wf if r["count"] is not None]
     idle = sum(r["idle_hours"] or 0 for r in wf)
     rows.append(["Summe", "", str(sum(r["planned"] for r in wf)), str(sum(r["count"] for r in known)) if known else "–",
-                 numsmart(sum(r["hours_total"] or 0 for r in wf)), f"{numsmart(idle)} h" if idle else "–", ""])
-    strong.append([True] * 7)
-    grid(doc, ["Firma / Kolonne", "Gewerk", "Soll", "Ist", "Stunden", "davon Stillstand", "Belege"], rows,
-         [44, 24, 13, 13, 17, 22, W_MM - 133], align="llrrrrl", strong=strong, total_row=True)
+                 numsmart(sum(r["hours_total"] or 0 for r in wf)), f"{numsmart(idle)} h" if idle else "–"]
+                + ([""] if refs else []))
+    strong.append([True] * (7 if refs else 6))
+    if refs:
+        grid(doc, ["Firma / Kolonne", "Gewerk", "Soll", "Ist", "Stunden", "davon Stillstand", "Belege"], rows,
+             [44, 24, 13, 13, 17, 22, W_MM - 133], align="llrrrrl", strong=strong, total_row=True)
+    else:
+        grid(doc, ["Firma / Kolonne", "Gewerk", "Soll", "Ist", "Stunden", "davon Stillstand"], rows,
+             [W_MM - 89, 24, 13, 13, 17, 22], align="llrrrr", strong=strong, total_row=True)
     if any(r.get("derived") for r in wf):
         note(doc, "* nicht einzeln erfasst – aus der gemeldeten Gesamtzahl abgeleitet.")
 
@@ -322,14 +330,12 @@ def render(d: dict, out: Path, photo_files: Optional[dict[str, Path]] = None) ->
         if d.get("deviations"):
             rows, strong = [], []
             for r in d["deviations"]:
-                sev = r["severity"]
-                hard = sev in ("hoch", "kritisch")
                 soll, ist, dev = fmt_deviation(r)
-                rows.append([r["activity_id"], r["metric"], soll, ist, dev, sev.upper() if hard else sev,
+                rows.append([r["activity_id"], r["metric"], soll, ist, dev,
                              [("\n".join(r.get("linked_incident_ids", [])) or "–", {"s": 8})]])
-                strong.append([False, False, False, False, True, hard, False])
-            grid(doc, ["Vorgang", "Kennzahl", "Soll", "Ist", "Abweichung", "Bewertung", "Ereignis"], rows,
-                 [13, W_MM - 119, 17, 17, 19, 19, 34], align="llrrrll", strong=strong)
+                strong.append([False, False, False, False, True, False])
+            grid(doc, ["Vorgang", "Kennzahl", "Soll", "Ist", "Abweichung", "Ereignis"], rows,
+                 [13, W_MM - 100, 17, 17, 19, 34], align="llrrrl", strong=strong)
         for label, items in (("Meilenstein gefährdet: ", d.get("milestones_at_risk", [])),
                              ("Auswirkungskette: ", d.get("impact_chains", []))):
             for txt in items:
@@ -353,8 +359,9 @@ def render(d: dict, out: Path, photo_files: Optional[dict[str, Path]] = None) ->
         if r.get("warnings"):
             pairs.append(("Warnung", [("\n".join(r["warnings"]), {"b": True})]))
         pairs += [("Status", r.get("notice_status")),
-                  ("Konfidenz", num(r["confidence"]) if r.get("confidence") is not None else None),
-                  ("Belege", ", ".join(r.get("source_refs", [])) or None)]
+                  ("Konfidenz", num(r["confidence"]) if r.get("confidence") is not None else None)]
+        if refs:
+            pairs.append(("Belege", ", ".join(r.get("source_refs", [])) or None))
         t = doc.add_table(rows=1 + len(pairs), cols=2)
         _fixed(t, [36, W_MM - 36])
         _table_borders(t, top=(7, "000000"), bottom=(7, "000000"))
@@ -401,22 +408,23 @@ def render(d: dict, out: Path, photo_files: Optional[dict[str, Path]] = None) ->
             _cell(row.cells[4], ", ".join(r.get("related_ids", [])) or "–", size=8.5)
         note(doc, "Gesichter vor dem Export automatisch verpixelt (DSGVO).")
 
-    # 9 Quellen
-    H("Quellen und Belege")
-    rows = []
-    for s in d["sources"]:
-        text: Rich = s.get("original_text")
-        lang = s.get("original_language") or "de"
-        if lang != "de":
-            text = [(s.get("original_text") or "–", {}), (f" [{lang.upper()}]", {"g": True})]
-            if s.get("translation_de"):
-                text += [("\nÜbersetzung (DE): ", {"b": True}), (s["translation_de"], {})]
-        rows.append([s["source_id"], s["type"], dtime(s.get("timestamp")), s.get("author"), text])
-    grid(doc, ["ID", "Art", "Zeitpunkt", "Verfasser", "Inhalt"], [[[(c, {"s": 8.5})] if isinstance(c, str) else c
-                                                                   for c in r] for r in rows],
-         [25, 21, 24, 30, W_MM - 100])
+    # Quellenanhang nur mit SHOW_EVIDENCE_REFS – sonst Belege nur im Dashboard
+    if refs:
+        H("Quellen und Belege")
+        rows = []
+        for s in d["sources"]:
+            text: Rich = s.get("original_text")
+            lang = s.get("original_language") or "de"
+            if lang != "de":
+                text = [(s.get("original_text") or "–", {}), (f" [{lang.upper()}]", {"g": True})]
+                if s.get("translation_de"):
+                    text += [("\nÜbersetzung (DE): ", {"b": True}), (s["translation_de"], {})]
+            rows.append([s["source_id"], s["type"], dtime(s.get("timestamp")), s.get("author"), text])
+        grid(doc, ["ID", "Art", "Zeitpunkt", "Verfasser", "Inhalt"], [[[(c, {"s": 8.5})] if isinstance(c, str) else c
+                                                                       for c in r] for r in rows],
+             [25, 21, 24, 30, W_MM - 100])
 
-    # 10 Prüfung
+    # 9 Prüfung
     H("Prüfung und Freigabe")
     rv = d["review"]
     items: list[tuple[str, Rich]] = [("Status", rv["status"])]

@@ -2,12 +2,14 @@
 
 Reine Datenaufbereitung aus Erfassungen, Engine (Soll-Ist, Tagesverlauf) und Ereignissen – kein LLM.
 Was nicht erfasst wurde, bleibt leer (None) statt geschätzt; der Renderer zeigt dann "–".
-Jede Zeile verweist über ``source_refs`` auf Einträge in ``sources`` (VOICE-01, MAIL-01, PHOTO-01, PLAN …).
+Jede Zeile verweist über ``source_refs`` auf Einträge in ``sources`` (VOICE-01, MAIL-01, PHOTO-01, PLAN …)
+und über ``evidence_ids`` auf die Belege im Datenmodell (E-xx). Der PDF/DOCX-Bericht druckt keine Belege mehr;
+das Dashboard zeigt dieselben Abschnitte aus dieser Funktion und öffnet die Belege per Seitenleiste.
 """
 from __future__ import annotations
 
 import re
-from datetime import date
+from datetime import date, datetime
 from typing import Any, Optional
 
 from .. import settings, store
@@ -45,6 +47,26 @@ def _clean(text: Optional[str], limit: int = 700) -> str:
 
 def _name(addr: Optional[str]) -> Optional[str]:
     return addr.split("<")[0].strip().strip('"') if addr else None
+
+
+def _apply_manual(rows: list[dict], manual: dict[str, dict], key: str, blank: dict) -> list[dict]:
+    """Manuelle Korrekturen (store.report_rows) über die berechneten Zeilen legen; neue Zeilen anhängen.
+
+    Jede Zeile bekommt ``manual`` = Liste der von Hand gesetzten Felder (Dashboard markiert sie).
+    """
+    out = []
+    seen = set()
+    for r in rows:
+        seen.add(r[key])
+        m = manual.get(r[key])
+        if m and m.get("deleted"):
+            continue
+        r["manual"] = sorted(m) if m else []
+        out.append({**r, **(m or {})})
+    for k, m in manual.items():
+        if k not in seen and not m.get("deleted"):
+            out.append({**blank, key: k, **m, "manual": sorted(m), "added": True})
+    return out
 
 
 def _posix(p: Optional[str]) -> Optional[str]:
@@ -160,7 +182,7 @@ def build(project_id: str, day: str) -> dict[str, Any]:
                    "wind": f"Böen bis {s['gust_max']:.0f} km/h",
                    "work_possible": not wx.get("assessment", {}).get("exceptional", False),
                    "impact_note": "; ".join(wx.get("assessment", {}).get("reasons", [])) or None,
-                   "source_refs": ["WEATHER-DWD"]}
+                   "source_refs": ["WEATHER-DWD"], "evidence_ids": [wx["evidence_id"]] if wx.get("evidence_id") else []}
 
     # ---- Personal: Ist je Kolonne aus Erfassung; nicht einzeln erfasste Kolonnen nur, wenn die Gesamtzahl aufgeht
     tl_rows = {r["name"]: r for r in tl["rows"]}
@@ -175,7 +197,9 @@ def build(project_id: str, day: str) -> dict[str, Any]:
     for c in crews:
         rec = staff.get(c["name"])
         count = rec["present"] if rec else (c["planned_staff"] if derive else None)
-        refs_ = refs([rec["evidence_id"]]) if rec else (refs([total["evidence_id"]]) if derive else [])
+        ev_ids = [rec["evidence_id"]] if rec else ([total["evidence_id"]] if derive else [])
+        ev_ids = [e for e in ev_ids if e]
+        refs_ = refs(ev_ids)
         res = res_by_name.get(c["name"])
         span = _span(res["from"], res["to"]) if res else 0
         idle = sum(_span(sg["start"], sg["end"]) for sg in tl_rows.get(c["name"], {}).get("segments", [])
@@ -184,7 +208,19 @@ def build(project_id: str, day: str) -> dict[str, Any]:
                           "planned": c["planned_staff"], "count": count,
                           "hours_total": count * span if count is not None and span else None,
                           "idle_hours": count * idle if count is not None and idle else 0,
-                          "derived": bool(not rec and derive), "source_refs": refs_})
+                          "derived": bool(not rec and derive), "source_refs": refs_, "evidence_ids": ev_ids})
+
+    # manuelle Korrekturen; Stunden folgen einer geänderten Kopfzahl, solange sie nicht selbst überschrieben sind
+    workforce = _apply_manual(workforce, store.report_rows(project_id, day, "workforce"), "crew",
+                              {"company": company["name"], "trade": "", "planned": 0, "count": None, "hours_total": None,
+                               "idle_hours": 0, "derived": False, "source_refs": [], "evidence_ids": []})
+    for w in workforce:
+        if "count" not in w["manual"]:
+            continue
+        w["derived"] = False
+        res = res_by_name.get(w["crew"])
+        if "hours_total" not in w["manual"] and res and w["count"] is not None:
+            w["hours_total"] = w["count"] * _span(res["from"], res["to"])
 
     # ---- Geräte: Zeilen des Tagesverlaufs, die keine Kolonne sind
     crew_names = {c["name"] for c in crews}
@@ -212,18 +248,33 @@ def build(project_id: str, day: str) -> dict[str, Any]:
                           "hours_planned": _span(res.get("from"), res.get("to")) or None, "hours_operated": operated,
                           "downtime": [{"from": sg["start"], "to": sg["end"]} for sg in down],
                           "downtime_cause": "; ".join(dict.fromkeys(causes)) or None,
-                          "source_refs": refs(e for sg in down for e in ev_by_id.get(sg.get("event_id") or "", {}).get("evidence", []))})
+                          "source_refs": refs(e for sg in down for e in ev_by_id.get(sg.get("event_id") or "", {}).get("evidence", [])),
+                          "evidence_ids": list(dict.fromkeys(
+                              e for sg in down for e in ev_by_id.get(sg.get("event_id") or "", {}).get("evidence", []))),
+                          "event_ids": list(dict.fromkeys(sg["event_id"] for sg in down if sg.get("event_id")))})
 
-    # ---- Leistungen
+    equipment = _apply_manual(equipment, store.report_rows(project_id, day, "equipment"), "name",
+                              {"status": "im Einsatz", "activity_id": None, "hours_planned": None, "hours_operated": None,
+                               "downtime": [], "downtime_cause": None, "source_refs": [], "evidence_ids": [],
+                               "event_ids": []})
+
+    # ---- Leistungen (Belege: heutige Mengenmeldung + verknüpfte Ereignisse)
+    prog_ev: dict[str, list[str]] = {}
+    for pr in store.progress(project_id):
+        if pr["date"] == day and pr.get("evidence_id"):
+            prog_ev.setdefault(pr["activity_id"], []).append(pr["evidence_id"])
     work = []
     for r in a["activities"]:
         if not (r["today"]["soll"] or r["today"]["ist"]):
             continue
+        w_ev = prog_ev.get(r["id"], []) + [e for i in r.get("events", []) for e in ev_by_id.get(i, {}).get("evidence", [])]
         work.append({"activity_id": r["id"], "description": r["name"], "critical": r.get("critical", False),
                      "quantity_planned": r["today"]["soll"], "quantity_actual": r["today"]["ist"], "unit": r["unit"],
                      "ratio_pct": r["today"]["ratio"] * 100 if r["today"]["ratio"] is not None else None,
                      "progress_pct": (r.get("pct") or 0) * 100, "forecast_finish": r.get("forecast_finish"),
-                     "delay_days": r.get("delay_days", 0), "source_refs": ["PLAN"]})
+                     "planned_finish": r.get("planned_finish"), "lv_pos": r.get("lv_pos"),
+                     "delay_days": r.get("delay_days", 0), "source_refs": ["PLAN"],
+                     "evidence_ids": list(dict.fromkeys(w_ev)), "event_ids": r.get("events", [])})
 
     # ---- Soll-Ist-Abweichungen (Engine-Alerts)
     deviations, milestones = [], []
@@ -289,7 +340,7 @@ def build(project_id: str, day: str) -> dict[str, Any]:
             "affected_activities": [f"{i} {acts[i]['name']}" if i in acts else i for i in ev.get("activity_ids", [])],
             "impact": imp, "suggested_notice": notice, "notice_deadline_hint": hint or None,
             "notice_status": status, "confidence": (ev.get("confidence") or {}).get("overall"),
-            "source_refs": refs(ev.get("evidence", [])),
+            "source_refs": refs(ev.get("evidence", [])), "evidence_ids": ev.get("evidence", []),
         })
 
     # ---- Fotos
@@ -394,7 +445,21 @@ def export_files(project_id: str, day: str) -> dict[str, str]:
         except Exception:  # Foto unlesbar → im Bericht "nicht verfügbar", Export läuft weiter
             pass
     base = out_dir / f"Bautagesbericht_{project_id}_{day}"
-    base.with_suffix(".json").write_text(json.dumps(data, ensure_ascii=False, indent=1, default=str), encoding="utf-8")
-    report_pdf.render(data, base.with_suffix(".pdf"), photo_files)
-    report_docx.render(data, base.with_suffix(".docx"), photo_files)
-    return {fmt: str(base.with_suffix(f".{fmt}")) for fmt in ("pdf", "docx", "json")}
+
+    def write(fmt: str, fn) -> str:
+        # Ist die Datei noch geöffnet (Word/Acrobat sperren sie unter Windows), unter Zeitstempel-Namen speichern
+        # statt den ganzen Export abzubrechen.
+        target = base.with_suffix(f".{fmt}")
+        try:
+            fn(target)
+        except PermissionError:
+            target = out_dir / f"{base.name}_{datetime.now():%H%M%S}.{fmt}"
+            fn(target)
+        return str(target)
+
+    return {
+        "json": write("json", lambda p: p.write_text(json.dumps(data, ensure_ascii=False, indent=1, default=str),
+                                                      encoding="utf-8")),
+        "pdf": write("pdf", lambda p: report_pdf.render(data, p, photo_files)),
+        "docx": write("docx", lambda p: report_docx.render(data, p, photo_files)),
+    }

@@ -12,7 +12,7 @@ export default function MailConnect({ pid, onClose, onDone }: { pid: string; onC
   const { data: presets } = useApi<Record<string, Preset>>("/api/mail-providers");
   const [provider, setProvider] = useState("gmail");
   const [f, setF] = useState({ address: "", username: "", password: "", imap_host: "imap.gmail.com", imap_port: 993,
-    security: "ssl", folder: "INBOX", since_days: 14, only_project: true });
+    security: "ssl", folder: "INBOX", since_days: 14, only_project: true, smtp_host: "", smtp_port: "" as number | "" });
   const [advanced, setAdvanced] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -75,6 +75,8 @@ export default function MailConnect({ pid, onClose, onDone }: { pid: string; onC
                 <select className={field} value={f.security} onChange={(e) => set("security", e.target.value)}><option value="ssl">SSL/TLS</option><option value="starttls">STARTTLS</option></select></label>
               <label className="block space-y-1"><span className="text-xs">{t("Benutzername (falls abweichend)")}</span><input className={field} value={f.username} onChange={(e) => set("username", e.target.value)} /></label>
               <label className="block space-y-1"><span className="text-xs">{t("Ordner")}</span><input className={field} value={f.folder} onChange={(e) => set("folder", e.target.value)} /></label>
+              <label className="col-span-2 block space-y-1 sm:col-span-1"><span className="text-xs">{t("SMTP-Server (Versand, leer = automatisch)")}</span><input className={field} placeholder="smtp.firma.de" value={f.smtp_host} onChange={(e) => set("smtp_host", e.target.value)} /></label>
+              <label className="block space-y-1"><span className="text-xs">{t("SMTP-Port")}</span><input className={field} type="number" placeholder="465" value={f.smtp_port} onChange={(e) => set("smtp_port", e.target.value === "" ? "" : Number(e.target.value))} /></label>
               <label className="block space-y-1"><span className="text-xs">{t("Zeitraum (Tage)")}</span><input className={field} type="number" min={1} max={365} value={f.since_days} onChange={(e) => set("since_days", Number(e.target.value))} /></label>
             </div>
           )}

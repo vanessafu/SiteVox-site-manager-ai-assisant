@@ -13,7 +13,7 @@ from . import settings, store
 from .understand import email_ingest, imap_mail
 
 PUBLIC = ("account_id", "provider", "address", "username", "imap_host", "imap_port", "security", "folder",
-          "since_days", "only_project", "created_at", "last_sync", "last_result")
+          "since_days", "only_project", "created_at", "last_sync", "last_result", "smtp_host", "smtp_port")
 
 
 def _project(pid: str) -> dict:
@@ -21,7 +21,11 @@ def _project(pid: str) -> dict:
 
 
 def _public(a: dict) -> dict:
-    return {**{k: a.get(k) for k in PUBLIC}, "connected": imap_mail.has_secret(a["account_id"])}
+    from .export.smtp_send import smtp_settings
+
+    host, port, _ = smtp_settings(a)
+    return {**{k: a.get(k) for k in PUBLIC}, "smtp_host": host, "smtp_port": port,
+            "connected": imap_mail.has_secret(a["account_id"])}
 
 
 def accounts(pid: str) -> list[dict]:
@@ -47,7 +51,7 @@ def add(pid: str, data: dict, actor: str, tester: Optional[Callable] = None) -> 
     if preset.get("disabled"):
         raise imap_mail.MailError(preset["hint"])
     address = (data.get("address") or "").strip()
-    password = data.get("password") or ""
+    password = "".join((data.get("password") or "").split())  # App-Passwörter werden mit Leerzeichen angezeigt
     if "@" not in address or not password:
         raise imap_mail.MailError("E-Mail-Adresse und Passwort angeben")
     acc = {
@@ -57,6 +61,8 @@ def add(pid: str, data: dict, actor: str, tester: Optional[Callable] = None) -> 
         "imap_port": int(data.get("imap_port") or preset["imap_port"]),
         "security": data.get("security") or "ssl", "folder": (data.get("folder") or "INBOX").strip(),
         "since_days": int(data.get("since_days") or 14), "only_project": bool(data.get("only_project", True)),
+        "smtp_host": (data.get("smtp_host") or "").strip() or None,
+        "smtp_port": int(data["smtp_port"]) if data.get("smtp_port") else None,
         "created_at": datetime.now().astimezone().isoformat(timespec="seconds"), "last_sync": None, "last_result": None,
     }
     info = (tester or imap_mail.test)(acc, password)  # wirft MailError mit verständlicher Meldung
@@ -68,6 +74,7 @@ def add(pid: str, data: dict, actor: str, tester: Optional[Callable] = None) -> 
 
 def unlock(pid: str, aid: str, password: str, tester: Optional[Callable] = None) -> dict:
     acc = _get(pid, aid)
+    password = "".join((password or "").split())
     (tester or imap_mail.test)(acc, password)
     imap_mail.remember(aid, password)
     return _public(acc)
