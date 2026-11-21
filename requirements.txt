@@ -17,6 +17,7 @@ pytest>=8.0
 openpyxl>=3.1           # Bauzeitenplan-Import (Excel)
 python-docx>=1.1        # DOCX lesen (Wissensbasis) und schreiben (Export)
 reportlab>=4.2          # PDF-Bautagesbericht (ohne LibreOffice)
+imageio-ffmpeg>=0.5     # ffmpeg-Binary: Browser-WebM → m4a (Safari, Spulen), Whisper-Dekodierung
 pillow>=10.0            # EXIF, Demo-Fotos
 pypdf>=5.0              # PDF-Textebene ohne Docling (Wissensbasis)
 rapidocr>=3.4           # OCR für Scans/Bilder auf der CPU (PP-OCRv5 latin, Modelle ~15 MB beim ersten Lauf)

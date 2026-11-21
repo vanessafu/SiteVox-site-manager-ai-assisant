@@ -205,6 +205,7 @@ def live_in_demo() -> bool:
 
 
 def analyze(path: Path, project_id: str, *, activities_today: Optional[list[str]] = None,
+            fixture_stem: Optional[str] = None,
             tz_hint: Optional[str] = None, out_lang: str = "de") -> dict[str, Any]:
     """Foto → {exif, analysis (PhotoAnalysis), backend, model}. out_lang: Sprache von summary/Rückfrage. Wirft keine Fehler wegen des Modells:
     schlägt das VLM fehl, bleibt das Foto Beleg und die Rückfrage allgemein (analysis_error gesetzt)."""
@@ -213,7 +214,7 @@ def analyze(path: Path, project_id: str, *, activities_today: Optional[list[str]
     meta = exif_meta(path, tz_hint)
     live = live_in_demo()
     if settings.is_demo():
-        meta = {**meta, **_demo_exif(project_id, path.stem)}
+        meta = {**meta, **_demo_exif(project_id, fixture_stem or path.stem)}
     ctx = VISION_CONTEXT.format(activities=", ".join(activities_today)) if activities_today else ""
     prompt = VISION_PROMPT.format(context=ctx, out_lang=out_lang_name(out_lang))
     content: list[dict] = [{"type": "text", "text": prompt}]
@@ -233,7 +234,7 @@ def analyze(path: Path, project_id: str, *, activities_today: Optional[list[str]
             out["backend"], out["live_error"] = "replay", str(e)[:300]
     try:
         res = llm.get("vision").structured(PhotoAnalysis, msgs, n=1, temperature=cfg.get("temperature", 0.1),
-                                           fixture=(project_id, f"vision/{path.stem}"), fallback=_fallback)[0]
+                                           fixture=(project_id, f"vision/{fixture_stem or path.stem}"), fallback=_fallback)[0]
     except llm.LLMError as e:
         log.warning("Fotoanalyse fehlgeschlagen: %s", e)
         res, out["analysis_error"] = _fallback(), str(e)[:300]

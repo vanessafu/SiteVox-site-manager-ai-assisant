@@ -15,6 +15,7 @@ from __future__ import annotations
 import logging
 import re
 import shutil
+import subprocess
 from datetime import date, datetime
 from difflib import SequenceMatcher
 from pathlib import Path
@@ -84,8 +85,18 @@ def ingest(project_id: str, kind: str, *, captured_at: str, file: Optional[Path]
     }
     if file:
         dest = settings.project_files_dir(project_id, day) / Path(file).name
+        # Handys benennen jedes Foto "image.jpg": App-Uploads bekommen immer die Erfassungs-ID im Namen – eine URL
+        # zeigt nie auf wechselnden Inhalt (sonst spielt der Browser-Cache alte Audio-/Bildbytes ab).
+        # Seed/Skripte behalten den Originalnamen (Demo-Fixtures per Dateiname), außer er ist schon belegt.
+        meta["original_name"] = Path(file).name  # Demo-Fixtures (vision/<name>) greifen auch nach Umbenennung
+        if meta.get("source") == "mobile":
+            dest = dest.with_name(f"{dest.stem}_{cap['capture_id']}{dest.suffix}")
+        elif Path(file).resolve() != dest.resolve() and dest.exists() and _file_in_use(project_id, dest):
+            dest = dest.with_name(f"{dest.stem}_{cap['capture_id']}{dest.suffix}")
         if Path(file).resolve() != dest.resolve():
             shutil.copy(file, dest)
+        if kind == "audio":
+            dest = make_playable(dest)
         cap["file"] = str(dest.relative_to(settings.data_dir()))
         file = dest
     store.save_capture(cap)
@@ -96,6 +107,43 @@ def ingest(project_id: str, kind: str, *, captured_at: str, file: Optional[Path]
         cap["status"], cap["error"] = "error", str(e)[:300]
         store.save_capture(cap)
         raise
+
+
+def ffmpeg_exe() -> Optional[str]:
+    exe = shutil.which("ffmpeg")
+    if exe:
+        return exe
+    try:
+        import imageio_ffmpeg  # pip-Paket mit fertigem ffmpeg (Homebrew baut auf alten Macs nicht)
+
+        return imageio_ffmpeg.get_ffmpeg_exe()
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def make_playable(path: Path) -> Path:
+    """Browser-Aufnahmen (MediaRecorder-WebM/Ogg ohne Dauer und Index) → .m4a (AAC, faststart):
+    in Safari abspielbar und in Chrome per currentTime spulbar (Belegsprung "▶ ab …"). Ohne ffmpeg: unverändert."""
+    path = Path(path)
+    if path.suffix.lower() not in (".webm", ".ogg", ".oga", ".opus"):
+        return path
+    exe = ffmpeg_exe()
+    if not exe:
+        log.warning("ffmpeg fehlt – %s bleibt WebM (Safari spielt das nicht ab)", path.name)
+        return path
+    out = path.with_suffix(".m4a")
+    r = subprocess.run([exe, "-y", "-loglevel", "error", "-i", str(path), "-vn", "-c:a", "aac", "-b:a", "96k",
+                        "-movflags", "+faststart", str(out)], capture_output=True, text=True, timeout=300)
+    if r.returncode != 0 or not out.exists() or out.stat().st_size == 0:
+        log.warning("Audio-Konvertierung fehlgeschlagen (%s): %s", path.name, r.stderr[-300:])
+        return path
+    path.unlink()
+    return out
+
+
+def _file_in_use(project_id: str, dest: Path) -> bool:
+    rel = str(dest.relative_to(settings.data_dir()))
+    return any(c.get("file") == rel for c in store.captures(project_id))
 
 
 def _ingest_body(cap, project_id, kind, captured_at, day, file, text, title, meta, fixture_key, actor,
@@ -268,7 +316,9 @@ def _photo_analyze(cap: dict, file: Optional[Path], acts: list[dict], *, ask: bo
     planned = _planned_today(acts, day)
     use_vlm = ask or settings.models()["llm"]["vision"].get("enrich", True)
     vis = vision.analyze(file, pid, activities_today=[a["name"] for a in planned],
-                         tz_hint=cap["captured_at"][19:] or None, out_lang=_out_lang(cap)) if file and use_vlm else \
+                         tz_hint=cap["captured_at"][19:] or None, out_lang=_out_lang(cap),
+                         fixture_stem=Path(cap.get("meta", {}).get("original_name") or file).stem) \
+        if file and use_vlm else \
         {"exif": vision.exif_meta(Path(file), tz_hint=cap["captured_at"][19:] or None) if file else {}, "analysis": vision._fallback().model_dump(), "backend": None, "model": None}
     analysis = vis["analysis"]
     cap["vision"] = {**vis["exif"], **{k: v for k, v in vis.items() if k != "exif"}}
@@ -353,9 +403,10 @@ def _photo_describe(cap: dict, mode: str, *, text: Optional[str] = None, file: O
     if mode == "audio":
         if not file:
             raise ValueError("Audiodatei fehlt")
-        dest = settings.project_files_dir(pid, day) / f"{Path(cap.get('file') or cap['capture_id']).stem}_antwort{Path(file).suffix}"
+        dest = settings.project_files_dir(pid, day) / f"{cap['capture_id']}_antwort_{datetime.now():%H%M%S}{Path(file).suffix}"
         if Path(file).resolve() != dest.resolve():
             shutil.copy(file, dest)
+        dest = make_playable(dest)
         tr = asr.transcribe(dest, pid, hint=text, language=language)
         ans.update(file=str(dest.relative_to(settings.data_dir())), transcript=tr, asr_score=tr.get("mean_score"))
         body = tr["text"]

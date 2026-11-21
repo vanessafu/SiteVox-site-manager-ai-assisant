@@ -633,3 +633,45 @@ def test_photo_with_description_in_one_upload_skips_followup(tmp_path):
     r = c.post("/api/projects/BV-RIEM/captures", data={"kind": "photo", "description_mode": "note"},
                files={"file": ("x.jpg", b"x", "image/jpeg")})
     assert r.status_code == 400
+
+
+def test_same_phone_filename_does_not_overwrite_earlier_photo(tmp_path):
+    from fastapi.testclient import TestClient
+
+    from backend.main import app
+
+    from PIL import Image
+
+    c = TestClient(app)
+    for i, colour in enumerate([(200, 0, 0), (0, 0, 200)]):
+        p = tmp_path / f"{i}" / "image.jpg"
+        p.parent.mkdir()
+        Image.new("RGB", (64, 64), colour).save(p)
+        with open(p, "rb") as f:
+            r = c.post("/api/projects/BV-RIEM/captures",
+                       data={"kind": "photo", "captured_at": f"2026-11-22T09:0{i}:00+01:00", "description_mode": "none"},
+                       files={"file": ("image.jpg", f, "image/jpeg")})
+        assert r.status_code == 200
+    caps = [x for x in c.get("/api/projects/BV-RIEM/captures", params={"date": "2026-11-22"}).json()
+            if x["kind"] == "photo"]
+    paths = [x["file"] for x in caps[-2:]]
+    assert len(set(paths)) == 2
+    from sitevox import settings
+    px = [Image.open(settings.data_dir() / q).convert("RGB").getpixel((32, 32)) for q in paths]
+    assert px[0][0] > 150 and px[1][2] > 150  # rot bleibt rot, blau ist blau
+
+
+def test_browser_webm_is_converted_to_seekable_m4a(tmp_path):
+    import subprocess
+
+    from sitevox.pipeline import ffmpeg_exe, make_playable
+
+    exe = ffmpeg_exe()
+    if not exe:
+        pytest.skip("kein ffmpeg")
+    src = tmp_path / "rec.webm"
+    subprocess.run([exe, "-y", "-loglevel", "error", "-f", "lavfi", "-i", "sine=frequency=440:duration=2",
+                    "-c:a", "libopus", str(src)], check=True)
+    out = make_playable(src)
+    assert out.suffix == ".m4a" and out.stat().st_size > 0 and not src.exists()
+    assert make_playable(tmp_path / "x.wav") == tmp_path / "x.wav"  # WAV bleibt unverändert

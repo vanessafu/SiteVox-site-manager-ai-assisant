@@ -12,6 +12,7 @@ Human-in-the-loop ist technisch erzwungen:
 from __future__ import annotations
 
 import sys
+import mimetypes
 import tempfile
 from datetime import datetime
 from pathlib import Path
@@ -628,6 +629,11 @@ def delete_capture(cid: str) -> dict:
 def delete_document(doc_id: str) -> dict:
     _edit(editing.delete_document, doc_id, ACTOR)
     return {"deleted": doc_id}
+
+
+# Python kennt .m4a als "audio/mp4a-latm" – Safari spielt das nicht; Standard ist audio/mp4
+mimetypes.add_type("audio/mp4", ".m4a")
+mimetypes.add_type("audio/webm", ".webm")
 
 
 @app.get("/files/{path:path}")
