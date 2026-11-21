@@ -1,0 +1,346 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.org/site-manager-ai/tagesbericht.schema.json",
+  "title": "Bautagesbericht",
+  "description": "Daily site report of the contractor (Auftragnehmer). Fields follow VHB Bund Richtlinie 411 (regular + special entries), extended with source tracing, multilingual input and notice suggestions for the AI Site Manager Assistant.",
+  "type": "object",
+  "required": ["meta", "weather", "workforce", "work_performed", "incidents", "sources", "review"],
+  "additionalProperties": false,
+  "properties": {
+
+    "meta": {
+      "title": "Kopfdaten",
+      "type": "object",
+      "required": ["report_id", "date", "project", "contractor", "client", "author"],
+      "additionalProperties": false,
+      "properties": {
+        "report_id": { "type": "string", "description": "e.g. TB-2026-11-20" },
+        "date": { "type": "string", "format": "date" },
+        "report_no": { "type": "integer", "minimum": 1, "description": "Laufende Berichtsnummer" },
+        "project": {
+          "title": "Bauvorhaben",
+          "type": "object",
+          "required": ["name"],
+          "additionalProperties": false,
+          "properties": {
+            "name": { "type": "string" },
+            "project_no": { "type": "string" },
+            "contract_no": { "type": "string", "description": "Vertrags-/Auftragsnummer" },
+            "address": { "type": "string" }
+          }
+        },
+        "contractor": {
+          "title": "Auftragnehmer",
+          "type": "object",
+          "required": ["company", "bauleiter"],
+          "additionalProperties": false,
+          "properties": {
+            "company": { "type": "string" },
+            "bauleiter": { "type": "string" },
+            "polier": { "type": "string" },
+            "personnel_change": { "type": ["string", "null"], "description": "Personalwechsel Bauleitung (RL 411)" }
+          }
+        },
+        "client": {
+          "title": "Auftraggeber",
+          "type": "object",
+          "required": ["name"],
+          "additionalProperties": false,
+          "properties": {
+            "name": { "type": "string" },
+            "representative": { "type": "string", "description": "Bauleitung / Objektüberwachung AG" }
+          }
+        },
+        "author": { "type": "string", "description": "Verfasser" },
+        "working_hours": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "start": { "$ref": "#/$defs/time" },
+            "end": { "$ref": "#/$defs/time" }
+          }
+        }
+      }
+    },
+
+    "weather": {
+      "title": "Witterung",
+      "type": "object",
+      "required": ["condition", "temp_min_c", "temp_max_c", "work_possible"],
+      "additionalProperties": false,
+      "properties": {
+        "condition": { "type": "string", "enum": ["sonnig", "bewölkt", "Regen", "Starkregen", "Schnee", "Frost", "Sturm", "Nebel"] },
+        "temp_min_c": { "type": "number" },
+        "temp_max_c": { "type": "number" },
+        "precipitation_mm": { "type": "number", "minimum": 0 },
+        "wind": { "type": "string" },
+        "work_possible": { "type": "boolean", "description": "Arbeitsfähigkeit gegeben?" },
+        "impact_note": { "type": ["string", "null"] },
+        "source_refs": { "$ref": "#/$defs/sourceRefs" }
+      }
+    },
+
+    "workforce": {
+      "title": "Personaleinsatz",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["company", "trade", "count"],
+        "additionalProperties": false,
+        "properties": {
+          "company": { "type": "string" },
+          "is_subcontractor": { "type": "boolean", "description": "Nachunternehmer?" },
+          "trade": { "type": "string", "description": "Gewerk / Funktion, e.g. Betonbauer, Eisenflechter" },
+          "count": { "type": "integer", "minimum": 0 },
+          "hours_total": { "type": "number", "minimum": 0 },
+          "idle_hours": { "type": "number", "minimum": 0, "description": "Wartezeit / Stillstand" },
+          "source_refs": { "$ref": "#/$defs/sourceRefs" }
+        }
+      }
+    },
+
+    "equipment": {
+      "title": "Geräteeinsatz (Großgerät)",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "status"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string" },
+          "count": { "type": "integer", "minimum": 1, "default": 1 },
+          "status": { "type": "string", "enum": ["Zugang", "im Einsatz", "Stillstand", "Ausfall", "Abgang"] },
+          "hours_planned": { "type": "number", "minimum": 0 },
+          "hours_operated": { "type": "number", "minimum": 0 },
+          "downtime": { "$ref": "#/$defs/timeRange" },
+          "downtime_cause": { "type": ["string", "null"], "description": "Ursache bei Ausfall (RL 411)" },
+          "source_refs": { "$ref": "#/$defs/sourceRefs" }
+        }
+      }
+    },
+
+    "deliveries": {
+      "title": "Lieferungen (Stoffe und Bauteile)",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["material", "quantity", "unit", "supplied_by"],
+        "additionalProperties": false,
+        "properties": {
+          "material": { "type": "string" },
+          "quantity": { "type": "number", "minimum": 0 },
+          "unit": { "type": "string" },
+          "supplier": { "type": "string" },
+          "supplied_by": { "type": "string", "enum": ["AN", "AG"], "description": "vom AN geliefert oder vom AG beigestellt" },
+          "planned_time": { "$ref": "#/$defs/time" },
+          "actual_time": { "$ref": "#/$defs/time" },
+          "delay_minutes": { "type": "integer", "minimum": 0 },
+          "delivery_note_no": { "type": "string", "description": "Lieferschein-Nr." },
+          "source_refs": { "$ref": "#/$defs/sourceRefs" }
+        }
+      }
+    },
+
+    "work_performed": {
+      "title": "Ausgeführte Arbeiten / Leistungsstand",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["description", "location"],
+        "additionalProperties": false,
+        "properties": {
+          "activity_id": { "type": "string", "description": "Vorgangs-ID aus dem Bauzeitenplan, e.g. A-120" },
+          "description": { "type": "string" },
+          "location": { "type": "string", "description": "Bauteil / Geschoss / Achse" },
+          "company": { "type": "string" },
+          "quantity_planned": { "type": "number", "minimum": 0, "description": "Soll (Tagesleistung)" },
+          "quantity_actual": { "type": "number", "minimum": 0, "description": "Ist" },
+          "unit": { "type": "string" },
+          "progress_pct": { "type": "number", "minimum": 0, "maximum": 100 },
+          "covered_work": {
+            "type": "boolean",
+            "description": "Wird die Leistung durch Baufortschritt verdeckt? (RL 411) -> Foto-/Abnahmedoku nötig"
+          },
+          "source_refs": { "$ref": "#/$defs/sourceRefs" }
+        }
+      }
+    },
+
+    "incidents": {
+      "title": "Besondere Vorkommnisse",
+      "description": "Behinderungen, Unterbrechungen, Mängel, Anordnungen etc. Basis für Anzeigen-Entwürfe.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["incident_id", "type", "description", "responsibility_sphere", "suggested_notice", "source_refs"],
+        "additionalProperties": false,
+        "properties": {
+          "incident_id": { "type": "string", "description": "e.g. EV-2026-11-20-01" },
+          "type": {
+            "type": "string",
+            "enum": [
+              "Behinderung",
+              "Unterbrechung",
+              "Lieferverzug",
+              "Geräteausfall",
+              "Witterung",
+              "Mangel",
+              "technische Bedenken",
+              "Anordnung AG",
+              "mündliche Weisung",
+              "Planabweichung",
+              "Baugrundabweichung",
+              "Prüfung",
+              "Unfall",
+              "Sonstiges"
+            ]
+          },
+          "time": { "$ref": "#/$defs/timeRange" },
+          "description": { "type": "string" },
+          "cause": { "type": "string" },
+          "responsibility_sphere": {
+            "type": "string",
+            "enum": ["AG", "AN", "neutral", "unklar"],
+            "description": "Risikosphäre: AG = Auftraggeber, AN = eigener Bereich (inkl. eigene Lieferanten/NU), neutral = z. B. außergewöhnliche Witterung. Vorschlag der KI, Bauleiter entscheidet."
+          },
+          "sphere_reasoning": { "type": "string", "description": "Kurze Begründung der KI, mit Quellen" },
+          "instructing_person": { "type": ["string", "null"], "description": "Bei mündlicher Weisung: Name + Funktion (RL 411)" },
+          "affected_activities": { "type": "array", "items": { "type": "string" }, "description": "Vorgangs-IDs" },
+          "impact": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "delay_hours": { "type": ["number", "null"], "minimum": 0, "description": "null = noch andauernd / nicht bezifferbar" },
+              "idle_workers": { "type": "integer", "minimum": 0 },
+              "idle_equipment": { "type": "array", "items": { "type": "string" } },
+              "schedule_impact": { "type": "string", "description": "Auswirkung auf Folgevorgänge / Termine" },
+              "cost_estimate_eur": { "type": ["number", "null"], "minimum": 0 }
+            }
+          },
+          "suggested_notice": {
+            "type": "string",
+            "enum": ["Behinderungsanzeige", "Mehrkostenanzeige", "Bedenkenanzeige", "Mängelanzeige", "interne Dokumentation", "keine"]
+          },
+          "notice_deadline_hint": { "type": ["string", "null"], "description": "Regelbasiert, e.g. 'unverzüglich schriftlich', 'vor Ausführungsbeginn'" },
+          "notice_status": { "type": "string", "enum": ["offen", "Entwurf", "freigegeben", "versendet", "verworfen"], "default": "offen" },
+          "source_refs": { "$ref": "#/$defs/sourceRefs" }
+        }
+      }
+    },
+
+    "deviations": {
+      "title": "Soll-Ist-Abweichungen",
+      "description": "Wird per Code (nicht LLM) aus work_performed + Bauzeitenplan berechnet.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["activity_id", "metric", "planned", "actual", "deviation_pct", "severity"],
+        "additionalProperties": false,
+        "properties": {
+          "activity_id": { "type": "string" },
+          "metric": { "type": "string", "description": "e.g. Betonmenge, Gerätestunden, Personal" },
+          "planned": { "type": "number" },
+          "actual": { "type": "number" },
+          "unit": { "type": "string" },
+          "deviation_pct": { "type": "number" },
+          "severity": { "type": "string", "enum": ["niedrig", "mittel", "hoch", "kritisch"] },
+          "milestone_at_risk": { "type": ["string", "null"] },
+          "linked_incident_ids": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+
+    "photos": {
+      "title": "Fotodokumentation",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["photo_id", "file", "timestamp"],
+        "additionalProperties": false,
+        "properties": {
+          "photo_id": { "type": "string" },
+          "file": { "type": "string" },
+          "timestamp": { "type": "string", "format": "date-time" },
+          "location": { "type": "string" },
+          "caption_de": { "type": "string" },
+          "related_ids": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+
+    "sources": {
+      "title": "Quellen / Evidenz",
+      "description": "Every source the report draws on. All other sections point here via source_refs.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["source_id", "type", "timestamp"],
+        "additionalProperties": false,
+        "properties": {
+          "source_id": { "type": "string", "description": "e.g. VOICE-01, MAIL-003, PROT-2026-11-19, PHOTO-07, PLAN" },
+          "type": { "type": "string", "enum": ["Sprachnotiz", "Textnotiz", "E-Mail", "Protokoll", "Foto", "Bauzeitenplan", "Lieferschein", "Wetterdienst", "Sonstiges"] },
+          "timestamp": { "type": "string", "format": "date-time" },
+          "author": { "type": "string" },
+          "original_language": { "type": "string", "description": "BCP-47, e.g. de, pl, tr, ro, zh" },
+          "original_text": { "type": "string", "description": "Transkript / Originaltext" },
+          "translation_de": { "type": ["string", "null"], "description": "Deutsche Übersetzung, falls original_language != de" },
+          "file": { "type": ["string", "null"] }
+        }
+      }
+    },
+
+    "remarks": { "title": "Sonstiges", "type": ["string", "null"] },
+
+    "review": {
+      "title": "Prüfung und Freigabe (Human in the loop)",
+      "type": "object",
+      "required": ["status", "ai_generated"],
+      "additionalProperties": false,
+      "properties": {
+        "status": { "type": "string", "enum": ["KI-Entwurf", "in Prüfung", "freigegeben", "abgelehnt"] },
+        "ai_generated": { "type": "boolean" },
+        "unsupported_statements": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Aussagen ohne Quellenbeleg -> im UI gelb markieren"
+        },
+        "open_questions": { "type": "array", "items": { "type": "string" }, "description": "Rückfragen der KI an den Bauleiter" },
+        "reviewed_by": { "type": ["string", "null"] },
+        "approved_at": { "type": ["string", "null"], "format": "date-time" },
+        "signature_contractor": { "type": ["string", "null"] },
+        "signature_client": { "type": ["string", "null"] },
+        "change_log": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["at", "by", "field", "change"],
+            "additionalProperties": false,
+            "properties": {
+              "at": { "type": "string", "format": "date-time" },
+              "by": { "type": "string" },
+              "field": { "type": "string" },
+              "change": { "type": "string" }
+            }
+          }
+        }
+      }
+    }
+  },
+
+  "$defs": {
+    "time": { "type": "string", "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$", "description": "HH:MM" },
+    "timeRange": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "from": { "$ref": "#/$defs/time" },
+        "to": { "anyOf": [{ "$ref": "#/$defs/time" }, { "type": "null" }], "description": "null = andauernd" }
+      }
+    },
+    "sourceRefs": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "IDs from the sources array that back this entry"
+    }
+  }
+}
