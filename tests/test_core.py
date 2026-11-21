@@ -19,6 +19,7 @@ def demo_db(tmp_path_factory):
     os.environ["SITEVOX_MODE"] = "demo"
     os.environ["SITEVOX_DB"] = str(tmp / "test.db")
     os.environ["SITEVOX_DATA"] = str(tmp / "data")
+    os.environ["SITEVOX_OCR"] = "0"  # OCR separat getestet (test_ocr_image_text), Seed bleibt schnell
     subprocess.run([sys.executable, str(ROOT / "scripts" / "make_demo_data.py")], check=True, capture_output=True)
     subprocess.run([sys.executable, str(ROOT / "scripts" / "seed_demo.py")], check=True, capture_output=True,
                    env=os.environ.copy())

@@ -151,7 +151,7 @@ def _run_faster_whisper(path: Path, language: str) -> dict:
     segments, info = model.transcribe(
         audio, language=language, initial_prompt=_prompt_for(language), beam_size=c.get("beam_size", 5),
         word_timestamps=True, vad_filter=c.get("vad_filter", True),
-        hotwords=" ".join(c.get("hotwords", [])) or None,
+        hotwords=" ".join(vocab.get("hotwords", [])) or None,
     )
     segs = []
     for s in segments:
@@ -161,7 +161,7 @@ def _run_faster_whisper(path: Path, language: str) -> dict:
     return {"segments": segs, "duration": info.duration, "language": language, "language_prob": prob}
 
 
-def _run_mlx(path: Path, language: str) -> dict:
+def _run_mlx(path: Path, language: str, vocab: dict) -> dict:
     import mlx_whisper  # type: ignore
 
     c = _asr_cfg()
