@@ -422,60 +422,13 @@ def test_vision_uses_structured_llm_with_retry(tmp_path, monkeypatch):
     assert "Wände EG" in first[1]["text"] and "ungültig" in calls[1][-1]["content"]
 
 
-def test_asr_vocabulary_includes_audio_terms():
-    from sitevox import store
-    from sitevox.understand import vocabulary
-
-    terms = {e["term"]: e for e in vocabulary.collect("BV-RIEM")}
-    audio = [e for e in terms.values() if e["from_audio"]]
-    assert audio and all(any(s.startswith(vocabulary.AUDIO_PREFIX) for s in e["sources"]) for e in audio)
-    # auch in Stammdaten → nicht "nur Audio"
-    assert not terms["Kolonne Müller"]["audio_only"]
-    # neuer Begriff nur aus einem Sprachmemo: nachrangig, nicht als Hotword
-    cap = {"capture_id": "CAP-T-AUDIO", "project_id": "BV-RIEM", "date": "2026-11-20", "kind": "audio",
-           "captured_at": "2026-11-20T16:00:00+01:00", "status": "done", "title": "Sprachmemo Test",
-           "transcript": {"text": "Am Treppenhaus TH2 fehlt noch die Brüstung, Firma Kranbau Sedlmeier GmbH kommt morgen."}}
-    store.save_capture(cap)
-    try:
-        terms = {e["term"]: e for e in vocabulary.collect("BV-RIEM")}
-        assert terms["TH2"]["audio_only"] and terms["Kranbau Sedlmeier GmbH"]["audio_only"]
-        order = [e["term"] for e in vocabulary.collect("BV-RIEM")]
-        assert order.index("TH2") > order.index("Achse C")  # bestätigte Begriffe zuerst
-        assert "Kranbau Sedlmeier GmbH" not in vocabulary.asr_prompt("BV-RIEM")["hotwords"]
-    finally:
-        store.delete("captures", "CAP-T-AUDIO")
-
-
-def test_asr_vocabulary_from_documents_and_overrides():
-    from fastapi.testclient import TestClient
-
-    from backend.main import app
-    from sitevox.understand import vocabulary
-
-    c = TestClient(app)
-    s = c.get("/api/projects/BV-RIEM/asr-vocabulary").json()
-    terms = {t["term"]: t for g in s["groups"] for t in g["terms"]}
-    assert {"Achse C", "Ingenieurbüro Brandl", "C30/37", "B500B", "Bodenplatte"} <= set(terms)
-    assert not any(t.endswith(" AG") for t in terms)  # AG = Auftraggeber, keine Rechtsform
-    p = vocabulary.asr_prompt("BV-RIEM")
-    assert len(p["initial_prompt"]) <= vocabulary.PROMPT_MAX_CHARS + 2  # Whisper-Promptgrenze
-    assert "Ingenieurbüro Brandl" in p["initial_prompt"] and "Achse C" in p["hotwords"]
-    s = c.post("/api/projects/BV-RIEM/asr-vocabulary", json={"term": "Kranbahn Süd"}).json()
-    assert s["groups"][0]["category"] == "manual" and "Kranbahn Süd" in vocabulary.asr_prompt("BV-RIEM")["initial_prompt"]
-    s = c.post("/api/projects/BV-RIEM/asr-vocabulary", json={"term": "Bodenplatte", "action": "remove"}).json()
-    assert "Bodenplatte" in s["removed"] and all(t["term"] != "Bodenplatte" for g in s["groups"] for t in g["terms"])
-    s = c.post("/api/projects/BV-RIEM/asr-vocabulary", json={"term": "Bodenplatte", "action": "restore"}).json()
-    assert "Bodenplatte" not in s["removed"]
-    c.put("/api/projects/BV-RIEM/master", json={"title": "Neubau Wohnanlage Riem, Baufeld 3"})
-    assert "Kranbahn Süd" in vocabulary.asr_prompt("BV-RIEM")["initial_prompt"]  # übersteht Stammdaten-Edit
-    c.post("/api/projects/BV-RIEM/asr-vocabulary", json={"term": "Kranbahn Süd", "action": "remove"})
-
-
-def _fake_faster_whisper(monkeypatch, calls):
-    """faster-whisper-Attrappe: zeichnet die transcribe()-Argumente auf, kein Modell nötig."""
+def test_asr_faster_whisper_uses_language_prompt(monkeypatch, tmp_path):
+    """Regression: faster-whisper-Pfad lief nach dem Merge auf einen NameError (vocab)."""
     import types
 
     from sitevox.understand import asr
+
+    calls: list[dict] = []
 
     class Model:
         def detect_language(self, **kw):
@@ -493,69 +446,12 @@ def _fake_faster_whisper(monkeypatch, calls):
     monkeypatch.setattr(asr.settings, "is_demo", lambda: False)
     cfg = {**asr.settings.models()["asr"], "backend": "faster_whisper", "language": "auto"}
     monkeypatch.setattr(asr, "_asr_cfg", lambda: cfg)
-    return cfg
-
-
-def test_asr_passes_project_vocabulary_to_whisper(monkeypatch, tmp_path):
-    from sitevox.understand import asr
-
-    calls: list[dict] = []
-    _fake_faster_whisper(monkeypatch, calls)
     wav = tmp_path / "x.wav"
     wav.write_bytes(b"")
     res = asr.transcribe(wav, "BV-RIEM")
-    kw = calls[0]
-    assert kw["language"] == "tr"  # automatisch erkannt → türkischer Basis-Prompt …
-    assert kw["initial_prompt"].startswith(asr._prompt_for("tr").split(",")[0].strip())
-    assert "Ingenieurbüro Brandl" in kw["initial_prompt"]  # … plus deutsche Projektbegriffe
-    assert "Achse C" in kw["hotwords"]
-    assert res["vocabulary"]["applied"] and res["vocabulary"]["project_terms"] > 0
-    # Demo/Replay: Vokabular wird nicht angewendet – und das wird ehrlich ausgewiesen
-    monkeypatch.setattr(asr.settings, "is_demo", lambda: True)
-    assert asr.transcribe(wav, "BV-RIEM", hint="Achse C")["vocabulary"]["applied"] is False
-
-
-def test_asr_remote_sends_vocabulary(monkeypatch, tmp_path):
-    import json as _json
-
-    import httpx
-
-    from sitevox.understand import asr
-
-    cfg = _fake_faster_whisper(monkeypatch, [])
-    cfg.update(backend="remote", remote_url="http://gpu:8004")
-    sent = {}
-
-    class R:
-        def raise_for_status(self):
-            pass
-
-        def json(self):
-            return {"segments": [], "text": "", "backend": "whisperx"}
-
-    monkeypatch.setattr(httpx, "post", lambda url, data, **kw: sent.update(data) or R())
-    wav = tmp_path / "x.wav"
-    wav.write_bytes(b"")
-    asr.transcribe(wav, "BV-RIEM")
-    v = _json.loads(sent["vocab"])
-    assert "Ingenieurbüro Brandl" in v["terms"] and "Achse C" in v["hot"]
-
-
-def test_photo_ocr_feeds_vocabulary_not_evidence(monkeypatch):
-    from sitevox import editing, pipeline, settings, store
-    from sitevox.understand import ocr, vocabulary
-
-    monkeypatch.setattr(ocr, "image_text", lambda p, **kw: "Lieferschein\nBetonwerk Huber GmbH · C25/30")
-    jpg = settings.demo_dir("BV-RIEM") / "inputs" / "2026-11-20" / "IMG_1410.jpg"
-    cap = pipeline.ingest("BV-RIEM", "photo", file=jpg, captured_at="2026-11-20T15:30:00+01:00", title="OCR-Test")
-    try:
-        assert cap["vision"]["ocr_text"].startswith("Lieferschein")
-        evid = " ".join((store.evidence(i) or {}).get("quote") or "" for i in cap["evidence_ids"])
-        assert "Huber" not in evid and "Huber" not in (cap.get("text") or "")  # kein Beleg
-        t = {e["term"]: e for e in vocabulary.collect("BV-RIEM")}
-        assert "Betonwerk Huber GmbH" in t and t["Betonwerk Huber GmbH"]["sources"][0].startswith("Foto-Text")
-    finally:
-        editing.delete_capture(cap["capture_id"], "test")
+    assert calls[0]["language"] == "tr" and calls[0]["initial_prompt"] == asr._prompt_for("tr")
+    assert calls[0]["hotwords"] == " ".join(cfg.get("hotwords", [])) or None
+    assert res["text"] == "Achse C" and res["language"] == "tr" and "vocabulary" not in res
 
 
 def test_light_document_parser_docx(tmp_path):
@@ -595,3 +491,119 @@ def test_ocr_image_text(tmp_path, monkeypatch):
     lines = text.splitlines()
     assert lines[0] == "Lieferschein Betonwerk Müller GmbH"
     assert "Achse C/4" in lines[1] and "C30/37" in lines[1]
+
+
+def test_gaeb_export_and_reimport_roundtrip(tmp_path):
+    from fastapi.testclient import TestClient
+
+    from backend.main import app
+    from sitevox import editing, pipeline, rag, store
+
+    c = TestClient(app)
+    lv = next(d for d in c.get("/api/projects/BV-RIEM/knowledge").json() if d["title"].startswith("Leistungsverzeichnis"))
+    assert c.get(f"/api/documents/{lv['doc_id']}").json()["gaeb_exportable"]
+    r = c.get(f"/api/documents/{lv['doc_id']}/gaeb", params={"phase": "83"})
+    assert r.status_code == 200 and r.headers["content-type"].startswith("application/xml")
+    xml = r.content.decode("utf-8")
+    assert "GAEB_DA_XML/DA83/3.3" in xml and "Betonstahl B500B" in xml and "<DP>83</DP>" in xml
+    assert c.get(f"/api/documents/{lv['doc_id']}/gaeb", params={"phase": "99"}).status_code == 400
+    legal = next(d for d in c.get("/api/projects/BV-RIEM/knowledge").json() if d["collection"] == "legal")
+    assert c.get(f"/api/documents/{legal['doc_id']}/gaeb").status_code == 400  # keine LV-Positionen
+    # Re-Import der exportierten Datei als neues LV-Dokument
+    f = tmp_path / "Rohbau.x83"
+    f.write_bytes(r.content)
+    cap = pipeline.ingest("BV-RIEM", "document", file=f, captured_at="2026-11-20T16:00:00+01:00",
+                          meta={"doc_type": "dokument", "doc_title": "Rohbau GAEB"})
+    try:
+        d = store.get("documents", cap["capture_id"])
+        assert d["kind"] == "lv" and d["gaeb"]["phase"] == "83" and d["gaeb"]["format"].startswith("DA XML")
+        items = {i["kurztext"]: i for i in d["lv_items"]}
+        orig = store.get("documents", lv["doc_id"])
+        n_orig = sum(len(t["rows"]) for t in orig["tables"])
+        assert d["gaeb"]["positions"] == n_orig == len(d["lv_items"])
+        b = items["Betonstahl B500B liefern, schneiden, biegen, verlegen"]
+        assert b["oz"] == "03.0030" and b["menge"] == "64" and b["einheit"] == "t"
+        assert d["tables"][0]["header"][:4] == ["Pos.", "Kurztext", "Menge", "Einheit"]
+        # LV-Prüfung erkennt das GAEB-LV am Dokumenttyp, auch ohne "LV" im Titel
+        hits = [h for h in rag.index().search("Betonstahl B500B", project_id="BV-RIEM", collection="project", k=8)
+                if h["doc_id"] == d["doc_id"]]
+        assert hits and hits[0]["kind"] == "lv"
+    finally:
+        editing.delete_document(cap["capture_id"], "test")
+
+
+def test_gaeb_items_from_tables_and_oz_normalisation():
+    from sitevox.understand import gaeb_io
+
+    items = gaeb_io.items_from_tables([
+        {"header": ["Pos.", "Kurztext", "Menge", "Einheit"], "rows": [["01.010", "Baustelleneinrichtung", "1", "psch"],
+                                                                     ["02.010", "Bodenaushub", "4.480,5", "m³"]]},
+        {"header": ["Plan", "Index"], "rows": [["P-01", "b"]]},  # keine LV-Tabelle → ignoriert
+    ])
+    assert [i["oz"] for i in items] == ["01.010", "02.010"]
+    lv = gaeb_io.to_lv(items, phase="83", titel_lv="LV")
+    pos = lv.alle_positionen
+    assert [p.oz for p in pos] == ["010010", "020010"] and pos[0].pauschale and str(pos[1].menge) == "4480.5"
+
+
+def test_evidence_grouped_by_source():
+    from fastapi.testclient import TestClient
+
+    from backend.main import app
+
+    c = TestClient(app)
+    L = c.get("/api/letters/" + c.get("/api/projects/BV-RIEM/letters").json()[0]["letter_id"]).json()
+    ids = [e["evidence_id"] for e in L["evidence"]]
+    groups = c.get("/api/evidence-sources", params={"ids": ",".join(ids)}).json()
+    assert len(groups) < len(ids)  # Mehrfach-Zitate aus derselben Quelle werden zusammengefasst
+    assert sorted(i["evidence_id"] for g in groups for i in g["items"]) == sorted(ids)  # nichts geht verloren
+    assert len({g["key"] for g in groups}) == len(groups)  # jede Quelle genau einmal
+    multi_audio = next(g for g in groups if g["source"] == "audio" and len(g["items"]) > 1)
+    assert multi_audio["file"] and multi_audio["transcript"]["segments"]  # ein Player, alle Abschnitte markierbar
+    assert all(i["t_start"] is not None for i in multi_audio["items"])
+    # gleiche Gruppierung im Schreiben (Liste "Alle Belege")
+    assert len({e["source_key"] for e in L["evidence"]}) == len(groups)
+
+
+def test_mail_account_bind_and_sync(monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from backend.main import app
+    from sitevox import mail_accounts
+    from sitevox.understand import imap_mail
+
+    def fake_test(acc, pw):
+        if pw != "app-pw":
+            raise imap_mail.MailError("Anmeldung abgelehnt")
+        return {"ok": True, "messages": 3}
+
+    raw = lambda mid, subj: (f"From: Ingenieurbüro Brandl <buero@ib-brandl.example>\r\nTo: bauleitung@hofbau.example\r\n"
+                             f"Subject: {subj}\r\nDate: Fri, 20 Nov 2026 15:00:00 +0100\r\nMessage-ID: <{mid}>\r\n"
+                             f"Content-Type: text/plain; charset=utf-8\r\n\r\nBV Riem RI-2026-014: Pläne Achse C folgen.\r\n"
+                             ).encode("utf-8")
+    other = (b"From: x@shop.example\r\nSubject: Angebot\r\nDate: Fri, 20 Nov 2026 15:00:00 +0100\r\n"
+             b"Message-ID: <spam-1>\r\n\r\nRabatt\r\n")
+    monkeypatch.setattr(imap_mail, "test", fake_test)
+    monkeypatch.setattr(imap_mail, "fetch", lambda acc, pw, days: [raw("imap-1@x", "BV Riem Pläne"), other])
+    c = TestClient(app)  # kein Netzwerkzugriff: test/fetch sind ersetzt
+    bad = c.post("/api/projects/BV-RIEM/mail-accounts", json={"provider": "gmail", "address": "bl@hofbau.example",
+                                                               "password": "falsch"})
+    assert bad.status_code == 400 and "abgelehnt" in bad.json()["detail"]
+    ms = c.post("/api/projects/BV-RIEM/mail-accounts", json={"provider": "microsoft", "address": "a@b.de",
+                                                              "password": "x"})
+    assert ms.status_code == 400  # Microsoft nur per Graph/OAuth
+    acc = c.post("/api/projects/BV-RIEM/mail-accounts", json={"provider": "gmail", "address": "bl@hofbau.example",
+                                                               "password": "app-pw"}).json()
+    assert acc["imap_host"] == "imap.gmail.com" and acc["connected"] and "password" not in acc
+    listed = c.get("/api/projects/BV-RIEM/mail-accounts").json()
+    assert listed[0]["address"] == "bl@hofbau.example" and "password" not in listed[0]
+    r = c.post(f"/api/projects/BV-RIEM/mail-accounts/{acc['account_id']}/sync").json()
+    assert r == {"fetched": 2, "new": 1, "duplicate": 0, "other_project": 1}
+    assert any(m["message_id"] == "imap-1@x" for m in c.get("/api/projects/BV-RIEM/mailbox").json())
+    r = c.post(f"/api/projects/BV-RIEM/mail-accounts/{acc['account_id']}/sync").json()
+    assert r["new"] == 0 and r["duplicate"] == 1  # keine Doppelungen
+    # Passwort nur im Arbeitsspeicher: nach "Neustart" muss es neu eingegeben werden
+    imap_mail.forget(acc["account_id"])
+    assert c.post(f"/api/projects/BV-RIEM/mail-accounts/{acc['account_id']}/sync").status_code == 409
+    assert c.delete(f"/api/projects/BV-RIEM/mail-accounts/{acc['account_id']}").json()["ok"]
+    assert c.get("/api/projects/BV-RIEM/mail-accounts").json() == []

@@ -2,9 +2,9 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Fragment, useMemo, useState } from "react";
-import { ArrowLeft, Check, CheckCheck, CheckCircle2, Download, Lock, Mail, Pencil, RotateCcw, Send, ShieldCheck, X } from "lucide-react";
+import { ArrowLeft, Check, CheckCheck, CheckCircle2, Download, FileText, Lock, Mail, Pencil, RotateCcw, Send, ShieldCheck, X } from "lucide-react";
 import { band, dLong, post, put, useApi } from "@/lib/api";
-import { EvidenceCard } from "@/components/EvidenceViewer";
+import { EvidenceSources, SOURCE_ICON } from "@/components/EvidenceViewer";
 import { BandDot, ConfidencePill, Disclaimer, Elapsed, SphereChip, StatusChip } from "@/components/ui";
 import { useT } from "@/lib/i18n";
 
@@ -79,6 +79,15 @@ export default function ReviewEditor() {
   if (error) return <div className="p-6 text-bad-text">{error}</div>;
   if (!L) return <div className="p-6 text-slate-500">{t("lädt …")}</div>;
   const refToId: Record<string, string> = Object.fromEntries(L.evidence.map((e: any) => [e.ref, e.evidence_id]));
+  const idToRef: Record<string, string> = Object.fromEntries(L.evidence.map((e: any) => [e.evidence_id, e.ref]));
+  const selIds = selEvidence.map((r) => refToId[r]).filter(Boolean);
+  // Belege nach Quelle gruppieren: jede Sprachnachricht/jedes Foto/Dokument nur einmal, mit allen [E-xx]
+  const sources: { key: string; items: any[] }[] = [];
+  for (const e of L.evidence) {
+    const k = e.source_key || e.ref;
+    const s = sources.find((x) => x.key === k);
+    if (s) s.items.push(e); else sources.push({ key: k, items: [e] });
+  }
   const locked = L.status !== "Entwurf";
   const issuesFor = (section: string, idx: number) => L.issues.filter((i: any) => i.section === section && i.sentence === idx);
   const red = L.issues.filter((i: any) => i.status === "unverified");
@@ -288,20 +297,35 @@ export default function ReviewEditor() {
         <aside className="space-y-3 overflow-y-auto bg-slate-50 p-4">
           <div className="text-2xs uppercase tracking-wide text-slate-500">{t(sel ? "Belege zur Auswahl" : "Belege – Feld, Satz oder [E-xx] anklicken")}</div>
           {sel && selEvidence.length === 0 && <div className="card p-3 text-xs text-slate-600">{t("Kein Rohbeleg für diese Stelle.")} {sel.kind === "field" ? t("Wert stammt aus Vorlage/Firmenstandard – bitte bewusst übernehmen.") : ""}</div>}
-          {(sel ? selEvidence : []).map((r) => refToId[r] && <EvidenceCard key={r} id={refToId[r]} refLabel={r} active />)}
+          {sel && selIds.length > 0 && (
+            <EvidenceSources ids={L.evidence.map((e: any) => e.evidence_id)} refs={idToRef} active={selIds} only={selIds}
+              onSelect={(id) => setSel({ kind: "ref", ref: idToRef[id] })} />
+          )}
           {sel?.kind === "field" && sel.key === "legal_basis" && L.legal_refs.map((h: any) => (
             <div key={h.title} className="card p-3 text-xs"><div className="mb-1 font-medium">{h.title}</div><p className="text-slate-600">{h.text}</p><p className="mt-1 text-2xs text-slate-500">{h.doc} · {t("Normzitat nur aus Vorlage")}</p></div>
           ))}
-          <div className="pt-2 text-2xs uppercase tracking-wide text-slate-500">{t("Alle Belege")}</div>
+          <div className="pt-2 text-2xs uppercase tracking-wide text-slate-500">{t("Alle Belege – je Quelle einmal")}</div>
           <ul className="space-y-1">
-            {L.evidence.map((e: any) => (
-              <li key={e.ref}>
-                <button onClick={() => setSel({ kind: "ref", ref: e.ref })} className={`flex w-full items-center gap-2 rounded px-2 py-1 text-left text-xs hover:bg-white ${sel?.kind === "ref" && sel.ref === e.ref ? "bg-white ring-1 ring-accent" : ""}`}>
-                  <span className="pill bg-slate-900 text-white">{e.ref}</span><span className="truncate">{t(e.title)}</span>
-                  <span className="ml-auto shrink-0 text-slate-500">{e.source}</span>
-                </button>
-              </li>
-            ))}
+            {sources.map((s) => {
+              const Icon = SOURCE_ICON[s.items[0].source === "ai_vision" ? "photo" : s.items[0].source] || FileText;
+              const on = s.items.some((e: any) => selIds.includes(e.evidence_id));
+              return (
+                <li key={s.key}>
+                  <div role="button" tabIndex={0} onClick={() => setSel({ kind: "ref", ref: s.items[0].ref })}
+                    onKeyDown={(k) => k.key === "Enter" && setSel({ kind: "ref", ref: s.items[0].ref })}
+                    className={`flex w-full cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-left text-xs hover:bg-white ${on ? "bg-white ring-1 ring-accent" : ""}`}>
+                    <Icon className="h-4 w-4 shrink-0 text-slate-500" />
+                    <span className="min-w-0 flex-1 truncate">{t(s.items[0].capture_title || s.items[0].title)}</span>
+                    <span className="flex shrink-0 flex-wrap justify-end gap-0.5">
+                      {s.items.map((e: any) => (
+                        <button key={e.ref} onClick={(x) => { x.stopPropagation(); setSel({ kind: "ref", ref: e.ref }); }}
+                          className={`rounded px-1 text-2xs font-semibold ${selIds.includes(e.evidence_id) ? "bg-yellow-300 text-slate-900" : "bg-slate-900 text-white hover:bg-slate-700"}`}>{e.ref}</button>
+                      ))}
+                    </span>
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         </aside>
       </div>

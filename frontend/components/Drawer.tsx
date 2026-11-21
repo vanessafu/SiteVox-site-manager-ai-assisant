@@ -2,7 +2,7 @@
 import { createContext, ReactNode, useCallback, useContext, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FolderOpen, Pencil, X } from "lucide-react";
-import { EvidenceCard } from "./EvidenceViewer";
+import { EvidenceSources } from "./EvidenceViewer";
 import { useT } from "@/lib/i18n";
 
 export type DrawerItem = {
@@ -60,7 +60,7 @@ export function DrawerProvider({ children }: { children: ReactNode }) {
                   <Pencil className="h-[18px] w-[18px]" /> {t(item.edit?.label || "Bearbeiten")}
                 </button>
               </div>
-              {showEv && <div className="space-y-2">{item.evidence!.map((id) => <EvidenceCard key={id} id={id} />)}</div>}
+              {showEv && <EvidenceSources ids={item.evidence!} />}
             </div>
           </>
         )}

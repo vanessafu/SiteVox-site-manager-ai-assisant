@@ -114,7 +114,7 @@ def letter_view(letter: dict) -> dict[str, Any]:
         cap = store.get("captures", d["capture_id"]) if d.get("capture_id") else None
         ev.append({"ref": ref, **{k: d.get(k) for k in ("evidence_id", "source", "title", "file", "t_start", "t_end",
                                                          "asr_score", "quote", "page", "captured_at", "meta")},
-                   "capture_title": cap["title"] if cap else None})
+                   "capture_title": cap["title"] if cap else None, "source_key": source_key(d) if d else ref})
     fields = []
     for k, f in letter["fields"].items():
         fields.append({**f, "band": conf.band(f["confidence"]),
@@ -130,3 +130,67 @@ def letter_view(letter: dict) -> dict[str, Any]:
         "legal_refs": letter.get("legal_refs", []),
         "audit": store.audit_log(letter["letter_id"]),
     }
+
+
+# ============================================================================ Belege nach Quelle gruppiert
+def source_key(e: dict) -> str:
+    """Eine Quelle = eine Aufnahme/Datei. Ausschnitte und KI-Beobachtungen eines Fotos gehören zum Originalfoto,
+    mehrere Zitate aus derselben Sprachnachricht/Mail/Notiz/demselben Dokument zur selben Quelle."""
+    src, m = e.get("source"), e.get("meta") or {}
+    if src in ("photo", "ai_vision"):
+        if m.get("role") == "detail":
+            return f"photo:{e.get('file') or e['evidence_id']}"
+        return f"photo:{e.get('capture_id') or m.get('photo_evidence_id') or m.get('crop_of') or e['evidence_id']}"
+    if src == "audio":
+        return f"audio:{e.get('file') or e.get('capture_id') or e['evidence_id']}"
+    if src in ("email", "note", "document"):
+        return f"{src}:{e.get('capture_id') or e.get('file') or e['evidence_id']}"
+    if src == "contract":
+        return f"contract:{m.get('doc_id') or e.get('title') or e['evidence_id']}"
+    return f"{src}:{e['evidence_id']}"
+
+
+def _audio_transcript(cap: Optional[dict], file: Optional[str]) -> Optional[dict]:
+    """Transkript der Datei: Sprachmemo selbst oder gesprochene Antwort auf eine Foto-Rückfrage."""
+    if not cap:
+        return None
+    ans = cap.get("answer") or {}
+    if file and ans.get("file") == file:
+        return ans.get("transcript")
+    return cap.get("transcript") or ans.get("transcript")
+
+
+def evidence_sources(ids: list[str]) -> list[dict]:
+    groups: dict[str, dict] = {}
+    for eid in dict.fromkeys(ids):
+        e = store.evidence(eid)
+        if not e:
+            continue
+        key = source_key(e)
+        cap = store.get("captures", e["capture_id"]) if e.get("capture_id") else None
+        g = groups.get(key)
+        if g is None:
+            g = groups[key] = {"key": key, "source": "photo" if e["source"] == "ai_vision" else e["source"],
+                               "title": (cap or {}).get("title") or e.get("title"), "captured_at": e.get("captured_at"),
+                               "capture_id": e.get("capture_id"), "file": None, "items": []}
+            if e["source"] == "contract":
+                g["title"] = e.get("title")
+            if cap and cap.get("email"):
+                g["email"] = cap["email"]
+        item = {k: e.get(k) for k in ("evidence_id", "source", "title", "quote", "full_text", "t_start", "t_end",
+                                      "asr_score", "page", "meta", "file", "captured_at")}
+        g["items"].append(item)
+        m = e.get("meta") or {}
+        if g["source"] == "audio" and not g["file"]:
+            g["file"], g["transcript"] = e.get("file"), _audio_transcript(cap, e.get("file"))
+        if g["source"] == "photo" and not g["file"]:
+            if e["source"] == "photo" and m.get("role") in (None, "original", "detail"):
+                g["file"] = e.get("file")
+            else:  # Ausschnitt/KI-Beobachtung → Originalfoto als Bild der Quelle
+                orig = store.evidence(m.get("crop_of") or m.get("photo_evidence_id") or "") or {}
+                g["file"] = orig.get("file") or (cap or {}).get("file")
+            g["gps"] = m.get("gps")
+    for g in groups.values():
+        if g["source"] in ("email", "note", "document"):
+            g["full_text"] = max((i.get("full_text") or "" for i in g["items"]), key=len)
+    return list(groups.values())

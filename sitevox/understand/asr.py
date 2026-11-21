@@ -71,22 +71,8 @@ def _with_options(options, **kw):
     return options._replace(**kw)  # NamedTuple (ältere faster-whisper)
 
 
-def _project_vocab(project_id: Optional[str]) -> dict:
-    """Projektbegriffe (Unterlagen, Foto-Text, Sprachmemos, Stammdaten) – sprachunabhängig."""
-    try:
-        from .vocabulary import for_asr
-
-        return for_asr(project_id)
-    except Exception as e:  # noqa: BLE001 – Vokabular verbessert nur, darf nie blockieren
-        log.warning("Projektvokabular nicht verfügbar: %s", e)
-        return {"terms": [], "hot": []}
-
-
-def _prompt(lang: str, v: Optional[dict]) -> dict:
-    """Basis-Prompt der erkannten Sprache + Projektbegriffe → {initial_prompt, hotwords, used}."""
-    from .vocabulary import compose
-
-    return compose(_prompt_for(lang), v)
+def _hotwords() -> Optional[str]:
+    return " ".join(_asr_cfg().get("hotwords", [])) or None
 
 
 def _words_from_segment(seg: dict) -> list[dict]:
@@ -121,7 +107,7 @@ def _align_model(lang: str):
     return whisperx.load_align_model(language_code=lang, device=settings.models()["runtime"]["device"])
 
 
-def _run_whisperx(path: Path, language: str, v: dict) -> dict:
+def _run_whisperx(path: Path, language: str) -> dict:
     import whisperx  # type: ignore
 
     c = _asr_cfg()
@@ -131,9 +117,7 @@ def _run_whisperx(path: Path, language: str, v: dict) -> dict:
     prob = None
     if language == "auto":
         language, prob = _detect_language(pipe.model, audio, pipeline=pipe)
-    p = _prompt(language, v)
-    pipe.options = _with_options(pipe.options, initial_prompt=p["initial_prompt"],
-                                 hotwords=" ".join(p["hotwords"]) or None)
+    pipe.options = _with_options(pipe.options, initial_prompt=_prompt_for(language))
     res = pipe.transcribe(audio, batch_size=c.get("batch_size", 16), language=language)
     try:
         align_model, meta = _align_model(language)
@@ -147,8 +131,7 @@ def _run_whisperx(path: Path, language: str, v: dict) -> dict:
         words = [{"word": w["word"], "start": w.get("start"), "end": w.get("end"), "score": w.get("score")}
                  for w in s.get("words", [])]
         segs.append({"start": s["start"], "end": s["end"], "text": s["text"].strip(), "words": words})
-    return {"segments": segs, "duration": len(audio) / 16000, "language": language, "language_prob": prob,
-            "prompt_terms": len(p["used"])}
+    return {"segments": segs, "duration": len(audio) / 16000, "language": language, "language_prob": prob}
 
 
 @lru_cache(maxsize=1)
@@ -160,7 +143,7 @@ def _fw_model():
                         compute_type=c.get("compute_type", "float16"))
 
 
-def _run_faster_whisper(path: Path, language: str, v: dict) -> dict:
+def _run_faster_whisper(path: Path, language: str) -> dict:
     from faster_whisper import decode_audio  # type: ignore
 
     c = _asr_cfg()
@@ -169,48 +152,43 @@ def _run_faster_whisper(path: Path, language: str, v: dict) -> dict:
     prob = None
     if language == "auto":
         language, prob = _detect_language(model, audio)
-    p = _prompt(language, v)
     segments, info = model.transcribe(
-        audio, language=language, initial_prompt=p["initial_prompt"], beam_size=c.get("beam_size", 5),
-        word_timestamps=True, vad_filter=c.get("vad_filter", True),
-        hotwords=" ".join(p["hotwords"]) or None,
+        audio, language=language, initial_prompt=_prompt_for(language), beam_size=c.get("beam_size", 5),
+        word_timestamps=True, vad_filter=c.get("vad_filter", True), hotwords=_hotwords(),
     )
     segs = []
     for s in segments:
         words = [{"word": w.word.strip(), "start": w.start, "end": w.end, "score": w.probability}
                  for w in (s.words or [])]
         segs.append({"start": s.start, "end": s.end, "text": s.text.strip(), "words": words})
-    return {"segments": segs, "duration": info.duration, "language": language, "language_prob": prob,
-            "prompt_terms": len(p["used"])}
+    return {"segments": segs, "duration": info.duration, "language": language, "language_prob": prob}
 
 
-def _run_mlx(path: Path, language: str, v: dict) -> dict:
+def _run_mlx(path: Path, language: str) -> dict:
     import mlx_whisper  # type: ignore
 
     c = _asr_cfg()
     lang = None if language == "auto" else language  # mlx: freie Erkennung, ohne allowed_languages
-    p = _prompt(lang or c.get("fallback_language", "de"), v)
     res = mlx_whisper.transcribe(str(path), path_or_hf_repo=c["mlx_repo"], language=lang,
-                                 initial_prompt=p["initial_prompt"], word_timestamps=True)
+                                 initial_prompt=_prompt_for(lang or c.get("fallback_language", "de")),
+                                 word_timestamps=True)
     segs = []
     for s in res["segments"]:
         words = [{"word": w["word"].strip(), "start": w["start"], "end": w["end"], "score": w.get("probability")}
                  for w in s.get("words", [])]
         segs.append({"start": s["start"], "end": s["end"], "text": s["text"].strip(), "words": words})
     return {"segments": segs, "duration": segs[-1]["end"] if segs else 0.0, "language": res.get("language", lang),
-            "language_prob": None, "prompt_terms": len(p["used"])}
+            "language_prob": None}
 
 
-def _run_remote(path: Path, language: str, v: dict) -> dict:
-    """WhisperX auf dem GPU-Knoten (scripts/cluster/asr_server.py) über den SSH-Tunnel.
-    Das Projektvokabular wird mitgeschickt (der GPU-Knoten hat keinen Zugriff auf die Projektdaten)."""
+def _run_remote(path: Path, language: str) -> dict:
+    """WhisperX auf dem GPU-Knoten (scripts/cluster/asr_server.py) über den SSH-Tunnel."""
     import httpx
 
     c = _asr_cfg()
     key = os.environ.get("SITEVOX_LLM_API_KEY", "")
     with open(path, "rb") as f:
-        r = httpx.post(f"{c['remote_url'].rstrip('/')}/transcribe",
-                       data={"language": language, "vocab": json.dumps(v, ensure_ascii=False)},
+        r = httpx.post(f"{c['remote_url'].rstrip('/')}/transcribe", data={"language": language},
                        files={"file": (Path(path).name, f, "application/octet-stream")},
                        headers={"Authorization": f"Bearer {key}"}, timeout=600)
     r.raise_for_status()
@@ -226,15 +204,13 @@ def _from_text(text: str) -> dict:
 
 
 def transcribe(path: Path, project_id: Optional[str] = None, hint: Optional[str] = None,
-               language: Optional[str] = None, vocab: Optional[dict] = None) -> dict[str, Any]:
+               language: Optional[str] = None) -> dict[str, Any]:
     """Gibt {"text", "segments":[{start,end,text,words:[{word,start,end,score}]}], "backend", "language", ...} zurück.
 
     language: None → config (Standard "auto": Erkennung unter allowed_languages), sonst fester Code.
     hint: Im Demo-Modus ohne Fixture kann das Browser-Transkript (Web Speech API) übergeben werden.
-    vocab: Projektbegriffe {"terms", "hot"} – Standard: aus project_id (asr_server.py reicht sie vom Client durch).
     """
     c = _asr_cfg()
-    v = vocab if vocab is not None else _project_vocab(project_id)
     if settings.is_demo():
         fx = settings.demo_dir(project_id or "BV-RIEM") / "fixtures" / "asr" / f"{Path(path).stem}.json"
         if fx.exists():
@@ -248,16 +224,13 @@ def transcribe(path: Path, project_id: Optional[str] = None, hint: Optional[str]
         backend = c["backend"]
         runner = {"whisperx": _run_whisperx, "faster_whisper": _run_faster_whisper, "mlx_whisper": _run_mlx,
                   "remote": _run_remote}[backend]
-        res = runner(Path(path), language or c["language"], v)
+        res = runner(Path(path), language or c["language"])
         if backend == "remote":
             res["backend"] = f"remote:{res.get('backend', '?')}"
             return res
     res["text"] = " ".join(s["text"] for s in res["segments"]).strip()
     res["backend"] = backend
     res["model"] = c["model"]
-    # Replay/Browser-Hint: Vokabular wird nicht angewendet (kein echtes Whisper)
-    res["vocabulary"] = {"project_terms": res.pop("prompt_terms", 0), "available": len(v.get("terms", [])),
-                         "applied": backend not in ("replay", "browser-hint")}
     res.setdefault("language", language if language and language != "auto" else None)
     scores = [w["score"] for s in res["segments"] for w in s["words"] if w.get("score") is not None]
     res["mean_score"] = round(sum(scores) / len(scores), 3) if scores else None

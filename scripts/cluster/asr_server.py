@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import argparse
 import hmac
-import json
 import os
 import sys
 import tempfile
@@ -45,19 +44,14 @@ def health() -> dict:
 
 
 @app.post("/transcribe", dependencies=[Depends(_auth)])
-def transcribe(file: UploadFile = File(...), language: str = Form("auto"), vocab: Optional[str] = Form(None)) -> dict:
+def transcribe(file: UploadFile = File(...), language: str = Form("auto")) -> dict:
     if language not in ALLOWED:
         raise HTTPException(400, f"language muss eine von {sorted(ALLOWED)} sein")
-    try:  # Projektvokabular vom Client: {"terms": [...], "hot": [...]} – nur Strings, gekürzt
-        raw = json.loads(vocab) if vocab else {}
-        v = {k: [str(t)[:80] for t in raw.get(k, [])][:300] for k in ("terms", "hot")}
-    except (ValueError, AttributeError) as e:
-        raise HTTPException(400, "vocab muss JSON {terms, hot} sein") from e
     with tempfile.TemporaryDirectory(prefix="sitevox-asr-") as d:  # Modus 0700
         tmp = Path(d) / Path(file.filename or "audio").name
         tmp.write_bytes(file.file.read())
         with _gpu_lock:
-            return asr.transcribe(tmp, language=language, vocab=v)
+            return asr.transcribe(tmp, language=language)
 
 
 def main() -> None:

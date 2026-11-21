@@ -21,13 +21,15 @@ config/rules.toml       确定性规则：告警阈值、子弹图颜色、天�
 config/baseline.yaml    项目主数据（AG、授权代表、合同号、班组/设备）
 sitevox/                AI 核心包
   understand/           asr.py · vision.py · documents.py · email_ingest.py · extract.py
+                        gaeb_io.py(GAEB 导入/导出) · ocr.py(CPU OCR) · imap_mail.py(IMAP 邮箱)
+  mail_accounts.py      项目绑定的邮箱账号：添加/测试/同步/解绑
   engine/               schedule.py(CPM) · deviation.py(Soll-Ist/告警/影响链) · sphere.py(Risikosphäre)
                         deadlines.py · weather.py(Bright Sky/DWD) · timeline.py(Tagesverlauf)
   drafting/             composer.py + templates/*.j2（Betreff/Bezug/Vorbehalt 固定，法条只来自模板）
   confidence.py verify.py rag.py pipeline.py store.py(SQLite) llm.py(结构化输出+重试+Replay)
   export/               docx_export.py · pdf.py(LibreOffice) · outlook.py · privacy.py(人脸打码)
 scripts/                make_demo_data.py · seed_demo.py · run_pipeline.py · build_index.py
-                        serve_models.py · data/audio/sythesize_noise_data.py
+                        serve_models.py · make_cert.sh / make_cert.py(HTTPS 证书) · data/audio/*
 backend/                FastAPI（main.py 路由，views.py 视图模型）
 frontend/               Next.js 15 + Tailwind PWA：/p/[pid] 办公室视图，/m/[pid] 工地手机采集
 data/knowledge/         VOB/B（现行版）与 BGB 摘录（RAG 法律库）
@@ -53,8 +55,14 @@ cd frontend && npm install && npm run build && npm start    # http://localhost:3
   cd frontend && npm run build && HTTP_REDIRECT_PORT=3000 npm run start:https
   # 手机打开 https://<电脑IP>:3443/m/BV-RIEM，首次确认一次证书警告
   ```
-  开发时可用 `npm run dev:https`。手机和电脑需在同一网络；eduroam 等网络常屏蔽设备互访，此时用手机热点。
-- 测试：`.venv/bin/python -m pytest -q tests`
+  开发时可用 `npm run dev:https`。手机和电脑需在同一网络；eduroam 等网络常屏蔽设备互访，此时用手机热点（IP 变了要重新生成证书）。
+  **Windows**（没有 bash/openssl/mkcert）：
+  ```powershell
+  .venv\Scripts\pip install cryptography
+  .venv\Scripts\python scripts\make_cert.py      # 同样写到 frontend\certs\，可追加额外 IP/主机名作为参数
+  cd frontend; npm run build; $env:HTTP_REDIRECT_PORT="3000"; npm run start:https
+  ```
+- 测试：`.venv/bin/python -m pytest -q tests`（Windows：设置 `PYTHONUTF8=1`；用户目录含中文时加 `--basetemp=<ASCII 路径>`，否则 OpenCV 读不了临时文件）
 
 - 日报导出：`/api/projects/<pid>/daily-report?fmt=pdf|docx|json`（PDF 由 reportlab 生成，无需 LibreOffice）
 
@@ -100,6 +108,37 @@ SITEVOX_MODE=gpu uvicorn backend.main:app --port 8000
 - 所有输入都可在界面中修改：项目主数据（点击仪表盘标题）、Bauzeitenplan 工序（新增/修改/删除、前置关系带环检测）、每日 Ist 产量、人员、事件（类型/原因/时间/受影响工序/阻塞至/设备时间轴）、采集（标题/摘要/转写文本，可选"重新分析"）。
 - KPI、甘特、子弹图、预测、置信度不直接编辑，而是由修改后的输入重新计算。
 - 用户上传的采集（语音、照片、笔记、邮件、文档）可删除：文件和由其派生的证据、产量、人员记录、事件一并清除；草稿信件重新核对。已放行/已发送信件中使用的证据禁止删除（举证）。所有修改和删除写入 Audit-Log。
+
+## 知识库、GAEB、邮箱、证据视图
+
+**Wissensbasis（`/p/<pid>/vertrag`，原 "Vertrag / LV"）**
+- 法律依据 + 项目文档（合同、LV、Planlieferliste、Protokoll…），全文检索（BM25；GPU 模式加 BGE-M3 + Rerank）。
+- 上传 PDF / DOCX / 图片 / GAEB。没有 Docling（Demo 模式）时走轻量解析 `documents._light`：PDF 文字层用 `pypdf`，Word 用 `python-docx`，图片和扫描页用 RapidOCR（CPU，PP-OCRv5 latin，支持德语变音；首次运行从 modelscope.cn 下载约 15 MB 模型；`SITEVOX_OCR=0` 可关闭）。
+
+**GAEB（`sitevox/understand/gaeb_io.py`，库 [`gaeb`](https://pypi.org/project/gaeb/)，MIT）**
+- 导入：GAEB DA XML 2.x–3.3（`.x81`–`.x89`）、GAEB 2000（`.p8x`）、GAEB 90（`.d8x`）→ LV 文档（每个标题一页、`Pos. | Kurztext | Menge | Einheit | EP` 表格、结构化 `lv_items`），自动 `kind = "lv"`，因此 "LV 中无此项" 的检查（`rag.lv_contains`）也能用于文件名不含 "LV" 的 GAEB 文件。
+- 导出：任何含 LV 表格（Pos./Kurztext/Menge/Einheit）的项目文档 → GAEB DA XML 3.3，阶段 X81/X83/X84/X86：`GET /api/documents/<doc_id>/gaeb?phase=83`；界面在文档视图右上角。
+- 注意：`gaeb` 写出时标题 RNoPart 固定 2 位、位置 4 位，所以 OZ 被规范成 2(+2 每层)+4，例如 `03.010` → `03.0010`。库未附带官方 XSD，导出文件尚未做 schema 校验，也还没在 AVA 软件里实测。
+
+**邮箱绑定（`/p/<pid>/postfach` → "Postfach verbinden"）**
+- IMAP：Gmail、GMX、WEB.DE、T-Online、IONOS、自定义服务器；Microsoft 365/Outlook 只允许 OAuth，暂不可选（计划走 Graph）。
+- 添加时先测试登录；同步只读（`BODY.PEEK[]`，不标已读、不删除），按 Message-ID 去重，默认只导入能归到本项目的邮件（合同号、项目名、已知发件人），然后走正常的 E-Mail-Erfassung。
+- **密码不落盘**，只在后端进程内存里；后端重启后需重新输入（界面会提示）。账号配置（无密码）存在项目文档 `mail_accounts`。
+- 接口：`GET /api/mail-providers`，`GET|POST /api/projects/<pid>/mail-accounts`，`POST …/<aid>/unlock`，`POST …/<aid>/sync`，`DELETE …/<aid>`。
+
+**证据按来源显示（`GET /api/evidence-sources?ids=…`，`backend/views.py: source_key / evidence_sources`）**
+- 一条语音、一张照片、一封邮件、一份文档只出现一次，其中所有被引用的位置一起高亮：语音 = 转写中的时间段（点击从该处播放），照片 = 原图上的 bbox（AI 观察与裁剪图归到原图），文本 = 引用句子。
+- 选中某个 `[E-xx]` 时该处深色高亮并滚动到位。`[E-xx]` 编号本身不变（LLM 起草与 `verify.py` 仍按单条证据工作），分组只发生在显示层。
+- 前端组件：`EvidenceSources` / `SourceCard`（`frontend/components/EvidenceViewer.tsx`），用于函件页、事件页、侧边抽屉、Erfassungen。旧的 `EvidenceCard` 已移除。
+
+## 合并说明（frontend_develop → main）
+
+- **依赖**：`pip install -r requirements.txt`（新增 `pypdf`、`rapidocr`、`onnxruntime`、`gaeb`，在 "Dateiverarbeitung" 一组）。合并后前端请删除 `frontend/.next` 再 `npm run build`。
+- **ASR**：试验过的"项目词表喂给 Whisper"已整体移除（识别本身还不准，从识别结果里加关键词没有意义）。`asr.py` 回到按语言的固定 `initial_prompt` + 配置里的 `hotwords`。同时修复了 main 合并（`41fa4c8`）遗留的两个崩溃：faster-whisper 路径的 `NameError: vocab`、mlx 路径参数个数不对（有回归测试）。`asr_server.py` 接口与 main 相同。
+- **Next.js 15.5 的一个 bug**：客户端页面模块若被分到确定性模块 ID `0`，会从 React Client Manifest 中漏掉（`flight-manifest-plugin` 里 `if (concatenatedModId)`），页面 500：*Could not find the module … in the React Client Manifest*。`frontend/next.config.mjs` 里对浏览器构建改用 `moduleIds = "named"`，升级 Next 修复后可去掉。
+- **容易冲突的文件**：`sitevox/understand/asr.py`、`sitevox/pipeline.py`、`backend/main.py`、`backend/views.py`、`frontend/lib/i18n.tsx`、`frontend/components/EvidenceViewer.tsx`、`tests/test_core.py`。i18n 冲突一般只是两边都加了词条，保留双方即可（注意不能有重复键，`npx tsc --noEmit` 会报）。
+- `data/demo/` 下的 `.eml` 和 `Bauzeitenplan.xlsx` 每次跑测试都会被 `make_demo_data.py` 重写，无实际变化，不要提交。
+- 测试：44 个，全部通过。
 
 ## 合规要点
 

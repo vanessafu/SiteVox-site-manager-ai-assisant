@@ -24,9 +24,9 @@ from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 from fastapi.responses import FileResponse  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
 
-from sitevox import DISCLAIMER, editing, pipeline, rag, settings, store  # noqa: E402
-from sitevox.understand import vocabulary  # noqa: E402
+from sitevox import DISCLAIMER, editing, mail_accounts, pipeline, rag, settings, store  # noqa: E402
 from sitevox.drafting import composer  # noqa: E402
+from sitevox.understand import gaeb_io, imap_mail  # noqa: E402
 from sitevox.export import daily_report as daily_report_export, docx_export, outlook  # noqa: E402
 
 from . import views  # noqa: E402
@@ -382,27 +382,63 @@ def mailbox(pid: str) -> list[dict]:
     return out
 
 
-@app.get("/api/projects/{pid}/asr-vocabulary")
-def asr_vocabulary(pid: str) -> dict:
-    return vocabulary.summary(pid)
+@app.get("/api/mail-providers")
+def mail_providers() -> dict:
+    return imap_mail.PRESETS
 
 
-@app.post("/api/projects/{pid}/asr-vocabulary")
-def asr_vocabulary_edit(pid: str, body: dict) -> dict:
-    term, action = (body.get("term") or "").strip(), body.get("action", "add")
-    if not term:
-        raise HTTPException(400, "Begriff fehlt")
-    fn = {"add": vocabulary.add_term, "remove": vocabulary.remove_term, "restore": vocabulary.restore_term}.get(action)
-    if not fn:
-        raise HTTPException(400, "unbekannte Aktion")
-    fn(pid, term, ACTOR)
-    return vocabulary.summary(pid)
+@app.get("/api/projects/{pid}/mail-accounts")
+def mail_account_list(pid: str) -> list[dict]:
+    return mail_accounts.accounts(pid)
+
+
+@app.post("/api/projects/{pid}/mail-accounts")
+def mail_account_add(pid: str, body: dict) -> dict:
+    try:
+        return mail_accounts.add(pid, body, ACTOR)
+    except imap_mail.MailError as e:
+        raise HTTPException(400, str(e)) from e
+
+
+@app.post("/api/projects/{pid}/mail-accounts/{aid}/unlock")
+def mail_account_unlock(pid: str, aid: str, body: dict) -> dict:
+    try:
+        return mail_accounts.unlock(pid, aid, body.get("password") or "")
+    except KeyError as e:
+        raise HTTPException(404) from e
+    except imap_mail.MailError as e:
+        raise HTTPException(400, str(e)) from e
+
+
+@app.delete("/api/projects/{pid}/mail-accounts/{aid}")
+def mail_account_remove(pid: str, aid: str) -> dict:
+    try:
+        mail_accounts.remove(pid, aid, ACTOR)
+    except KeyError as e:
+        raise HTTPException(404) from e
+    return {"ok": True}
+
+
+@app.post("/api/projects/{pid}/mail-accounts/{aid}/sync")
+def mail_account_sync(pid: str, aid: str, background: BackgroundTasks) -> dict:
+    def ingest(path: Path, received_at: str) -> None:
+        background.add_task(_run_ingest, pid, "email", path, None, received_at, {"source": "imap"})
+
+    try:
+        return mail_accounts.sync(pid, aid, ingest, ACTOR)
+    except KeyError as e:
+        raise HTTPException(404) from e
+    except PermissionError as e:
+        raise HTTPException(409, str(e)) from e
+    except imap_mail.MailError as e:
+        raise HTTPException(400, str(e)) from e
 
 
 @app.get("/api/projects/{pid}/knowledge")
 def knowledge(pid: str) -> list[dict]:
     return [{"doc_id": d["doc_id"], "title": d["title"], "kind": d.get("kind"), "collection": d.get("collection"),
-             "project_id": d["project_id"], "pages": len(d["pages"]), "file": d.get("file")}
+             "project_id": d["project_id"], "pages": len(d["pages"]), "file": d.get("file"),
+             "format": "gaeb" if d.get("gaeb") else None}
             for d in store.documents(pid)]
 
 
@@ -411,7 +447,32 @@ def document(doc_id: str) -> dict:
     d = store.get("documents", doc_id)
     if not d:
         raise HTTPException(404)
+    d["gaeb_exportable"] = d.get("collection") == "project" and bool(gaeb_io.doc_items(d))
     return d
+
+
+@app.get("/api/documents/{doc_id}/gaeb")
+def document_gaeb(doc_id: str, phase: str = "83") -> FileResponse:
+    """LV → GAEB DA XML 3.3 (Phase 81/83/84/86), z. B. für Nachträge/Angebote an AVA-Software des AG."""
+    d = store.get("documents", doc_id)
+    if not d:
+        raise HTTPException(404)
+    if d.get("collection") != "project" or not gaeb_io.doc_items(d):
+        raise HTTPException(400, "Dokument enthält keine LV-Positionen (Tabelle mit Pos./Kurztext/Menge/Einheit)")
+    try:
+        p = gaeb_io.export(d, settings.data_dir() / d["project_id"] / "exports", phase=phase,
+                           project=settings.project_cfg(d["project_id"]), company=settings.baseline().get("company"))
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
+    store.audit(ACTOR, "document", doc_id, "gaeb_export", after={"phase": phase, "file": p.name})
+    return FileResponse(p, media_type="application/xml", filename=p.name)
+
+
+@app.get("/api/evidence-sources")
+def evidence_sources(ids: str) -> list[dict]:
+    """Belege nach Quelle gruppiert: eine Sprachnachricht/ein Foto/eine Mail/ein Dokument erscheint nur einmal,
+    mit allen Fundstellen (Audio-Abschnitte, Bildausschnitte, Zitate) zum Hervorheben."""
+    return views.evidence_sources([i for i in ids.split(",") if i])
 
 
 @app.get("/api/projects/{pid}/knowledge/search")

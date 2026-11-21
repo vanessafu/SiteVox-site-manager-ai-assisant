@@ -46,7 +46,7 @@ def chunk_document(doc: dict) -> list[dict]:
                 break
     for i, c in enumerate(chunks):
         c.update(chunk_id=f"{doc['doc_id']}#{i}", doc_id=doc["doc_id"], doc_title=doc["title"],
-                 project_id=doc["project_id"], collection=doc.get("collection", "project"))
+                 project_id=doc["project_id"], collection=doc.get("collection", "project"), kind=doc.get("kind"))
     return chunks
 
 
@@ -151,7 +151,7 @@ def best_sentence(text: str, query: str) -> str:
 def lv_contains(project_id: str, phrase: str, threshold: float = 0.6) -> dict[str, Any]:
     """Prüft deterministisch, ob eine Leistung im LV enthalten ist (Grundlage für 'Zusatzleistung')."""
     hits = [h for h in index().search(phrase, project_id=project_id, collection="project", k=5)
-            if "lv" in h["doc_title"].lower() or "leistungsverzeichnis" in h["doc_title"].lower()]
+            if h.get("kind") == "lv" or "lv" in h["doc_title"].lower() or "leistungsverzeichnis" in h["doc_title"].lower()]
     best = hits[0] if hits else None
     found = bool(best and best["relevance"] >= threshold)
     return {"found": found, "best": best, "relevance": best["relevance"] if best else 0.0}

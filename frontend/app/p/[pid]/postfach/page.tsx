@@ -2,21 +2,66 @@
 import { useT } from "@/lib/i18n";
 import { useParams } from "next/navigation";
 import { useState } from "react";
-import { api, dLong, time, useApi } from "@/lib/api";
-import { Inbox, Paperclip, Trash2 } from "lucide-react";
+import { api, dLong, post, time, useApi } from "@/lib/api";
+import { Inbox, KeyRound, Paperclip, Plus, RefreshCw, Trash2 } from "lucide-react";
+import MailConnect from "@/components/MailConnect";
 
 export default function Mailbox() {
   const { pid } = useParams<{ pid: string }>();
   const { data, reload } = useApi<any[]>(`/api/projects/${pid}/mailbox`, 15_000);
+  const { data: accounts, reload: reloadAcc } = useApi<any[]>(`/api/projects/${pid}/mail-accounts`);
   const [sel, setSel] = useState<any>(null);
+  const [connect, setConnect] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
   const { t } = useT();
+
+  const sync = async (a: any) => {
+    setBusy(a.account_id); setMsg(null);
+    try {
+      const r = await post(`/api/projects/${pid}/mail-accounts/${a.account_id}/sync`);
+      setMsg(t("{n} neue E-Mail(s) übernommen · {d} bereits vorhanden · {o} anderes Projekt", { n: r.new, d: r.duplicate, o: r.other_project }));
+      setTimeout(reload, 2500);
+    } catch (e: any) {
+      if (e.status === 409) return unlock(a);
+      setMsg(e.message);
+    } finally { setBusy(null); reloadAcc(); }
+  };
+  const unlock = async (a: any) => {
+    const pw = window.prompt(t("App-Passwort für {a} eingeben (wird nicht gespeichert):", { a: a.address }));
+    if (!pw) return;
+    try { await post(`/api/projects/${pid}/mail-accounts/${a.account_id}/unlock`, { password: pw }); reloadAcc(); await sync({ ...a, connected: true }); }
+    catch (e: any) { setMsg(e.message); }
+  };
+  const remove = async (a: any) => {
+    if (!window.confirm(t("Verbindung zu {a} trennen? Bereits übernommene E-Mails bleiben erhalten.", { a: a.address }))) return;
+    await api(`/api/projects/${pid}/mail-accounts/${a.account_id}`, { method: "DELETE" });
+    reloadAcc();
+  };
 
   return (
     <div className="grid h-full grid-cols-1 md:grid-cols-[440px_minmax(0,1fr)]">
       <aside className="flex min-h-0 flex-col border-r border-slate-200 bg-white">
         <div className="space-y-3 border-b px-5 py-4">
-          <h1 className="text-xl font-semibold">{t("Postfach")}</h1>
-          <p className="text-xs leading-relaxed text-slate-500">{t("Dem Projekt zugeordnete E-Mails (Mock: .eml-Ordner, später Graph mit Mail.ReadWrite)")}</p>
+          <div className="flex items-center gap-2">
+            <h1 className="flex-1 text-xl font-semibold">{t("Postfach")}</h1>
+            <button className="btn" onClick={() => setConnect(true)}><Plus className="h-4 w-4" /> {t("Postfach verbinden")}</button>
+          </div>
+          {(accounts || []).map((a) => (
+            <div key={a.account_id} className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm">
+              <span className={`h-2 w-2 shrink-0 rounded-full ${a.connected ? "bg-ok" : "bg-slate-300"}`} title={t(a.connected ? "verbunden" : "Passwort erforderlich")} />
+              <div className="min-w-0 flex-1">
+                <div className="truncate font-medium">{a.address}</div>
+                <div className="text-2xs text-slate-500">{a.imap_host} · {a.folder}{a.last_sync ? ` · ${t("zuletzt")} ${dLong(a.last_sync)} ${time(a.last_sync)}` : ""}</div>
+              </div>
+              {a.connected
+                ? <button className="btn-xs" disabled={busy === a.account_id} onClick={() => sync(a)}><RefreshCw className={`h-3.5 w-3.5 ${busy === a.account_id ? "animate-spin" : ""}`} /> {t("Abrufen")}</button>
+                : <button className="btn-xs" onClick={() => unlock(a)}><KeyRound className="h-3.5 w-3.5" /> {t("Passwort")}</button>}
+              <button className="rounded p-1 text-slate-400 hover:text-bad" onClick={() => remove(a)} aria-label={t("Trennen")}><Trash2 className="h-4 w-4" /></button>
+            </div>
+          ))}
+          {msg && <p className="text-xs text-slate-600">{msg}</p>}
+          {!accounts?.length && <p className="text-xs leading-relaxed text-slate-500">{t("Dem Projekt zugeordnete E-Mails (Mock: .eml-Ordner, später Graph mit Mail.ReadWrite)")}</p>}
         </div>
         <ul className="min-h-0 flex-1 overflow-y-auto">
           {(data || []).map((m) => (
@@ -51,6 +96,7 @@ export default function Mailbox() {
           </div>
         )}
       </div>
+      {connect && <MailConnect pid={pid} onClose={() => setConnect(false)} onDone={(a) => { setConnect(false); reloadAcc(); sync(a); }} />}
     </div>
   );
 }
