@@ -85,10 +85,10 @@ def capture(cid: str) -> dict:
 
 
 def _run_ingest(pid: str, kind: str, path: Optional[Path], text: Optional[str], captured_at: str, meta: dict,
-                prefer_exif_time: bool = False) -> None:
+                prefer_exif_time: bool = False, description: Optional[dict] = None) -> None:
     try:
         pipeline.ingest(pid, kind, file=path, text=text, captured_at=captured_at, meta=meta, actor=ACTOR,
-                        prefer_exif_time=prefer_exif_time)
+                        prefer_exif_time=prefer_exif_time, description=description)
     except Exception as e:  # noqa: BLE001
         store.audit("system", "capture", pid, "ingest_failed", note=str(e))
 
@@ -106,6 +106,8 @@ async def upload_capture(pid: str, background: BackgroundTasks, kind: str = Form
                          lon: Optional[float] = Form(None), language: Optional[str] = Form(None),
                          asr_language: Optional[str] = Form(None),
                          doc_type: Optional[str] = Form(None), doc_title: Optional[str] = Form(None),
+                         description_mode: Optional[str] = Form(None), description_text: Optional[str] = Form(None),
+                         description_audio: Optional[UploadFile] = File(None),
                          file: Optional[UploadFile] = File(None)) -> dict:
     """Mobile Erfassung: Audio (MediaRecorder), Foto, Notiz, .eml oder Dokument. Verarbeitung im Hintergrund."""
     if kind not in ("audio", "photo", "note", "email", "document"):
@@ -132,7 +134,20 @@ async def upload_capture(pid: str, background: BackgroundTasks, kind: str = Form
     if lat is not None and lon is not None:
         meta["gps"] = {"lat": lat, "lon": lon}
     # Foto: Aufnahmezeit aus EXIF, sofern der Client keine Zeit mitschickt (Datum ← EXIF)
-    background.add_task(_run_ingest, pid, kind, path, text, ts, meta, kind == "photo" and not captured_at)
+    # Foto + Beschreibung (Sprache oder Notiz) in einem Upload → keine KI-Rückfrage
+    description = None
+    if kind == "photo" and description_mode:
+        if description_mode not in ("audio", "note", "none"):
+            raise HTTPException(400, "description_mode muss audio, note oder none sein")
+        if description_mode == "audio" and description_audio is None:
+            raise HTTPException(400, "Sprachbeschreibung fehlt")
+        if description_mode == "note" and not (description_text or "").strip():
+            raise HTTPException(400, "Beschreibungstext fehlt")
+        description = {"mode": description_mode, "text": description_text or transcript_hint,
+                       "file": await _tmp_file(description_audio, "beschreibung.webm") if description_audio else None,
+                       "language": meta.get("language")}
+    background.add_task(_run_ingest, pid, kind, path, text, ts, meta, kind == "photo" and not captured_at,
+                        description)
     return {"accepted": True, "captured_at": ts}
 
 

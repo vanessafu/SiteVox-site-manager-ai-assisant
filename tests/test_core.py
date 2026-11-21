@@ -607,3 +607,29 @@ def test_mail_account_bind_and_sync(monkeypatch):
     assert c.post(f"/api/projects/BV-RIEM/mail-accounts/{acc['account_id']}/sync").status_code == 409
     assert c.delete(f"/api/projects/BV-RIEM/mail-accounts/{acc['account_id']}").json()["ok"]
     assert c.get("/api/projects/BV-RIEM/mail-accounts").json() == []
+
+
+def test_photo_with_description_in_one_upload_skips_followup(tmp_path):
+    """Neuer Ablauf: Foto + Beschreibung (Notiz) zusammen → keine Rückfrage, direkt Ereignis, Foto als Beleg."""
+    from fastapi.testclient import TestClient
+
+    from backend.main import app
+
+    c = TestClient(app)
+    img = _demo_jpg(tmp_path, "IMG_1530.jpg")
+    with open(img, "rb") as f:
+        r = c.post("/api/projects/BV-RIEM/captures",
+                   data={"kind": "photo", "captured_at": "2026-11-20T15:40:00+01:00", "description_mode": "note",
+                         "description_text": "Riss in der Wand, das ist eine Vorleistung vom Rohbauer, nicht unsere Leistung."},
+                   files={"file": ("IMG_1530.jpg", f, "image/jpeg")})
+    assert r.status_code == 200
+    cap = [x for x in c.get("/api/projects/BV-RIEM/captures", params={"date": "2026-11-20"}).json()
+           if x["kind"] == "photo" and x["captured_at"].startswith("2026-11-20T15:40")][-1]
+    assert cap["status"] == "done" and not cap.get("followup")
+    assert cap["answer"]["mode"] == "note" and "Vorleistung" in cap["text"]
+    full = c.get(f"/api/captures/{cap['capture_id']}").json()
+    srcs = {e["source"] for e in full["evidence"]}
+    assert {"photo", "note"} <= srcs
+    r = c.post("/api/projects/BV-RIEM/captures", data={"kind": "photo", "description_mode": "note"},
+               files={"file": ("x.jpg", b"x", "image/jpeg")})
+    assert r.status_code == 400

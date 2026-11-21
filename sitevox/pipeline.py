@@ -65,7 +65,11 @@ def _plausible_exif_time(taken_at: str, upload_ts: str) -> bool:
 
 def ingest(project_id: str, kind: str, *, captured_at: str, file: Optional[Path] = None, text: Optional[str] = None,
            title: str = "", meta: Optional[dict] = None, fixture_key: Optional[str] = None,
-           actor: str = "system", prefer_exif_time: bool = False) -> dict[str, Any]:
+           actor: str = "system", prefer_exif_time: bool = False,
+           description: Optional[dict] = None) -> dict[str, Any]:
+    """description (nur Foto): {"mode": "audio"|"note"|"none", "text", "file", "language"} – die Beschreibung des
+    Poliers wird mit dem Foto zusammen aufgenommen; dann keine KI-Rückfrage. Ohne description: alter Ablauf
+    (KI sieht → Rückfrage → answer_photo)."""
     meta = meta or {}
     if kind == "photo" and file and prefer_exif_time:  # Datum/Uhrzeit ← EXIF statt Upload-Zeitpunkt
         taken = vision.exif_meta(Path(file), tz_hint=captured_at[19:] or None).get("taken_at")
@@ -86,14 +90,16 @@ def ingest(project_id: str, kind: str, *, captured_at: str, file: Optional[Path]
         file = dest
     store.save_capture(cap)
     try:
-        return _ingest_body(cap, project_id, kind, captured_at, day, file, text, title, meta, fixture_key, actor)
+        return _ingest_body(cap, project_id, kind, captured_at, day, file, text, title, meta, fixture_key, actor,
+                            description)
     except Exception as e:  # noqa: BLE001 – Fehler sichtbar machen statt "processing" hängen zu lassen
         cap["status"], cap["error"] = "error", str(e)[:300]
         store.save_capture(cap)
         raise
 
 
-def _ingest_body(cap, project_id, kind, captured_at, day, file, text, title, meta, fixture_key, actor) -> dict:
+def _ingest_body(cap, project_id, kind, captured_at, day, file, text, title, meta, fixture_key, actor,
+                 description=None) -> dict:
     acts = store.activities(project_id)
 
     # ---------------------------------------------------------------- understand
@@ -102,8 +108,20 @@ def _ingest_body(cap, project_id, kind, captured_at, day, file, text, title, met
         tr = asr.transcribe(file, project_id, hint=text or meta.get("transcript_hint"), language=meta.get("language"))
         cap["transcript"], cap["asr_score"] = tr, tr.get("mean_score")
         body = tr["text"]
+    elif kind == "photo" and description is not None:
+        # Foto + Beschreibung des Poliers in einem Schritt. VLM (falls aktiv) nur als Hinweis/Bautagebuch-Text.
+        _photo_analyze(cap, file, acts, ask=False)
+        _photo_describe(cap, description.get("mode") or "none", text=description.get("text"),
+                        file=description.get("file"), language=description.get("language"),
+                        answered_at=captured_at)
+        cap["status"] = "done"
+        store.save_capture(cap)
+        store.audit(actor, "capture", cap["capture_id"], "ingest",
+                    after={"kind": kind, "description": description.get("mode"), "events": cap["event_ids"]})
+        refresh_day(project_id, date.fromisoformat(day))
+        return cap
     elif kind == "photo":
-        # Nur "sehen": Analyse + Belege + Rückfrage. Ereignisse entstehen erst mit der Antwort (answer_photo).
+        # Alter Ablauf: nur "sehen": Analyse + Belege + Rückfrage. Ereignisse erst mit der Antwort (answer_photo).
         _photo_analyze(cap, file, acts)
         store.save_capture(cap)
         store.audit(actor, "capture", cap["capture_id"], "ingest",
@@ -243,13 +261,15 @@ def _planned_today(acts: list[dict], day: str) -> list[dict]:
     return [a for a in acts if a.get("kind") != "milestone" and a["start"] <= day <= a["finish"]]
 
 
-def _photo_analyze(cap: dict, file: Optional[Path], acts: list[dict]) -> None:
-    """Qwen-VL → PhotoAnalysis. Belege: Originalfoto + bbox-Ausschnitte (Beweis), KI-Beobachtungen (Hinweis)."""
+def _photo_analyze(cap: dict, file: Optional[Path], acts: list[dict], *, ask: bool = True) -> None:
+    """Qwen-VL → PhotoAnalysis. Belege: Originalfoto + bbox-Ausschnitte (Beweis), KI-Beobachtungen (Hinweis).
+    ask=False: Beschreibung kommt mit dem Foto – keine Rückfrage; VLM nur, wenn [llm.vision] enrich = true."""
     pid, day = cap["project_id"], cap["date"]
     planned = _planned_today(acts, day)
+    use_vlm = ask or settings.models()["llm"]["vision"].get("enrich", True)
     vis = vision.analyze(file, pid, activities_today=[a["name"] for a in planned],
-                         tz_hint=cap["captured_at"][19:] or None, out_lang=_out_lang(cap)) if file else \
-        {"exif": {}, "analysis": vision._fallback().model_dump(), "backend": None, "model": None}
+                         tz_hint=cap["captured_at"][19:] or None, out_lang=_out_lang(cap)) if file and use_vlm else \
+        {"exif": vision.exif_meta(Path(file), tz_hint=cap["captured_at"][19:] or None) if file else {}, "analysis": vision._fallback().model_dump(), "backend": None, "model": None}
     analysis = vis["analysis"]
     cap["vision"] = {**vis["exif"], **{k: v for k, v in vis.items() if k != "exif"}}
     sc = analysis.get("scene") or {}
@@ -285,6 +305,8 @@ def _photo_analyze(cap: dict, file: Optional[Path], acts: list[dict]) -> None:
         cap["evidence_ids"].append(aev.evidence_id)
         obs_refs.append({"index": i, "ai_evidence_id": aev.evidence_id, "crop_evidence_id": crop_id})
     cap["photo"] = {"evidence_id": photo_ev.evidence_id, "observations": obs_refs}
+    if not ask:
+        return
     cap["followup"] = {**vision.followup(analysis, _out_lang(cap)), "asked_at": now_iso()}
     cap["summary"] = "KI-Beobachtung: " + (analysis.get("summary") or "–")
     cap["text"] = ""
@@ -300,38 +322,11 @@ def answer_photo(capture_id: str, mode: str, *, text: Optional[str] = None, file
         raise ValueError("Keine Foto-Erfassung")
     if mode not in ("audio", "note", "skip"):
         raise ValueError(f"unbekannte Antwortart {mode}")
-    pid, day = cap["project_id"], cap["date"]
     cap["status"] = "processing"
     store.save_capture(cap)
     try:
-        ans: dict[str, Any] = {"mode": mode, "answered_at": answered_at or now_iso(),
-                               "question": (cap.get("followup") or {}).get("question")}
-        body = ""
-        if mode == "audio":
-            if not file:
-                raise ValueError("Audiodatei fehlt")
-            dest = settings.project_files_dir(pid, day) / f"{Path(cap.get('file') or capture_id).stem}_antwort{Path(file).suffix}"
-            if Path(file).resolve() != dest.resolve():
-                shutil.copy(file, dest)
-            tr = asr.transcribe(dest, pid, hint=text, language=language)
-            ans.update(file=str(dest.relative_to(settings.data_dir())), transcript=tr, asr_score=tr.get("mean_score"))
-            body = tr["text"]
-        elif mode == "note":
-            body = (text or "").strip()
-            if not body:
-                raise ValueError("Antworttext fehlt")
-        if detail_photo:
-            dest = settings.project_files_dir(pid, day) / f"{Path(cap.get('file') or capture_id).stem}_detail{Path(detail_photo).suffix or '.jpg'}"
-            shutil.copy(detail_photo, dest)
-            dev = new_evidence(project_id=pid, capture_id=capture_id, source="photo",
-                               title=f"{cap['title']} · Detailfoto", file=str(dest.relative_to(settings.data_dir())),
-                               captured_at=ans["answered_at"],
-                               meta={**{k: v for k, v in vision.exif_meta(dest).items() if k in ("gps", "taken_at")},
-                                     "role": "detail", "detail_of": (cap.get("photo") or {}).get("evidence_id")})
-            cap["evidence_ids"].append(dev.evidence_id)
-            cap.setdefault("photo", {})["detail_evidence_id"] = dev.evidence_id
-        cap["answer"] = ans
-        _photo_finalize(cap, body, store.activities(pid))
+        _photo_describe(cap, mode, text=text, file=file, detail_photo=detail_photo, language=language,
+                        answered_at=answered_at)
         cap["status"] = "done"
     except Exception as e:  # noqa: BLE001
         cap["status"], cap["error"] = "error", str(e)[:300]
@@ -339,8 +334,47 @@ def answer_photo(capture_id: str, mode: str, *, text: Optional[str] = None, file
         raise
     store.save_capture(cap)
     store.audit(actor, "capture", capture_id, "answer", after={"mode": mode, "events": cap["event_ids"]})
-    refresh_day(pid, date.fromisoformat(day))
+    refresh_day(cap["project_id"], date.fromisoformat(cap["date"]))
     return cap
+
+
+def _photo_describe(cap: dict, mode: str, *, text: Optional[str] = None, file: Optional[Path] = None,
+                    detail_photo: Optional[Path] = None, language: Optional[str] = None,
+                    answered_at: Optional[str] = None) -> None:
+    """Beschreibung/Antwort des Poliers zum Foto (audio | note | none/skip) → Extraktion + Regeln (gleiche Erfassung)."""
+    pid, day = cap["project_id"], cap["date"]
+    if mode == "none":
+        mode = "skip"
+    if mode not in ("audio", "note", "skip"):
+        raise ValueError(f"unbekannte Antwortart {mode}")
+    ans: dict[str, Any] = {"mode": mode, "answered_at": answered_at or now_iso(),
+                           "question": (cap.get("followup") or {}).get("question")}
+    body = ""
+    if mode == "audio":
+        if not file:
+            raise ValueError("Audiodatei fehlt")
+        dest = settings.project_files_dir(pid, day) / f"{Path(cap.get('file') or cap['capture_id']).stem}_antwort{Path(file).suffix}"
+        if Path(file).resolve() != dest.resolve():
+            shutil.copy(file, dest)
+        tr = asr.transcribe(dest, pid, hint=text, language=language)
+        ans.update(file=str(dest.relative_to(settings.data_dir())), transcript=tr, asr_score=tr.get("mean_score"))
+        body = tr["text"]
+    elif mode == "note":
+        body = (text or "").strip()
+        if not body:
+            raise ValueError("Antworttext fehlt")
+    if detail_photo:
+        dest = settings.project_files_dir(pid, day) / f"{Path(cap.get('file') or cap['capture_id']).stem}_detail{Path(detail_photo).suffix or '.jpg'}"
+        shutil.copy(detail_photo, dest)
+        dev = new_evidence(project_id=pid, capture_id=cap["capture_id"], source="photo",
+                           title=f"{cap['title']} · Detailfoto", file=str(dest.relative_to(settings.data_dir())),
+                           captured_at=ans["answered_at"],
+                           meta={**{k: v for k, v in vision.exif_meta(dest).items() if k in ("gps", "taken_at")},
+                                 "role": "detail", "detail_of": (cap.get("photo") or {}).get("evidence_id")})
+        cap["evidence_ids"].append(dev.evidence_id)
+        cap.setdefault("photo", {})["detail_evidence_id"] = dev.evidence_id
+    cap["answer"] = ans
+    _photo_finalize(cap, body, store.activities(pid))
 
 
 def _photo_finalize(cap: dict, body: str, acts: list[dict]) -> None:

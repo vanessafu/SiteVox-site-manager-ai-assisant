@@ -3,43 +3,20 @@ import { useT } from "@/lib/i18n";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { Camera, Check, Clock, ImagePlus, Loader2, Mic, Monitor, Send, SkipForward, Square, Trash2 } from "lucide-react";
+import { Camera, Check, Loader2, Mic, Monitor, PencilLine, Send, SkipForward, Square, Trash2, X } from "lucide-react";
 import { api, post, time, useApi } from "@/lib/api";
 import { SOURCE_ICON } from "@/components/EvidenceViewer";
 import { Disclaimer } from "@/components/ui";
 import { LangToggle } from "@/lib/i18n";
 
-const OBS_LABEL: Record<string, string> = {
-  blocked_access: "Zugang/Zufahrt blockiert", standing_water: "stehendes Wasser", material_storage: "Material auf der Arbeitsfläche",
-  equipment_idle: "Gerät steht still", crack: "Riss", surface_defect: "Oberflächenfehler", damage: "Beschädigung",
-  stage_change: "Bauzustand / Fortschritt", safety_hazard: "Sicherheitsmangel", other: "Sonstiges",
-};
-const OBS_COLOR: Record<string, string> = {
-  obstruction: "border-orange-400", defect: "border-red-500", progress: "border-sky-400", safety: "border-fuchsia-500",
-};
 const SPHERE: Record<string, string> = { AG: "AG-Sphäre", AN: "AN-Sphäre", neutral: "neutral" };
 
-type RecTarget = { kind: "memo" } | { kind: "answer"; cid: string };
-
-/** Foto mit KI-Boxen (bbox relativ 0–1000). Die Boxen markieren nur, was die KI gesehen hat – kein Beleg. */
-function PhotoWithBoxes({ cap }: { cap: any }) {
-  const obs = cap.vision?.analysis?.observations || [];
-  if (!cap.file) return null;
-  return (
-    <div className="relative w-full overflow-hidden rounded-lg">
-      <img src={`/files/${cap.file}`} alt={cap.title} className="block w-full" />
-      {obs.map((o: any, i: number) => o.bbox && (
-        <div key={i} className={`absolute border-2 ${OBS_COLOR[o.category] || "border-yellow-400"}`}
-          style={{ left: `${o.bbox[0] / 10}%`, top: `${o.bbox[1] / 10}%`, width: `${(o.bbox[2] - o.bbox[0]) / 10}%`, height: `${(o.bbox[3] - o.bbox[1]) / 10}%` }}>
-          <span className="absolute left-0 top-0 bg-slate-900/80 px-1 text-[10px] leading-4">{i + 1}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
+type RecTarget = { kind: "memo" } | { kind: "photo" };
+/** Foto wartet auf Beschreibung: neu aufgenommen (file) oder ältere Erfassung mit offener Rückfrage (cid). */
+type PhotoSheet = { url: string; file?: File; cid?: string; question?: string; at?: string };
 
 /** Baustellen-Modus: nur Erfassung. Aufnahme per MediaRecorder (kein App-Store nötig), Transkription lokal (Whisper).
- *  Foto → KI sagt, was zu sehen ist → genau eine Rückfrage → Antwort per Sprache oder Notiz (gleiche Erfassung). */
+ *  Foto → sofort Fenster: Beschreibung per Sprache oder Notiz → Foto + Beschreibung werden zusammen gespeichert. */
 export default function MobileCapture() {
   const { pid } = useParams<{ pid: string }>();
   const today = new Date().toISOString().slice(0, 10);
@@ -50,18 +27,16 @@ export default function MobileCapture() {
   const [secs, setSecs] = useState(0);
   const [hint, setHint] = useState("");
   const [note, setNote] = useState("");
-  const [answerText, setAnswerText] = useState("");
-  const [detail, setDetail] = useState<File | null>(null);
-  const [active, setActive] = useState<string | null>(null);
-  const [later, setLater] = useState<string[]>([]);
+  const [sheet, setSheet] = useState<PhotoSheet | null>(null);
+  const [sheetMode, setSheetMode] = useState<"choose" | "note">("choose");
+  const [sheetText, setSheetText] = useState("");
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const chunks = useRef<Blob[]>([]);
   const { t, lang } = useT();
   const speech = useRef<any>(null);
   const hintRef = useRef("");
-  const detailRef = useRef<File | null>(null); // Aufnahme-Callback liest den aktuellen Wert, nicht den beim Start
-  const pickDetail = (f: File | null) => { detailRef.current = f; setDetail(f); };
+  const sheetRef = useRef<PhotoSheet | null>(null); // Aufnahme-Callback liest das aktuelle Foto, nicht das beim Start
   const gps = useRef<{ lat: number; lon: number } | null>(null);
 
   useEffect(() => {
@@ -73,13 +48,17 @@ export default function MobileCapture() {
     return () => clearInterval(t);
   }, [rec]);
 
-  // Offene Rückfragen: neueste zuerst; "Später" blendet sie bis zum nächsten Antippen aus
-  const pending = (caps || []).filter((c) => c.kind === "photo" && c.status === "awaiting_answer").reverse();
-  const current = pending.find((c) => c.capture_id === active) || pending.find((c) => !later.includes(c.capture_id));
-  useEffect(() => {
-    setAnswerText("");
-    pickDetail(null);
-  }, [current?.capture_id]);
+  const openSheet = (sh: PhotoSheet) => {
+    sheetRef.current = sh;
+    setSheet(sh);
+    setSheetMode("choose");
+    setSheetText("");
+  };
+  const closeSheet = () => {
+    if (sheetRef.current?.file) URL.revokeObjectURL(sheetRef.current.url);
+    sheetRef.current = null;
+    setSheet(null);
+  };
 
   const flash = (msg: string) => {
     setToast(msg);
@@ -106,20 +85,30 @@ export default function MobileCapture() {
     }
   };
 
-  const answer = async (cid: string, mode: "audio" | "note" | "skip", opts: { blob?: Blob; filename?: string; text?: string } = {}) => {
+  /** Foto + Beschreibung in einem Upload (neu) bzw. Antwort auf eine ältere offene Rückfrage (cid). */
+  const savePhoto = async (sh: PhotoSheet, mode: "audio" | "note" | "none", opts: { blob?: Blob; filename?: string; text?: string } = {}) => {
     setBusy(true);
     const fd = new FormData();
-    fd.append("mode", mode);
-    if (opts.blob) fd.append("file", opts.blob, opts.filename);
-    if (opts.text) fd.append("text", opts.text);
-    const d = detailRef.current;
-    if (d && mode !== "skip") fd.append("detail_photo", d, d.name);
+    let url: string;
+    if (sh.cid) {
+      url = `/api/captures/${sh.cid}/answer`;
+      fd.append("mode", mode === "none" ? "skip" : mode);
+      if (opts.blob) fd.append("file", opts.blob, opts.filename);
+      if (opts.text) fd.append("text", opts.text);
+    } else {
+      url = `/api/projects/${pid}/captures`;
+      fd.append("kind", "photo");
+      fd.append("file", sh.file!, sh.file!.name);
+      fd.append("language", lang);
+      fd.append("description_mode", mode);
+      if (opts.blob) fd.append("description_audio", opts.blob, opts.filename);
+      if (opts.text) fd.append(mode === "audio" ? "transcript_hint" : "description_text", opts.text);
+      if (gps.current) { fd.append("lat", String(gps.current.lat)); fd.append("lon", String(gps.current.lon)); }
+    }
     try {
-      await api(`/api/captures/${cid}/answer`, { method: "POST", body: fd });
-      flash(mode === "skip" ? t("Foto ohne Antwort abgelegt") : t("Antwort übertragen – wird ausgewertet"));
-      setActive(null);
-      setAnswerText("");
-      pickDetail(null);
+      await api(url, { method: "POST", body: fd });
+      flash(mode === "none" ? t("Foto ohne Beschreibung gespeichert") : t("Foto mit Beschreibung übertragen – wird ausgewertet"));
+      closeSheet();
       setTimeout(() => { reload(); reloadEvents(); }, 1500);
     } catch (e: any) {
       flash(t("Fehler: {e}", { e: e.message }));
@@ -166,7 +155,8 @@ export default function MobileCapture() {
         const blob = new Blob(chunks.current, { type });
         const hhmm = new Date().toTimeString().slice(0, 5).replace(":", "");
         const name = `rec_${hhmm}_${Date.now() % 100000}.${type.includes("mp4") ? "m4a" : "webm"}`;
-        if (target.kind === "answer") answer(target.cid, "audio", { blob, filename: name, text: hintRef.current || undefined });
+        const sh = sheetRef.current;
+        if (target.kind === "photo" && sh) savePhoto(sh, "audio", { blob, filename: name, text: hintRef.current || undefined });
         else upload("audio", blob, name, undefined, hintRef.current || undefined);
       };
       r.start(1000);
@@ -201,7 +191,7 @@ export default function MobileCapture() {
     setRecFor(null);
   };
   const recMemo = rec && recFor?.kind === "memo";
-  const recAnswer = rec && recFor?.kind === "answer";
+  const recPhoto = rec && recFor?.kind === "photo";
   const evById: Record<string, any> = Object.fromEntries((events || []).map((e) => [e.event_id, e]));
 
   return (
@@ -212,74 +202,21 @@ export default function MobileCapture() {
         <div className="flex items-center gap-2"><LangToggle dark /><Link href={`/p/${pid}`} className="rounded-md bg-slate-800 p-2"><Monitor className="h-5 w-5" /></Link></div>
       </header>
 
-      {/* Rückfrage zum Foto: KI = was ist zu sehen, Antwort = warum / wer / seit wann / wie viel */}
-      {current && (
-        <section className="space-y-3 rounded-2xl bg-slate-800 p-3 ring-2 ring-yellow-400">
-          <div className="flex items-center justify-between text-xs text-slate-400">
-            <span>{t("Rückfrage zum Foto {t}", { t: time(current.captured_at) })}</span>
-            {pending.length > 1 && <span>{t("{n} offen", { n: pending.length })}</span>}
-          </div>
-          <PhotoWithBoxes cap={current} />
-          {(current.vision?.analysis?.observations || []).length > 0 && (
-            <div className="space-y-1">
-              <div className="text-[11px] uppercase tracking-wide text-yellow-300">{t("KI-Beobachtung – kein Beleg")}</div>
-              <ul className="space-y-0.5 text-xs text-slate-300">
-                {current.vision.analysis.observations.map((o: any, i: number) => (
-                  <li key={i}><span className="font-mono text-slate-500">{i + 1}</span> {t(OBS_LABEL[o.subtype] || o.subtype)}: {o.description}
-                    <span className="text-slate-500"> · {Math.round((o.visual_conf ?? 0) * 100)} %</span></li>
-                ))}
-              </ul>
-            </div>
-          )}
-          <p className="text-base font-semibold leading-snug">{t(current.followup?.question || "Was ist hier passiert?")}</p>
-
-          <button onClick={recAnswer ? stop : () => start({ kind: "answer", cid: current.capture_id })} disabled={busy || !!recMemo}
-            className={`flex w-full items-center justify-center gap-2 rounded-xl py-4 text-base font-semibold ${recAnswer ? "animate-pulse bg-bad" : "bg-yellow-400 text-slate-900"} disabled:opacity-40`}>
-            {recAnswer ? <Square className="h-6 w-6" /> : <Mic className="h-6 w-6" />}
-            {recAnswer ? `${t("Stopp")} · ${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}` : t("Antwort sprechen")}
-          </button>
-          {recAnswer && hint && <p className="rounded-lg bg-slate-900 p-2 text-sm text-slate-300">{hint}</p>}
-
-          <div className="flex gap-2">
-            <textarea value={answerText} onChange={(e) => setAnswerText(e.target.value)} rows={2} placeholder={t("… oder als Notiz antworten")}
-              className="min-w-0 flex-1 rounded-lg bg-slate-900 p-2 text-sm text-white placeholder:text-slate-600" />
-            <button disabled={!answerText.trim() || busy || !!rec} onClick={() => answer(current.capture_id, "note", { text: answerText })}
-              className="rounded-lg bg-slate-700 px-3 disabled:opacity-40" aria-label={t("Senden")}><Send className="h-5 w-5" /></button>
-          </div>
-
-          {current.followup?.wants_detail_photo && (
-            <label className="flex cursor-pointer items-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-sm">
-              <ImagePlus className="h-5 w-5 shrink-0" />
-              <span className="truncate">{detail ? detail.name : t("Detailfoto mit Maßstab anhängen (optional)")}</span>
-              <input type="file" accept="image/*" capture="environment" className="hidden"
-                onChange={(e) => { pickDetail(e.target.files?.[0] || null); e.target.value = ""; }} />
-            </label>
-          )}
-
-          <div className="flex gap-2 text-sm">
-            <button disabled={busy || !!rec} onClick={() => answer(current.capture_id, "skip")}
-              className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-slate-700 py-2 disabled:opacity-40"><SkipForward className="h-4 w-4" /> {t("Ohne Antwort ablegen")}</button>
-            <button disabled={!!rec} onClick={() => { setLater((l) => [...l, current.capture_id]); setActive(null); }}
-              className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-slate-700 py-2 disabled:opacity-40"><Clock className="h-4 w-4" /> {t("Später")}</button>
-          </div>
-          <p className="text-[11px] leading-snug text-slate-500">{t("Die KI beschreibt nur, was zu sehen ist. Wer es verursacht hat und welches Schreiben nötig ist, ergibt sich aus Ihrer Antwort und dem Regelwerk.")}</p>
-        </section>
-      )}
-
-      <button onClick={recMemo ? stop : () => start({ kind: "memo" })} disabled={busy || !!recAnswer}
-        className={`flex w-full flex-col items-center justify-center gap-2 rounded-3xl text-lg font-semibold transition ${current ? "py-6" : "aspect-square"} ${recMemo ? "animate-pulse bg-bad" : "bg-yellow-400 text-slate-900"} disabled:opacity-40`}>
-        {recMemo ? <Square className={current ? "h-8 w-8" : "h-16 w-16"} /> : <Mic className={current ? "h-8 w-8" : "h-16 w-16"} />}
-        {recMemo ? `${t("Stopp")} · ${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}` : t("Sprachmemo")}
-        {!rec && !current && <span className="text-xs font-normal opacity-70">{t("z. B. „Bagger steht seit 10 Uhr, Hydraulikschlauch …“")}</span>}
-      </button>
-      {recMemo && hint && <p className="rounded-lg bg-slate-800 p-2 text-sm text-slate-300">{hint}</p>}
+      {/* Hauptaktion: Foto. Danach sofort das Beschreibungsfenster (Sprache oder Notiz). */}
+      <label className={`flex aspect-square w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-3xl bg-yellow-400 text-lg font-semibold text-slate-900 transition ${busy || rec ? "pointer-events-none opacity-40" : ""}`}>
+        <Camera className="h-16 w-16" />
+        {t("Foto")}
+        <span className="px-6 text-center text-xs font-normal opacity-70">{t("Foto aufnehmen, danach kurz beschreiben – per Sprache oder Notiz")}</span>
+        <input type="file" accept="image/*" capture="environment" className="hidden"
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) openSheet({ file: f, url: URL.createObjectURL(f) }); e.target.value = ""; }} />
+      </label>
 
       <div className="grid grid-cols-2 gap-3">
-        <label className="flex cursor-pointer flex-col items-center gap-1 rounded-2xl bg-slate-800 p-4">
-          <Camera className="h-8 w-8" /> {t("Foto")}
-          <input type="file" accept="image/*" capture="environment" className="hidden"
-            onChange={(e) => { const f = e.target.files?.[0]; if (f) upload("photo", f, f.name); e.target.value = ""; }} />
-        </label>
+        <button onClick={recMemo ? stop : () => start({ kind: "memo" })} disabled={busy || !!recPhoto}
+          className={`flex flex-col items-center justify-center gap-1 rounded-2xl p-4 ${recMemo ? "animate-pulse bg-bad" : "bg-slate-800"} disabled:opacity-40`}>
+          {recMemo ? <Square className="h-8 w-8" /> : <Mic className="h-8 w-8" />}
+          {recMemo ? `${t("Stopp")} · ${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}` : t("Sprachmemo")}
+        </button>
         <div className="flex flex-col gap-2 rounded-2xl bg-slate-800 p-2">
           <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} placeholder={t("Notiz / Stichworte")}
             className="w-full flex-1 rounded-lg bg-slate-900 p-2 text-sm text-white placeholder:text-slate-600" />
@@ -287,6 +224,7 @@ export default function MobileCapture() {
             className="flex items-center justify-center gap-1 rounded-lg bg-slate-700 py-1.5 text-sm disabled:opacity-40"><Send className="h-[18px] w-[18px]" /> {t("Senden")}</button>
         </div>
       </div>
+      {recMemo && hint && <p className="rounded-lg bg-slate-800 p-2 text-sm text-slate-300">{hint}</p>}
 
       {toast && <div className="rounded-lg bg-slate-700 px-3 py-2 text-sm">{toast}</div>}
 
@@ -304,8 +242,8 @@ export default function MobileCapture() {
                   <div className="min-w-0 flex-1"><div className="flex gap-2"><span className="font-mono text-xs text-slate-500">{time(c.captured_at)}</span><span className="truncate">{t(c.title)}</span></div>
                     <div className="truncate text-xs text-slate-500">{c.summary}</div></div>
                   {waiting ? (
-                    <button onClick={() => { setActive(c.capture_id); setLater((l) => l.filter((x) => x !== c.capture_id)); window.scrollTo({ top: 0, behavior: "smooth" }); }}
-                      className="rounded bg-yellow-400 px-2 py-0.5 text-xs font-semibold text-slate-900">{t("Rückfrage")}</button>
+                    <button onClick={() => openSheet({ cid: c.capture_id, url: `/files/${c.file}`, question: c.followup?.question, at: c.captured_at })}
+                      className="rounded bg-yellow-400 px-2 py-0.5 text-xs font-semibold text-slate-900">{t("Beschreiben")}</button>
                   ) : c.status === "done" ? <Check className="h-[18px] w-[18px] text-ok" /> : c.status === "error" ? <span className="text-xs text-bad" title={c.error}>{t("Fehler")}</span> : <Loader2 className="h-[18px] w-[18px] animate-spin" />}
                   <button onClick={() => remove(c)} className="rounded p-1 text-slate-400 hover:bg-slate-700 hover:text-bad" aria-label={t("Löschen")}><Trash2 className="h-[18px] w-[18px]" /></button>
                 </div>
@@ -327,6 +265,52 @@ export default function MobileCapture() {
         </ul>
       </section>
       <Disclaimer className="mt-auto !text-slate-600" />
+
+      {/* Beschreibungsfenster direkt nach dem Foto: Sprache oder Notiz – beides wird mit dem Foto gespeichert */}
+      {sheet && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 sm:items-center" role="dialog" aria-modal="true">
+          <div className="max-h-[92vh] w-full max-w-md space-y-3 overflow-y-auto rounded-t-3xl bg-slate-800 p-4 text-white sm:rounded-3xl">
+            <div className="flex items-center justify-between">
+              <div className="text-base font-semibold">{t("Foto beschreiben")}{sheet.at ? ` · ${time(sheet.at)}` : ""}</div>
+              <button onClick={closeSheet} disabled={busy || !!recPhoto} className="rounded-md p-1 text-slate-400 hover:bg-slate-700 disabled:opacity-40" aria-label={t("Abbrechen")}><X className="h-6 w-6" /></button>
+            </div>
+            <img src={sheet.url} alt="" className="max-h-64 w-full rounded-lg bg-slate-900 object-contain" />
+            <p className="text-sm leading-snug text-slate-300">{sheet.question ? t(sheet.question) : t("Was ist zu sehen – und warum? Wer, seit wann, welche Arbeiten, wie viel?")}</p>
+
+            {sheetMode === "choose" && (
+              <>
+                <button onClick={recPhoto ? stop : () => start({ kind: "photo" })} disabled={busy || !!recMemo}
+                  className={`flex w-full items-center justify-center gap-2 rounded-xl py-4 text-base font-semibold ${recPhoto ? "animate-pulse bg-bad" : "bg-yellow-400 text-slate-900"} disabled:opacity-40`}>
+                  {recPhoto ? <Square className="h-6 w-6" /> : <Mic className="h-6 w-6" />}
+                  {recPhoto ? `${t("Stopp & speichern")} · ${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}` : t("Per Sprache beschreiben")}
+                </button>
+                {recPhoto && hint && <p className="rounded-lg bg-slate-900 p-2 text-sm text-slate-300">{hint}</p>}
+                <button onClick={() => setSheetMode("note")} disabled={busy || !!rec}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-700 py-4 text-base font-semibold disabled:opacity-40">
+                  <PencilLine className="h-6 w-6" /> {t("Als Notiz beschreiben")}
+                </button>
+              </>
+            )}
+            {sheetMode === "note" && (
+              <div className="space-y-2">
+                <textarea autoFocus value={sheetText} onChange={(e) => setSheetText(e.target.value)} rows={4}
+                  placeholder={t("z. B. „Riss in der Wand Achse C, Vorleistung Rohbauer, seit heute Morgen“")}
+                  className="w-full rounded-lg bg-slate-900 p-2 text-sm text-white placeholder:text-slate-600" />
+                <div className="flex gap-2">
+                  <button onClick={() => setSheetMode("choose")} disabled={busy} className="rounded-lg bg-slate-700 px-3 py-2 text-sm disabled:opacity-40">{t("Zurück")}</button>
+                  <button disabled={!sheetText.trim() || busy} onClick={() => savePhoto(sheet, "note", { text: sheetText.trim() })}
+                    className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-yellow-400 py-2 text-sm font-semibold text-slate-900 disabled:opacity-40">
+                    <Send className="h-[18px] w-[18px]" /> {t("Foto + Notiz speichern")}</button>
+                </div>
+              </div>
+            )}
+            <button disabled={busy || !!rec} onClick={() => savePhoto(sheet, "none")}
+              className="flex w-full items-center justify-center gap-1 rounded-lg py-2 text-sm text-slate-400 hover:bg-slate-700 disabled:opacity-40">
+              <SkipForward className="h-4 w-4" /> {t("Ohne Beschreibung speichern")}</button>
+            <p className="text-[11px] leading-snug text-slate-500">{t("Ursache, Verursacher und Mengen kommen nur aus Ihrer Beschreibung – nicht aus dem Foto.")}</p>
+          </div>
+        </div>
+      )}
     </div>
     </div>
   );

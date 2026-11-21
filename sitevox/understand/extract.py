@@ -131,6 +131,8 @@ def photo_context(question: str, analysis: dict) -> str:
     sc = analysis.get("scene") or {}
     scene = ", ".join(f"{k}: {v}" for k, v in (("Bauteil", sc.get("bauteil")), ("Stand", sc.get("stage")),
                                                 ("Arbeit", sc.get("activity_guess"))) if v) or "–"
+    if not question:  # Beschreibung kam mit dem Foto, ohne Rückfrage
+        question = "(keine Rückfrage – freie Beschreibung des Poliers zum Foto)"
     return EXTRACT_PHOTO_CONTEXT.format(question=question, observations=lines, scene=scene)
 
 
