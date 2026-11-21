@@ -16,7 +16,8 @@ from huggingface_hub import snapshot_download  # noqa: E402
 from sitevox import settings  # noqa: E402
 
 m = settings.models()
-for role in ("extractor", "drafter", "vision"):
+ASR_ONLY = "--asr-only" in sys.argv  # z. B. für die ASR-Evaluation in einem eigenen venv (ohne vLLM)
+for role in () if ASR_ONLY else ("extractor", "drafter", "vision"):
     cfg = m["llm"][role]
     repo = cfg.get("awq_repo") if role == "drafter" and cfg.get("awq_repo") else cfg["model"]
     print("↓", repo, flush=True)
@@ -31,4 +32,7 @@ whisperx.load_model(c["model"], "cpu", compute_type="int8")
 for lang in c.get("allowed_languages", ["de"]):
     print("↓ align", lang, flush=True)
     whisperx.load_align_model(language_code=lang, device="cpu")
+from faster_whisper.utils import download_model  # noqa: E402  (Backend faster_whisper, gleiches CT2-Modell)
+
+download_model(c["model"])
 print("fertig – Job kann mit HF_HUB_OFFLINE=1 laufen")

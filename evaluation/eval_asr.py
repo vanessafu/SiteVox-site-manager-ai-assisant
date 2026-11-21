@@ -60,13 +60,31 @@ def run(manifest: list[dict], hyps: dict[str, dict] | None) -> list[dict]:
     return out
 
 
+NUM_KINDS = ("time", "date", "quantity", "number")
+
+
+def accent_group(r: dict) -> str | None:
+    """L1 (Muttersprache = Sprache der Aufnahme) · L2 (echte Sprecher:in mit anderem L1) · L2-clone (TTS-Stimmklon)
+    · tts (Studio-Stimme, neutral). accent "pl-L1" = Erstsprache Polnisch."""
+    a = r.get("accent")
+    if not a:
+        return None
+    if a == "tts":
+        return "tts"
+    if a.endswith("-clone"):
+        return "L2-clone"
+    l1 = a.split("-")[0]
+    return "L1" if l1 == (r.get("lang") or "de") else "L2"
+
+
 def score(r: dict, h: dict, terms: list[str]) -> dict:
     ref, hyp = r.get("text", ""), h.get("text", "")
     words = [w for s in h.get("segments", []) for w in s.get("words", [])] or h.get("words", [])
     dur = h.get("duration") or r.get("duration")
     row = {"id": item_id(r), "scenario_id": r.get("scenario_id") or Path(r.get("source", r["file"])).stem,
            "lang": r.get("lang"), "snr_db": r.get("snr_db", "clean"), "noise": r.get("noise"),
-           "speaker": r.get("speaker"), "accent": r.get("accent"), "ref": ref, "hyp": hyp,
+           "speaker": r.get("speaker"), "accent": r.get("accent"), "accent_group": accent_group(r),
+           "source_kind": "tts" if r.get("tts_model") else "real", "ref": ref, "hyp": hyp,
            "lang_pred": h.get("language"), "language_prob": h.get("language_prob"), "duration": dur}
     if not M.tokens(ref):                                   # reiner Lärm → Halluzination
         row.update(noise_only=True, halluc_words=len(M.tokens(hyp)), minutes=(dur or 0) / 60)
@@ -74,11 +92,40 @@ def score(r: dict, h: dict, terms: list[str]) -> dict:
     w, c = M.wer_counts(ref, hyp), M.cer_counts(ref, hyp)
     th, tt, missed = M.term_hits(ref, hyp, terms)
     nh, nt = M.number_hits(ref, hyp)
+    for kind in NUM_KINDS:
+        row[f"{kind}_hit"], row[f"{kind}_total"] = M.numeric_hits(ref, hyp).get(kind, (0, 0))
     row.update(noise_only=False, errors=w["errors"], n_ref=w["n_ref"], sub=w["sub"], dele=w["del"], ins=w["ins"],
                char_errors=c["errors"], n_chars=c["n_ref"], term_hit=th, term_total=tt, term_missed=missed,
                num_hit=nh, num_total=nt, lang_ok=(r.get("lang") == h.get("language")) if r.get("lang") else None,
                word_scores=M.hyp_word_correctness(ref, words))
     return row
+
+
+GROUPINGS = (("lang",), ("snr_db",), ("lang", "snr_db"), ("accent_group",), ("accent_group", "snr_db"),
+             ("lang", "snr_db", "accent_group"), ("source_kind",), ("source_kind", "snr_db"), ("accent",), ("noise",))
+
+
+def calibration(rows: list[dict]) -> dict | None:
+    pairs = [p for r in rows for p in r["word_scores"]]
+    if not pairs or len({p[1] for p in pairs}) < 2:
+        return None
+    sc, ok = [p[0] for p in pairs], [p[1] for p in pairs]
+    return {"auroc_correct_vs_wrong": M.auroc(sc, ok), "ece": M.ece(sc, ok), "n_words": len(pairs),
+            "word_acc": sum(ok) / len(ok)}
+
+
+def latency(rows: list[dict]) -> dict:
+    """Pro Clip (ohne den ersten Aufruf = Modell-Laden/Warm-up). RTF = Rechenzeit / Audiodauer."""
+    r = sorted(rows[1:] if len(rows) > 1 else rows, key=lambda x: x["elapsed_s"])
+    if not r:
+        return {}
+    q = lambda p: r[min(len(r) - 1, int(p * len(r)))]["elapsed_s"]  # noqa: E731
+    dur = sum(x["duration"] or 0 for x in r)
+    rtfs = sorted(x["elapsed_s"] / x["duration"] for x in r if x["duration"])
+    return {"rtf": sum(x["elapsed_s"] for x in r) / dur if dur else None,
+            "rtf_p95": rtfs[min(len(rtfs) - 1, int(0.95 * len(rtfs)))] if rtfs else None,
+            "latency_p50_s": q(0.5), "latency_p95_s": q(0.95), "latency_max_s": r[-1]["elapsed_s"],
+            "warmup_s": rows[0]["elapsed_s"], "audio_s_mean": dur / len(r), "n": len(r)}
 
 
 def summarize(rows: list[dict]) -> dict:
@@ -89,18 +136,22 @@ def summarize(rows: list[dict]) -> dict:
         "CER": M.cluster_bootstrap(items, M.ratio("char_errors", "n_chars")),
         "term_recall": M.cluster_bootstrap(items, M.ratio("term_hit", "term_total")),
         "number_recall": M.cluster_bootstrap(items, M.ratio("num_hit", "num_total")),
+        **{f"{k}_recall": M.cluster_bootstrap(items, M.ratio(f"{k}_hit", f"{k}_total")) for k in NUM_KINDS},
+        "n_terms": sum(i["term_total"] for i in items),
+        **{f"n_{k}": sum(i[f"{k}_total"] for i in items) for k in NUM_KINDS},
         "lang_id_acc": M.cluster_bootstrap([i for i in items if i["lang_ok"] is not None], M.mean_of("lang_ok")),
         "n": len(items),
     }
     out: dict = {"overall": S(speech)}
-    for keys in (("lang",), ("snr_db",), ("lang", "snr_db"), ("accent",), ("noise",)):
+    for keys in GROUPINGS:
         out["by_" + "_x_".join(keys)] = {"|".join(map(str, k)): S(v) for k, v in M.group_by(speech, *keys).items()
                                         if any(x is not None for x in k)}
-    pairs = [p for r in speech for p in r["word_scores"]]
-    if pairs:
-        sc, ok = [p[0] for p in pairs], [p[1] for p in pairs]
-        out["word_score_calibration"] = {"auroc_correct_vs_wrong": M.auroc(sc, ok), "ece": M.ece(sc, ok),
-                                         "n_words": len(pairs)}
+    if (c := calibration(speech)) is not None:
+        out["word_score_calibration"] = c
+        out["word_score_calibration_by_snr_db"] = {
+            str(k[0]): cc for k, v in M.group_by(speech, "snr_db").items() if (cc := calibration(v)) is not None}
+        out["word_score_calibration_by_source_kind"] = {
+            str(k[0]): cc for k, v in M.group_by(speech, "source_kind").items() if (cc := calibration(v)) is not None}
     if noise:
         mins = sum(r["minutes"] for r in noise)
         out["hallucination"] = {"words_per_min": sum(r["halluc_words"] for r in noise) / mins if mins else None,
@@ -114,29 +165,100 @@ def summarize(rows: list[dict]) -> dict:
     return out
 
 
+def _err(d: dict) -> dict:
+    """Recall-KI → Fehlerrate-KI (1 − Recall, Grenzen getauscht)."""
+    return {**d, "value": 1 - d["value"], "lo": 1 - d["hi"], "hi": 1 - d["lo"]}
+
+
 def to_markdown(s: dict) -> str:
-    lines = ["# ASR-Benchmark", "", "Werte in %, [95 %-KI, Szenario-Bootstrap]", ""]
-    hdr = "| Gruppe | n | WER ↓ | CER ↓ | Fachbegriffe ↑ | Zahlen ↑ | Sprach-ID ↑ |"
-    sep = "|---|---|---|---|---|---|---|"
+    lines = ["# ASR-Benchmark", "", "Werte in %, [95 %-KI, Szenario-/Sprecher-Bootstrap]. Fachbegriff-Fehler = Anteil der "
+             "Fachbegriff-Vorkommen der Referenz, die in der Hypothese fehlen. Zahlen: Uhrzeit/Datum/Menge (Zahl + "
+             "Einheit)/sonstige Zahl, Schreibweisen vereinheitlicht (7.30 Uhr = 07:30, 190 Kubik = 190 m³).", ""]
+    hdr = ("| Gruppe | n | WER ↓ | CER ↓ | Fachbegriff-Fehler ↓ (n) | Uhrzeit ↑ (n) | Datum ↑ (n) | Menge ↑ (n) "
+           "| Zahl ↑ (n) | Sprach-ID ↑ |")
+    sep = "|---|---|---|---|---|---|---|---|---|---|"
+
+    def cell(d, n):
+        return f"{M.fmt_ci(d)} ({n})" if n else "–"
 
     def row(name, d):
-        return (f"| {name} | {d['n']} | {M.fmt_ci(d['WER'])} | {M.fmt_ci(d['CER'])} | {M.fmt_ci(d['term_recall'])} "
-                f"| {M.fmt_ci(d['number_recall'])} | {M.fmt_ci(d['lang_id_acc'])} |")
+        return (f"| {name} | {d['n']} | {M.fmt_ci(d['WER'])} | {M.fmt_ci(d['CER'])} "
+                f"| {cell(_err(d['term_recall']), d['n_terms'])} | {cell(d['time_recall'], d['n_time'])} "
+                f"| {cell(d['date_recall'], d['n_date'])} | {cell(d['quantity_recall'], d['n_quantity'])} "
+                f"| {cell(d['number_recall'], d['n_number'])} | {M.fmt_ci(d['lang_id_acc'])} |")
     lines += [hdr, sep, row("gesamt", s["overall"])]
-    for key in ("by_lang", "by_snr_db", "by_lang_x_snr_db", "by_accent", "by_noise"):
-        for g, d in s.get(key, {}).items():
-            lines.append(row(f"{key[3:]}={g}", d))
+    for key in ["by_" + "_x_".join(k) for k in GROUPINGS]:
+        if s.get(key):
+            lines += ["", f"**{key[3:]}**", "", hdr, sep]
+            lines += [row(g, d) for g, d in s[key].items()]
     if "word_score_calibration" in s:
         c = s["word_score_calibration"]
-        lines += ["", f"Wort-Score-Kalibrierung: AUROC {c['auroc_correct_vs_wrong']:.3f}, ECE {c['ece']:.3f} "
-                      f"({c['n_words']} Wörter)"]
+        lines += ["", "## Wort-Score (asr_score) – trennt er richtige von falschen Wörtern?", "",
+                  "| Gruppe | AUROC ↑ | ECE ↓ | Wort-Genauigkeit | Wörter |", "|---|---|---|---|---|",
+                  f"| gesamt | {c['auroc_correct_vs_wrong']:.3f} | {c['ece']:.3f} | {100 * c['word_acc']:.1f} % "
+                  f"| {c['n_words']} |"]
+        for key in ("word_score_calibration_by_snr_db", "word_score_calibration_by_source_kind"):
+            for g, c in s.get(key, {}).items():
+                lines.append(f"| {key.split('_by_')[1]}={g} | {c['auroc_correct_vs_wrong']:.3f} | {c['ece']:.3f} "
+                             f"| {100 * c['word_acc']:.1f} % | {c['n_words']} |")
+    if s.get("latency"):
+        L = s["latency"]
+        lines += ["", "## Laufzeit (ohne Warm-up)", "",
+                  f"RTF {L['rtf']:.3f} (p95 {L['rtf_p95']:.3f}) · Latenz je Clip p50 {L['latency_p50_s']:.2f} s, "
+                  f"p95 {L['latency_p95_s']:.2f} s, max {L['latency_max_s']:.2f} s · Ø Audiodauer "
+                  f"{L['audio_s_mean']:.1f} s · Warm-up {L['warmup_s']:.1f} s · n={L['n']}"]
     if "hallucination" in s:
         h = s["hallucination"]
-        lines += [f"Halluzination auf reinem Lärm: {h['words_per_min'] or 0:.1f} Wörter/min, "
-                  f"{100 * h['clips_with_output']:.0f} % der Clips mit Ausgabe ({h['n_clips']} Clips)"]
+        lines += ["", f"Halluzination auf reinem Lärm/Stille: {h['words_per_min'] or 0:.1f} Wörter/min, "
+                      f"{100 * h['clips_with_output']:.0f} % der Clips mit Ausgabe ({h['n_clips']} Clips)"]
     if s.get("most_missed_terms"):
         lines += ["", "Häufigste verfehlte Fachbegriffe: " + ", ".join(f"{t} ({k})" for t, k in s["most_missed_terms"])]
     return "\n".join(lines) + "\n"
+
+
+def plot_curves(s: dict, out: Path) -> list[str]:
+    """WER/Fachbegriff-Fehler/Zahlen-Recall über SNR, je Sprache und je Akzentgruppe (mit 95 %-KI)."""
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+    except ImportError:
+        return []
+    order = lambda g: float("inf") if g == "clean" else float(g)  # noqa: E731
+    files = []
+    for key, label in (("by_lang_x_snr_db", "Sprache"), ("by_accent_group_x_snr_db", "Akzentgruppe"),
+                       ("by_source_kind_x_snr_db", "Quelle")):
+        series: dict[str, list] = {}
+        for g, d in s.get(key, {}).items():
+            name, snr = g.split("|")
+            if snr in ("None",):
+                continue
+            series.setdefault(name, []).append((snr, d))
+        if not series:
+            continue
+        fig, axes = plt.subplots(1, 3, figsize=(15, 4.2))
+        for ax, (metric, title, err) in zip(axes, (("WER", "WER ↓", False), ("term_recall", "Fachbegriff-Fehler ↓", True),
+                                                   ("number_recall", "Zahlen-Recall ↑", False))):
+            for name, pts in sorted(series.items()):
+                pts = sorted(pts, key=lambda p: order(p[0]))
+                xs = list(range(len(pts)))
+                ds = [_err(p[1][metric]) if err else p[1][metric] for p in pts]
+                ys = [100 * d["value"] for d in ds]
+                lo = [100 * (d["value"] - d["lo"]) if d["lo"] == d["lo"] else 0 for d in ds]
+                hi = [100 * (d["hi"] - d["value"]) if d["hi"] == d["hi"] else 0 for d in ds]
+                ax.errorbar(xs, ys, yerr=[lo, hi], marker="o", capsize=3, label=f"{name}")
+                ax.set_xticks(xs, [f"{p[0]} dB" if p[0] != "clean" else "clean" for p in pts])
+            ax.set_title(title)
+            ax.set_xlabel("SNR")
+            ax.set_ylabel("%")
+            ax.grid(alpha=0.3)
+        axes[0].legend(title=label, fontsize=8)
+        fig.tight_layout()
+        f = out / f"curve_{key[3:]}.png"
+        fig.savefig(f, dpi=130)
+        plt.close(fig)
+        files.append(f.name)
+    return files
 
 
 def main() -> None:
@@ -145,8 +267,9 @@ def main() -> None:
     ap.add_argument("--hyps", type=Path, help="vorhandene Hypothesen (jsonl mit id) statt live transkribieren")
     ap.add_argument("--terms", type=Path, help="Fachbegriffe, eine Zeile je Begriff (Standard: aus models.toml)")
     ap.add_argument("--out", required=True, type=Path)
+    ap.add_argument("--limit", type=int, default=None, help="nur die ersten n Zeilen (Smoke-Test)")
     a = ap.parse_args()
-    manifest = load_jsonl(a.manifest)
+    manifest = load_jsonl(a.manifest)[: a.limit]
     terms = ([t.strip() for t in a.terms.read_text(encoding="utf-8").splitlines() if t.strip()]
              if a.terms else default_terms())
     hyps = {h["id"]: h for h in load_jsonl(a.hyps)} if a.hyps else None
@@ -160,9 +283,12 @@ def main() -> None:
     s = summarize(rows)
     dur = sum(r["duration"] or 0 for r in rows)
     s["rtf"] = sum(r["elapsed_s"] for r in rows) / dur if dur and hyps is None else None
+    s["latency"] = latency(rows) if hyps is None else {}
     s["config"] = {k: settings.models()["asr"].get(k) for k in ("backend", "model", "language", "beam_size")}
     (a.out / "summary.json").write_text(json.dumps(s, ensure_ascii=False, indent=1, default=str), encoding="utf-8")
     md = to_markdown(s)
+    plots = plot_curves(s, a.out)
+    md += "".join(f"\n![{p}]({p})\n" for p in plots)
     (a.out / "summary.md").write_text(md, encoding="utf-8")
     print("\n" + md)
 
