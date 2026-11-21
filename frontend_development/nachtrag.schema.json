@@ -1,0 +1,278 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.org/site-manager-ai/nachtrag.schema.json",
+  "title": "Nachtragsangebot",
+  "description": "Change order / additional cost claim of the contractor (Auftragnehmer) to the client (Auftraggeber). Structure for drafting with the AI Site Manager Assistant. Draft only, no legal advice: claim basis, deadlines and prices must be checked by the Bauleiter / company.",
+  "type": "object",
+  "required": ["meta", "reference", "claim_basis", "change_description", "price_basis", "positions", "totals", "sources", "review"],
+  "additionalProperties": false,
+  "properties": {
+
+    "meta": {
+      "title": "Kopfdaten",
+      "type": "object",
+      "required": ["nachtrag_id", "date", "project", "contractor", "client", "subject"],
+      "additionalProperties": false,
+      "properties": {
+        "nachtrag_id": { "type": "string", "description": "e.g. NT-003" },
+        "version": { "type": "integer", "minimum": 1, "default": 1 },
+        "date": { "type": "string", "format": "date" },
+        "subject": { "type": "string", "description": "Betreff" },
+        "project": {
+          "type": "object",
+          "required": ["name"],
+          "additionalProperties": false,
+          "properties": {
+            "name": { "type": "string" },
+            "project_no": { "type": "string" },
+            "contract_no": { "type": "string" },
+            "contract_type": { "type": "string", "description": "e.g. Einheitspreisvertrag, VOB/B vereinbart" },
+            "address": { "type": "string" }
+          }
+        },
+        "contractor": {
+          "title": "Auftragnehmer (Absender)",
+          "type": "object",
+          "required": ["company", "bauleiter"],
+          "additionalProperties": false,
+          "properties": {
+            "company": { "type": "string" },
+            "address": { "type": "string" },
+            "bauleiter": { "type": "string" },
+            "phone": { "type": "string" },
+            "email": { "type": "string" }
+          }
+        },
+        "client": {
+          "title": "Auftraggeber (Empfänger)",
+          "type": "object",
+          "required": ["name"],
+          "additionalProperties": false,
+          "properties": {
+            "name": { "type": "string" },
+            "address": { "type": "string" },
+            "contact": { "type": "string" },
+            "copy_to": { "type": "array", "items": { "type": "string" }, "description": "Nachrichtlich, e.g. Objektüberwachung" }
+          }
+        }
+      }
+    },
+
+    "reference": {
+      "title": "Bezug / Veranlassung",
+      "type": "object",
+      "required": ["trigger"],
+      "additionalProperties": false,
+      "properties": {
+        "trigger": {
+          "type": "object",
+          "required": ["type", "by", "date"],
+          "additionalProperties": false,
+          "properties": {
+            "type": { "type": "string", "enum": ["schriftliche Anordnung", "mündliche Anordnung", "Planänderung", "Behinderung", "geänderte Umstände", "Sonstiges"] },
+            "by": { "type": "string", "description": "Name und Funktion der anordnenden Person" },
+            "date": { "type": "string", "format": "date-time" },
+            "content": { "type": "string" },
+            "source_refs": { "$ref": "#/$defs/sourceRefs" }
+          }
+        },
+        "related_incidents": { "type": "array", "items": { "type": "string" }, "description": "incident_ids from the Tagesbericht / timeline" },
+        "related_tagesberichte": { "type": "array", "items": { "type": "string" } },
+        "mehrkostenanzeige": {
+          "title": "Ankündigung der Mehrkosten",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "sent": { "type": "boolean" },
+            "reference": { "type": "string" },
+            "sent_at": { "type": ["string", "null"], "format": "date-time" },
+            "before_execution": { "type": "boolean", "description": "Vor Ausführungsbeginn angekündigt? (wichtig bei zusätzlichen Leistungen)" }
+          }
+        }
+      }
+    },
+
+    "claim_basis": {
+      "title": "Anspruchsgrundlage (Vorschlag, zu prüfen)",
+      "type": "object",
+      "required": ["category", "legal_refs"],
+      "additionalProperties": false,
+      "properties": {
+        "category": { "type": "string", "enum": ["geänderte Leistung", "zusätzliche Leistung", "Bauzeitverlängerung / Behinderung", "Mengenänderung", "Sonstiges"] },
+        "legal_refs": { "type": "array", "items": { "type": "string" }, "description": "e.g. § 1 Abs. 4 VOB/B, § 2 Abs. 6 VOB/B" },
+        "note": { "type": "string" }
+      }
+    },
+
+    "change_description": {
+      "title": "Beschreibung der Leistungsänderung",
+      "type": "object",
+      "required": ["summary", "location"],
+      "additionalProperties": false,
+      "properties": {
+        "summary": { "type": "string" },
+        "reason": { "type": "string" },
+        "location": { "type": "string" },
+        "affected_lv_positions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["lv_pos", "short_text"],
+            "additionalProperties": false,
+            "properties": {
+              "lv_pos": { "type": "string" },
+              "short_text": { "type": "string" },
+              "effect": { "type": "string" }
+            }
+          }
+        },
+        "plan_refs": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+
+    "price_basis": {
+      "title": "Preisermittlung",
+      "type": "object",
+      "required": ["method", "surcharges_pct"],
+      "additionalProperties": false,
+      "properties": {
+        "method": { "type": "string", "enum": ["Fortschreibung Urkalkulation", "tatsächlich erforderliche Kosten zzgl. Zuschläge", "vereinbarte Einheitspreise", "Stundenlohn"] },
+        "wage_rate_eur_h": { "type": "number", "minimum": 0, "description": "Mittellohn / Kalkulationslohn" },
+        "surcharges_pct": {
+          "type": "object",
+          "required": ["bgk", "agk", "wg"],
+          "additionalProperties": false,
+          "properties": {
+            "bgk": { "type": "number", "description": "Baustellengemeinkosten %" },
+            "agk": { "type": "number", "description": "Allgemeine Geschäftskosten %" },
+            "wg": { "type": "number", "description": "Wagnis und Gewinn %" }
+          }
+        },
+        "note": { "type": "string" }
+      }
+    },
+
+    "positions": {
+      "title": "Nachtragspositionen",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["pos", "short_text", "quantity", "unit", "unit_price_eur", "total_eur"],
+        "additionalProperties": false,
+        "properties": {
+          "pos": { "type": "string", "description": "e.g. N03.01" },
+          "short_text": { "type": "string" },
+          "long_text": { "type": "string" },
+          "quantity": { "type": "number", "minimum": 0 },
+          "unit": { "type": "string" },
+          "unit_price_eur": { "type": "number", "minimum": 0, "description": "Einheitspreis netto inkl. Zuschläge" },
+          "total_eur": { "type": "number", "minimum": 0 },
+          "calculation": {
+            "title": "Kostenansatz je Einheit (netto, vor Zuschlägen)",
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "labour_h": { "type": "number", "minimum": 0 },
+              "labour_eur": { "type": "number", "minimum": 0 },
+              "material_eur": { "type": "number", "minimum": 0 },
+              "equipment_eur": { "type": "number", "minimum": 0 },
+              "subcontractor_eur": { "type": "number", "minimum": 0 },
+              "direct_cost_eur": { "type": "number", "minimum": 0 }
+            }
+          },
+          "source_refs": { "$ref": "#/$defs/sourceRefs" }
+        }
+      }
+    },
+
+    "totals": {
+      "type": "object",
+      "required": ["net_eur", "vat_pct", "vat_eur", "gross_eur"],
+      "additionalProperties": false,
+      "properties": {
+        "net_eur": { "type": "number" },
+        "vat_pct": { "type": "number" },
+        "vat_eur": { "type": "number" },
+        "gross_eur": { "type": "number" }
+      }
+    },
+
+    "schedule_impact": {
+      "title": "Auswirkung auf die Bauzeit",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "extension_working_days": { "type": "number", "minimum": 0 },
+        "affected_activities": { "type": "array", "items": { "type": "string" } },
+        "description": { "type": "string" },
+        "reservation": { "type": "string", "description": "Vorbehalt weiterer Ansprüche" }
+      }
+    },
+
+    "conditions": {
+      "title": "Bedingungen",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "acceptance_deadline": { "type": "string", "format": "date", "description": "Bitte um Beauftragung bis" },
+        "execution_note": { "type": "string" },
+        "validity_note": { "type": "string" }
+      }
+    },
+
+    "attachments": { "type": "array", "items": { "type": "string" } },
+
+    "sources": {
+      "title": "Quellen / Evidenz",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["source_id", "type", "timestamp"],
+        "additionalProperties": false,
+        "properties": {
+          "source_id": { "type": "string" },
+          "type": { "type": "string", "enum": ["Sprachnotiz", "Textnotiz", "E-Mail", "Protokoll", "Foto", "Plan", "Bauzeitenplan", "Leistungsverzeichnis", "Kalkulation", "Sonstiges"] },
+          "timestamp": { "type": "string", "format": "date-time" },
+          "author": { "type": "string" },
+          "original_language": { "type": "string" },
+          "original_text": { "type": "string" },
+          "translation_de": { "type": ["string", "null"] },
+          "file": { "type": ["string", "null"] }
+        }
+      }
+    },
+
+    "review": {
+      "title": "Prüfung und Freigabe (Human in the loop)",
+      "type": "object",
+      "required": ["status", "ai_generated"],
+      "additionalProperties": false,
+      "properties": {
+        "status": { "type": "string", "enum": ["KI-Entwurf", "in Prüfung", "freigegeben", "versendet", "beauftragt", "abgelehnt"] },
+        "ai_generated": { "type": "boolean" },
+        "checks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["check", "result"],
+            "additionalProperties": false,
+            "properties": {
+              "check": { "type": "string" },
+              "result": { "type": "string", "enum": ["ok", "Hinweis", "offen"] },
+              "note": { "type": "string" }
+            }
+          }
+        },
+        "unsupported_statements": { "type": "array", "items": { "type": "string" } },
+        "open_questions": { "type": "array", "items": { "type": "string" } },
+        "reviewed_by": { "type": ["string", "null"] },
+        "approved_at": { "type": ["string", "null"], "format": "date-time" }
+      }
+    }
+  },
+
+  "$defs": {
+    "sourceRefs": { "type": "array", "items": { "type": "string" } }
+  }
+}

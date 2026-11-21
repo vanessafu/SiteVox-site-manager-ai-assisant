@@ -1,0 +1,452 @@
+{
+  "meta": {
+    "report_id": "TB-2026-11-20",
+    "date": "2026-11-20",
+    "report_no": 47,
+    "project": {
+      "name": "Neubau Bürogebäude München-Riem",
+      "project_no": "P-2026-014",
+      "contract_no": "V-2026-014-RB",
+      "address": "Musterstraße 12, 81829 München"
+    },
+    "contractor": {
+      "company": "Musterbau GmbH",
+      "bauleiter": "Anna Becker",
+      "polier": "Tomasz Nowak",
+      "personnel_change": null
+    },
+    "client": {
+      "name": "Riem Office Projekt GmbH & Co. KG",
+      "representative": "Architekturbüro Huber (Objektüberwachung)"
+    },
+    "author": "Anna Becker",
+    "working_hours": {
+      "start": "07:00",
+      "end": "16:30"
+    }
+  },
+  "weather": {
+    "condition": "Regen",
+    "temp_min_c": 2,
+    "temp_max_c": 7,
+    "precipitation_mm": 6,
+    "wind": "schwach",
+    "work_possible": true,
+    "impact_note": "Ab 14:00 Regen, Betonage UG-Wände mit Abdeckung fortgesetzt.",
+    "source_refs": [
+      "WEATHER-DWD",
+      "VOICE-02"
+    ]
+  },
+  "workforce": [
+    {
+      "company": "Musterbau GmbH",
+      "is_subcontractor": false,
+      "trade": "Betonbauer",
+      "count": 8,
+      "hours_total": 76,
+      "idle_hours": 32,
+      "source_refs": [
+        "VOICE-01"
+      ]
+    },
+    {
+      "company": "Musterbau GmbH",
+      "is_subcontractor": false,
+      "trade": "Polier",
+      "count": 1,
+      "hours_total": 9.5,
+      "idle_hours": 0,
+      "source_refs": [
+        "VOICE-01"
+      ]
+    },
+    {
+      "company": "Eisen Kowalski GmbH",
+      "is_subcontractor": true,
+      "trade": "Eisenflechter",
+      "count": 4,
+      "hours_total": 38,
+      "idle_hours": 0,
+      "source_refs": [
+        "VOICE-02"
+      ]
+    }
+  ],
+  "equipment": [
+    {
+      "name": "Turmdrehkran Liebherr 172 EC-B",
+      "count": 1,
+      "status": "im Einsatz",
+      "hours_planned": 9,
+      "hours_operated": 9,
+      "source_refs": [
+        "VOICE-02"
+      ]
+    },
+    {
+      "name": "Autobetonpumpe 36 m",
+      "count": 1,
+      "status": "Stillstand",
+      "hours_planned": 8,
+      "hours_operated": 4.5,
+      "downtime": {
+        "from": "07:00",
+        "to": "11:00"
+      },
+      "downtime_cause": "Warten auf Betonlieferung",
+      "source_refs": [
+        "VOICE-01",
+        "MAIL-001"
+      ]
+    }
+  ],
+  "deliveries": [
+    {
+      "material": "Transportbeton C30/37 XC4",
+      "quantity": 65,
+      "unit": "m³",
+      "supplier": "Beton Süd GmbH",
+      "supplied_by": "AN",
+      "planned_time": "07:00",
+      "actual_time": "11:00",
+      "delay_minutes": 240,
+      "delivery_note_no": "LS-88412 bis LS-88420",
+      "source_refs": [
+        "MAIL-001",
+        "VOICE-01"
+      ]
+    },
+    {
+      "material": "Betonstahl B500B, Stäbe",
+      "quantity": 12.4,
+      "unit": "t",
+      "supplier": "Stahlhandel Mayer",
+      "supplied_by": "AN",
+      "planned_time": "08:00",
+      "actual_time": "08:15",
+      "delay_minutes": 15,
+      "delivery_note_no": "LS-20871",
+      "source_refs": [
+        "VOICE-02"
+      ]
+    }
+  ],
+  "work_performed": [
+    {
+      "activity_id": "A-120",
+      "description": "Betonage Außenwände UG, Achsen 1–6",
+      "location": "UG, Achsen 1–6",
+      "company": "Musterbau GmbH",
+      "quantity_planned": 100,
+      "quantity_actual": 65,
+      "unit": "m³",
+      "progress_pct": 65,
+      "covered_work": false,
+      "source_refs": [
+        "VOICE-01",
+        "PLAN"
+      ]
+    },
+    {
+      "activity_id": "A-125",
+      "description": "Bewehrung Außenwände UG, Achsen 7–10",
+      "location": "UG, Achsen 7–10",
+      "company": "Eisen Kowalski GmbH",
+      "quantity_planned": 12,
+      "quantity_actual": 12,
+      "unit": "t",
+      "progress_pct": 100,
+      "covered_work": true,
+      "source_refs": [
+        "VOICE-02",
+        "PHOTO-03"
+      ]
+    }
+  ],
+  "incidents": [
+    {
+      "incident_id": "EV-2026-11-20-01",
+      "type": "Lieferverzug",
+      "time": {
+        "from": "07:00",
+        "to": "11:00"
+      },
+      "description": "Betonlieferung für A-120 kam ca. 4 Stunden verspätet. 8 Betonbauer und die Betonpumpe standen still. Statt 100 m³ wurden nur 65 m³ eingebaut.",
+      "cause": "Mischanlage des Lieferanten ausgefallen (laut E-Mail Beton Süd, 07:40).",
+      "responsibility_sphere": "AN",
+      "sphere_reasoning": "Der Betonlieferant ist vom AN beauftragt (MAIL-001). Verzug eigener Lieferanten liegt in der Regel im eigenen Risikobereich, daher keine Behinderungsanzeige an den AG.",
+      "instructing_person": null,
+      "affected_activities": [
+        "A-120",
+        "A-130"
+      ],
+      "impact": {
+        "delay_hours": 4,
+        "idle_workers": 8,
+        "idle_equipment": [
+          "Autobetonpumpe 36 m"
+        ],
+        "schedule_impact": "Rest 35 m³ am 21.11. nachholen; Puffer A-120 aufgebraucht.",
+        "cost_estimate_eur": 2400
+      },
+      "suggested_notice": "interne Dokumentation",
+      "notice_deadline_hint": "Regress gegenüber Lieferant prüfen (Einkauf informieren).",
+      "notice_status": "offen",
+      "source_refs": [
+        "VOICE-01",
+        "MAIL-001",
+        "PHOTO-01",
+        "PLAN"
+      ]
+    },
+    {
+      "incident_id": "EV-2026-11-20-02",
+      "type": "Behinderung",
+      "time": {
+        "from": "07:00",
+        "to": null
+      },
+      "description": "Freigegebene Bewehrungspläne für die Decke über UG (Pos. D-UG-01 bis D-UG-04) liegen nicht vor. Die Bewehrungsarbeiten A-130 können am 24.11. nicht wie geplant beginnen.",
+      "cause": "Planlieferung durch den Tragwerksplaner des AG verzögert. Zugesagter Termin laut Protokoll vom 13.11.: 18.11.2026.",
+      "responsibility_sphere": "AG",
+      "sphere_reasoning": "Ausführungspläne sind vom AG zu liefern. Termin 18.11. ist im Baubesprechungsprotokoll festgehalten (PROT-2026-11-13). E-Mail des Tragwerksplaners kündigt Lieferung erst für 27.11. an (MAIL-002).",
+      "instructing_person": null,
+      "affected_activities": [
+        "A-130",
+        "A-140",
+        "A-150"
+      ],
+      "impact": {
+        "delay_hours": null,
+        "idle_workers": 0,
+        "idle_equipment": [],
+        "schedule_impact": "Beginn A-130 verschiebt sich voraussichtlich vom 24.11. auf frühestens 30.11.; Meilenstein 'Rohbau UG fertig' (05.12.) gefährdet.",
+        "cost_estimate_eur": null
+      },
+      "suggested_notice": "Behinderungsanzeige",
+      "notice_deadline_hint": "Unverzüglich und schriftlich anzeigen (§ 6 Abs. 1 VOB/B, vom Bauleiter zu prüfen).",
+      "notice_status": "Entwurf",
+      "source_refs": [
+        "PROT-2026-11-13",
+        "MAIL-002",
+        "PLAN",
+        "VOICE-03"
+      ]
+    },
+    {
+      "incident_id": "EV-2026-11-20-03",
+      "type": "Anordnung AG",
+      "time": {
+        "from": "11:30",
+        "to": null
+      },
+      "description": "Objektüberwachung ordnet per E-Mail 6 zusätzliche Wandaussparungen DN 300 für Lüftungsleitungen in den Außenwänden UG, Achsen 7–10, an. Die Bewehrung dort ist bereits verlegt.",
+      "cause": "Nachträgliche Änderung der TGA-Planung (Plan L-UG-07 Index b).",
+      "responsibility_sphere": "AG",
+      "sphere_reasoning": "Leistung ist nicht im LV enthalten und wurde vom AG über die Objektüberwachung angeordnet (MAIL-003).",
+      "instructing_person": "Herr Huber, Architekturbüro Huber (Objektüberwachung)",
+      "affected_activities": [
+        "A-126"
+      ],
+      "impact": {
+        "delay_hours": null,
+        "idle_workers": 0,
+        "idle_equipment": [],
+        "schedule_impact": "Betonage Achsen 7–10 verschiebt sich voraussichtlich um 1 Arbeitstag.",
+        "cost_estimate_eur": 2154.96
+      },
+      "suggested_notice": "Mehrkostenanzeige",
+      "notice_deadline_hint": "Vor Beginn der Ausführung ankündigen (§ 2 Abs. 6 VOB/B, vom Bauleiter zu prüfen). Nachtragsangebot NT-003 als Entwurf erstellt.",
+      "notice_status": "versendet",
+      "source_refs": [
+        "MAIL-003",
+        "VOICE-04",
+        "PLAN"
+      ]
+    }
+  ],
+  "deviations": [
+    {
+      "activity_id": "A-120",
+      "metric": "Betonmenge",
+      "planned": 100,
+      "actual": 65,
+      "unit": "m³",
+      "deviation_pct": -35,
+      "severity": "hoch",
+      "milestone_at_risk": null,
+      "linked_incident_ids": [
+        "EV-2026-11-20-01"
+      ]
+    },
+    {
+      "activity_id": "A-120",
+      "metric": "Gerätestunden Betonpumpe",
+      "planned": 8,
+      "actual": 4.5,
+      "unit": "h",
+      "deviation_pct": -43.8,
+      "severity": "mittel",
+      "milestone_at_risk": null,
+      "linked_incident_ids": [
+        "EV-2026-11-20-01"
+      ]
+    },
+    {
+      "activity_id": "A-130",
+      "metric": "Startbereitschaft (Pläne vorhanden)",
+      "planned": 1,
+      "actual": 0,
+      "unit": "ja/nein",
+      "deviation_pct": -100,
+      "severity": "kritisch",
+      "milestone_at_risk": "Rohbau UG fertig (05.12.2026)",
+      "linked_incident_ids": [
+        "EV-2026-11-20-02"
+      ]
+    }
+  ],
+  "photos": [
+    {
+      "photo_id": "PHOTO-01",
+      "file": "photos/2026-11-20_0815_ug_wartend.jpg",
+      "timestamp": "2026-11-20T08:15:00+01:00",
+      "location": "UG, Achse 3",
+      "caption_de": "Schalung UG-Wände betonierbereit, Kolonne wartet auf Beton.",
+      "related_ids": [
+        "EV-2026-11-20-01"
+      ]
+    },
+    {
+      "photo_id": "PHOTO-03",
+      "file": "photos/2026-11-20_1530_bewehrung_achse7-10.jpg",
+      "timestamp": "2026-11-20T15:30:00+01:00",
+      "location": "UG, Achsen 7–10",
+      "caption_de": "Bewehrung Außenwände vor dem Schließen der Schalung.",
+      "related_ids": [
+        "A-125"
+      ]
+    }
+  ],
+  "sources": [
+    {
+      "source_id": "VOICE-01",
+      "type": "Sprachnotiz",
+      "timestamp": "2026-11-20T10:20:00+01:00",
+      "author": "Tomasz Nowak (Polier)",
+      "original_language": "pl",
+      "original_text": "Beton przyjechał dopiero o jedenastej, zamiast o siódmej. Ośmiu ludzi i pompa czekali cztery godziny. Wylaliśmy tylko 65 kubików zamiast stu.",
+      "translation_de": "Der Beton kam erst um elf statt um sieben. Acht Leute und die Pumpe haben vier Stunden gewartet. Wir haben nur 65 Kubik statt hundert eingebaut.",
+      "file": "audio/voice-01.m4a"
+    },
+    {
+      "source_id": "VOICE-02",
+      "type": "Sprachnotiz",
+      "timestamp": "2026-11-20T16:10:00+01:00",
+      "author": "Anna Becker (Bauleiterin)",
+      "original_language": "de",
+      "original_text": "Kowalski mit vier Mann, Bewehrung Achse sieben bis zehn fertig. Kran den ganzen Tag im Einsatz. Ab zwei Regen, Wände abgedeckt.",
+      "translation_de": null,
+      "file": "audio/voice-02.m4a"
+    },
+    {
+      "source_id": "VOICE-03",
+      "type": "Sprachnotiz",
+      "timestamp": "2026-11-20T16:15:00+01:00",
+      "author": "Anna Becker (Bauleiterin)",
+      "original_language": "de",
+      "original_text": "Die Deckenpläne UG sind immer noch nicht da. Montag sollte Kowalski mit der Decke anfangen, das geht so nicht.",
+      "translation_de": null,
+      "file": "audio/voice-03.m4a"
+    },
+    {
+      "source_id": "MAIL-001",
+      "type": "E-Mail",
+      "timestamp": "2026-11-20T07:40:00+01:00",
+      "author": "Disposition Beton Süd GmbH",
+      "original_language": "de",
+      "original_text": "Aufgrund eines Defekts an unserer Mischanlage verzögert sich Ihre Lieferung heute um ca. 3–4 Stunden.",
+      "translation_de": null,
+      "file": "mails/mail-001.eml"
+    },
+    {
+      "source_id": "MAIL-002",
+      "type": "E-Mail",
+      "timestamp": "2026-11-19T17:05:00+01:00",
+      "author": "Ing.-Büro Statik Weber (Tragwerksplanung AG)",
+      "original_language": "de",
+      "original_text": "Die Bewehrungspläne Decke über UG können wir leider erst am 27.11. freigeben.",
+      "translation_de": null,
+      "file": "mails/mail-002.eml"
+    },
+    {
+      "source_id": "PROT-2026-11-13",
+      "type": "Protokoll",
+      "timestamp": "2026-11-13T10:00:00+01:00",
+      "author": "Architekturbüro Huber",
+      "original_language": "de",
+      "original_text": "TOP 4: Bewehrungspläne Decke UG werden durch Tragwerksplanung bis 18.11.2026 freigegeben. Verantwortlich: Statik Weber.",
+      "translation_de": null,
+      "file": "docs/protokoll-2026-11-13.pdf"
+    },
+    {
+      "source_id": "PLAN",
+      "type": "Bauzeitenplan",
+      "timestamp": "2026-10-01T00:00:00+02:00",
+      "author": "Musterbau GmbH",
+      "original_language": "de",
+      "original_text": "A-120 Betonage Wände UG 20.11.–21.11. (100 m³/Tag); A-130 Bewehrung Decke UG ab 24.11.; Meilenstein Rohbau UG 05.12.",
+      "translation_de": null,
+      "file": "data/bauzeitenplan.csv"
+    },
+    {
+      "source_id": "WEATHER-DWD",
+      "type": "Wetterdienst",
+      "timestamp": "2026-11-20T18:00:00+01:00",
+      "author": "DWD (API)",
+      "original_language": "de",
+      "original_text": "München: min 2 °C, max 7 °C, Niederschlag 6 mm.",
+      "translation_de": null,
+      "file": null
+    },
+    {
+      "source_id": "MAIL-003",
+      "type": "E-Mail",
+      "timestamp": "2026-11-20T11:30:00+01:00",
+      "author": "Architekturbüro Huber",
+      "original_language": "de",
+      "original_text": "Bitte in den Außenwänden UG, Achsen 7–10, sechs Aussparungen DN 300 für die Lüftung gemäß beigefügtem TGA-Plan L-UG-07 b vorsehen. Die Lage ist mit der TGA abgestimmt.",
+      "translation_de": null,
+      "file": "mails/mail-003.eml"
+    },
+    {
+      "source_id": "VOICE-04",
+      "type": "Sprachnotiz",
+      "timestamp": "2026-11-20T12:05:00+01:00",
+      "author": "Tomasz Nowak (Polier)",
+      "original_language": "pl",
+      "original_text": "Zbrojenie w osiach od siódmej do dziesiątej jest już gotowe. Na otwory trzeba będzie część prętów wyciąć i dołożyć dodatkowe.",
+      "translation_de": "Die Bewehrung in den Achsen 7 bis 10 ist schon fertig. Für die Öffnungen müssen wir einen Teil der Stäbe herausschneiden und zusätzliche einbauen.",
+      "file": "audio/voice-04.m4a"
+    }
+  ],
+  "remarks": null,
+  "review": {
+    "status": "in Prüfung",
+    "ai_generated": true,
+    "unsupported_statements": [
+      "cost_estimate_eur 2400 bei EV-2026-11-20-01: aus Standard-Stundensätzen geschätzt, nicht belegt."
+    ],
+    "open_questions": [
+      "Soll der Einkauf wegen Regress gegen Beton Süd informiert werden?",
+      "Behinderungsanzeige EV-2026-11-20-02 heute an Riem Office Projekt senden? Entwurf liegt vor.",
+      "Nachtragsangebot NT-003 (Aussparungen DN 300) prüfen und freigeben?"
+    ],
+    "reviewed_by": null,
+    "approved_at": null,
+    "signature_contractor": null,
+    "signature_client": null,
+    "change_log": []
+  }
+}
