@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { AlertTriangle, FilePlus2, FileText } from "lucide-react";
+import { AlertTriangle, FilePlus2, FileText, RotateCcw } from "lucide-react";
 import { post, pct } from "@/lib/api";
 import { BandDot, ConfidencePill, Elapsed, SphereChip, StatusChip } from "./ui";
 import { useT } from "@/lib/i18n";
@@ -24,6 +24,12 @@ export function EventDetail({ e, onChanged }: { e: any; onChanged?: () => void }
     setBusy(false);
     onChanged?.();
   };
+  const reset = async () => {
+    setBusy(true);
+    await post(`/api/events/${e.event_id}/sphere/reset`);
+    setBusy(false);
+    onChanged?.();
+  };
   const fields = e.confidence?.fields || {};
   return (
     <div className="space-y-3">
@@ -38,6 +44,10 @@ export function EventDetail({ e, onChanged }: { e: any; onChanged?: () => void }
           {["AG", "AN", "neutral"].map((s) => (
             <button key={s} disabled={busy} onClick={() => confirm(s)} className={`btn-xs ${e.sphere === s && e.sphere_confirmed ? "bg-slate-900 text-white" : ""}`}>{t("{s} bestätigen", { s })}</button>
           ))}
+          <button disabled={busy || !e.sphere_confirmed} onClick={reset} className="btn-xs disabled:opacity-40"
+            title={t(e.sphere_confirmed ? "Bestätigung zurücknehmen – Sphäre wieder als Vorschlag des Regelwerks" : "Noch nicht bestätigt")}>
+            <RotateCcw className="h-3.5 w-3.5" /> {t("Zurücksetzen")}
+          </button>
         </div>
       </div>
       <div className="text-xs">
@@ -90,7 +100,7 @@ export default function EventCard({ e, pid, onOpen, onChanged }: { e: any; pid: 
       className={`card row-click flex items-start gap-3 p-3 ${letterNeeded ? "" : "opacity-70"}`}>
       <div className="min-w-0 flex-1 space-y-1">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="font-medium">{t(e.label)}{e.affected_activities?.length ? ` – ${e.affected_activities.join(", ")}` : ""}</span>
+          <span className="font-medium">{t(e.label)}{e.affected_activities?.length ? ` – ${e.affected_activities.map((a: string) => t(a)).join(", ")}` : ""}</span>
           {e.on_critical_path && <span className="pill bg-bad-soft text-bad-text">{t("kritischer Pfad")}</span>}
         </div>
         <div className="flex flex-wrap items-center gap-2 text-2xs text-slate-600">

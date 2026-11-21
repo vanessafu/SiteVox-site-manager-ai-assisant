@@ -9,6 +9,7 @@ data/BV-*/
 data/index/
 data/serve_*.log
 data/asr_eval/
+data/raw/
 # Frontend
 frontend/node_modules/
 frontend/.next/
