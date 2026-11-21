@@ -4,9 +4,9 @@ import { ChevronDown, Mic, Plus, RotateCcw, X } from "lucide-react";
 import { post, useApi } from "@/lib/api";
 import { useT } from "@/lib/i18n";
 
-type Term = { term: string; category: string; count: number; sources: string[]; in_prompt: boolean };
+type Term = { term: string; category: string; count: number; sources: string[]; in_prompt: boolean; from_audio: boolean; audio_only: boolean };
 type Vocab = {
-  initial_prompt: string | null; hotwords: string[]; used: number; total: number;
+  initial_prompt: string | null; hotwords: string[]; used: number; total: number; from_audio: number; audio_only: number;
   groups: { category: string; label: string; terms: Term[] }[]; removed: string[];
 };
 
@@ -30,7 +30,7 @@ export default function AsrVocabulary({ pid }: { pid: string }) {
         <div className="min-w-0 flex-1">
           <h2 className="text-base font-semibold">{t("Spracherkennungs-Vokabular")}</h2>
           <p className="mt-0.5 text-sm leading-relaxed text-slate-600">
-            {t("Achsen, Bauteile, Firmen und Materialien werden automatisch aus den Projektunterlagen, dem Text auf Fotos (OCR) und den Stammdaten gesammelt und der Spracherkennung (Whisper) als Vokabular mitgegeben.")}
+            {t("Achsen, Bauteile, Firmen und Materialien werden automatisch aus den Projektunterlagen, dem Text auf Fotos (OCR), Sprachmemos und den Stammdaten gesammelt und der Spracherkennung (Whisper) als Vokabular mitgegeben.")}
           </p>
         </div>
         {data && (
@@ -55,7 +55,8 @@ export default function AsrVocabulary({ pid }: { pid: string }) {
               <div className="flex flex-wrap gap-1.5">
                 {g.terms.map((x) => (
                   <span key={x.term} title={`${t("Quellen")}: ${x.sources.join(", ")}${x.count ? ` · ${x.count}×` : ""}${x.in_prompt ? "" : ` · ${t("nicht im Prompt (Längengrenze)")}`}`}
-                    className={`group inline-flex items-center gap-1 rounded-full border py-1 pl-3 pr-1.5 text-sm ${x.in_prompt ? "border-slate-300 bg-white" : "border-dashed border-slate-300 bg-slate-50 text-slate-500"}`}>
+                    className={`group inline-flex items-center gap-1 rounded-full border py-1 pl-3 pr-1.5 text-sm ${x.in_prompt ? "border-slate-300 bg-white" : "border-dashed border-slate-300 bg-slate-50 text-slate-500"} ${x.audio_only ? "italic" : ""}`}>
+                    {x.from_audio && <Mic className={`h-3.5 w-3.5 ${x.audio_only ? "text-warn-text" : "text-accent-text"}`} />}
                     {x.term}
                     {x.count > 1 && <span className="text-2xs text-slate-400">{x.count}</span>}
                     <button disabled={busy} onClick={() => act(x.term, "remove")} aria-label={t("Entfernen")}
@@ -78,7 +79,13 @@ export default function AsrVocabulary({ pid }: { pid: string }) {
               </div>
             </div>
           )}
-          <p className="text-xs text-slate-500">{t("Gestrichelt: wegen der Prompt-Längengrenze von Whisper (~224 Token) nicht übergeben. Entfernen Sie unwichtige Begriffe, damit wichtigere nachrücken.")}</p>
+          <div className="space-y-1 text-xs text-slate-500">
+            <p className="flex items-start gap-1.5"><Mic className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-text" />
+              {t("Auch in Sprachmemos genannt ({n} Begriffe) – Transkripte von Sprachmemos und gesprochenen Foto-Antworten werden mit ausgewertet.", { n: data.from_audio })}</p>
+            {data.audio_only > 0 && <p className="flex items-start gap-1.5"><Mic className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warn-text" />
+              <i>{t("Nur aus Audio ({n}): könnte selbst ein Erkennungsfehler sein, daher nachrangig und nicht als Hotword. Prüfen und ggf. entfernen.", { n: data.audio_only })}</i></p>}
+            <p>{t("Gestrichelt: wegen der Prompt-Längengrenze von Whisper (~224 Token) nicht übergeben. Entfernen Sie unwichtige Begriffe, damit wichtigere nachrücken.")}</p>
+          </div>
           <div className="border-t pt-3">
             <button className="flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900" onClick={() => setShowPrompt((s) => !s)}>
               <ChevronDown className={`h-4 w-4 transition-transform ${showPrompt ? "rotate-180" : ""}`} /> {t("Prompt-Vorschau (an Whisper übergeben)")}
