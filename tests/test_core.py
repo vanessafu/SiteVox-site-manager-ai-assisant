@@ -19,6 +19,7 @@ def demo_db(tmp_path_factory):
     os.environ["SITEVOX_MODE"] = "demo"
     os.environ["SITEVOX_DB"] = str(tmp / "test.db")
     os.environ["SITEVOX_DATA"] = str(tmp / "data")
+    os.environ["SITEVOX_OCR"] = "0"  # OCR separat getestet (test_ocr_image_text), Seed bleibt schnell
     subprocess.run([sys.executable, str(ROOT / "scripts" / "make_demo_data.py")], check=True, capture_output=True)
     subprocess.run([sys.executable, str(ROOT / "scripts" / "seed_demo.py")], check=True, capture_output=True,
                    env=os.environ.copy())
@@ -254,3 +255,117 @@ def test_sphere_reset_returns_to_rule_suggestion():
     r = c.post(f"/api/events/{ev['event_id']}/sphere/reset").json()
     assert r["sphere"] == "AN" and not r["sphere_confirmed"]  # wieder Regel-Vorschlag
     assert any(a["action"] == "reset_sphere" for a in c.get("/api/audit").json())
+
+
+def test_asr_vocabulary_from_documents_and_overrides():
+    from fastapi.testclient import TestClient
+
+    from backend.main import app
+    from sitevox.understand import vocabulary
+
+    c = TestClient(app)
+    s = c.get("/api/projects/BV-RIEM/asr-vocabulary").json()
+    terms = {t["term"]: t for g in s["groups"] for t in g["terms"]}
+    assert {"Achse C", "Ingenieurbüro Brandl", "C30/37", "B500B", "Bodenplatte"} <= set(terms)
+    assert "Bauvertrag RI-2026-014" in terms["Achse C"]["sources"] or terms["Achse C"]["sources"]
+    assert not any(t.endswith(" AG") for t in terms)  # AG = Auftraggeber, keine Rechtsform
+    p = vocabulary.asr_prompt("BV-RIEM")
+    assert len(p["initial_prompt"]) <= vocabulary.PROMPT_MAX_CHARS + 2  # Whisper-Promptgrenze
+    assert "Ingenieurbüro Brandl" in p["initial_prompt"] and "Achse C" in p["hotwords"]
+    # manuell ergänzen / ausschließen / wiederherstellen
+    s = c.post("/api/projects/BV-RIEM/asr-vocabulary", json={"term": "Kranbahn Süd"}).json()
+    assert s["groups"][0]["category"] == "manual" and "Kranbahn Süd" in vocabulary.asr_prompt("BV-RIEM")["initial_prompt"]
+    s = c.post("/api/projects/BV-RIEM/asr-vocabulary", json={"term": "Bodenplatte", "action": "remove"}).json()
+    assert "Bodenplatte" in s["removed"]
+    assert all(t["term"] != "Bodenplatte" for g in s["groups"] for t in g["terms"])
+    s = c.post("/api/projects/BV-RIEM/asr-vocabulary", json={"term": "Bodenplatte", "action": "restore"}).json()
+    assert "Bodenplatte" not in s["removed"]
+    # Projektstammdaten bleiben bei späterer Stammdaten-Bearbeitung erhalten
+    c.put("/api/projects/BV-RIEM/master", json={"title": "Neubau Wohnanlage Riem, Baufeld 3"})
+    assert "Kranbahn Süd" in vocabulary.asr_prompt("BV-RIEM")["initial_prompt"]
+
+
+def test_light_document_parser_docx(tmp_path):
+    import docx
+
+    from sitevox.understand import documents
+
+    d = docx.Document()
+    d.add_paragraph("Bewehrungsplan Achse D/7, Lieferung durch Stahlbau Huber GmbH")
+    t = d.add_table(rows=2, cols=2)
+    t.cell(0, 0).text, t.cell(0, 1).text = "Pos.", "Kurztext"
+    t.cell(1, 0).text, t.cell(1, 1).text = "05.010", "Filigrandecke C25/30"
+    f = tmp_path / "Planliste.docx"
+    d.save(f)
+    r = documents._light(f)
+    assert r["backend"] == "light" and "Achse D/7" in r["pages"][0]["text"]
+    assert r["tables"][0]["rows"][0][1] == "Filigrandecke C25/30"
+
+
+def test_ocr_image_text(tmp_path, monkeypatch):
+    pytest.importorskip("rapidocr")
+    from PIL import Image, ImageDraw, ImageFont
+
+    from sitevox.understand import ocr
+
+    monkeypatch.setenv("SITEVOX_OCR", "1")
+    img = Image.new("RGB", (900, 160), "white")
+    d = ImageDraw.Draw(img)
+    f = ImageFont.truetype(str(ROOT / "sitevox" / "export" / "fonts" / "DDINPro-Regular.ttf"), 40)
+    d.text((20, 20), "Lieferschein Betonwerk Müller GmbH", fill="black", font=f)
+    d.text((20, 90), "Achse C/4 Bodenplatte C30/37", fill="black", font=f)
+    p = tmp_path / "schild.png"
+    img.save(p)
+    try:
+        text = ocr.image_text(p)
+    except Exception:  # noqa: BLE001
+        pytest.skip("OCR-Modell nicht verfügbar (offline?)")
+    if not text:
+        pytest.skip("OCR-Modell nicht verfügbar (offline?)")
+    lines = text.splitlines()
+    assert lines[0] == "Lieferschein Betonwerk Müller GmbH"
+    assert "Achse C/4" in lines[1] and "C30/37" in lines[1]
+
+
+def test_mail_account_bind_and_sync(monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from backend.main import app
+    from sitevox import mail_accounts
+    from sitevox.understand import imap_mail
+
+    def fake_test(acc, pw):
+        if pw != "app-pw":
+            raise imap_mail.MailError("Anmeldung abgelehnt")
+        return {"ok": True, "messages": 3}
+
+    raw = lambda mid, subj: (f"From: Ingenieurbüro Brandl <buero@ib-brandl.example>\r\nTo: bauleitung@hofbau.example\r\n"
+                             f"Subject: {subj}\r\nDate: Fri, 20 Nov 2026 15:00:00 +0100\r\nMessage-ID: <{mid}>\r\n"
+                             f"Content-Type: text/plain; charset=utf-8\r\n\r\nBV Riem RI-2026-014: Pläne Achse C folgen.\r\n"
+                             ).encode("utf-8")
+    other = (b"From: x@shop.example\r\nSubject: Angebot\r\nDate: Fri, 20 Nov 2026 15:00:00 +0100\r\n"
+             b"Message-ID: <spam-1>\r\n\r\nRabatt\r\n")
+    monkeypatch.setattr(imap_mail, "test", fake_test)
+    monkeypatch.setattr(imap_mail, "fetch", lambda acc, pw, days: [raw("imap-1@x", "BV Riem Pläne"), other])
+    c = TestClient(app)  # kein Netzwerkzugriff: test/fetch sind ersetzt
+    bad = c.post("/api/projects/BV-RIEM/mail-accounts", json={"provider": "gmail", "address": "bl@hofbau.example",
+                                                               "password": "falsch"})
+    assert bad.status_code == 400 and "abgelehnt" in bad.json()["detail"]
+    ms = c.post("/api/projects/BV-RIEM/mail-accounts", json={"provider": "microsoft", "address": "a@b.de",
+                                                              "password": "x"})
+    assert ms.status_code == 400  # Microsoft nur per Graph/OAuth
+    acc = c.post("/api/projects/BV-RIEM/mail-accounts", json={"provider": "gmail", "address": "bl@hofbau.example",
+                                                               "password": "app-pw"}).json()
+    assert acc["imap_host"] == "imap.gmail.com" and acc["connected"] and "password" not in acc
+    listed = c.get("/api/projects/BV-RIEM/mail-accounts").json()
+    assert listed[0]["address"] == "bl@hofbau.example" and "password" not in listed[0]
+    r = c.post(f"/api/projects/BV-RIEM/mail-accounts/{acc['account_id']}/sync").json()
+    assert r == {"fetched": 2, "new": 1, "duplicate": 0, "other_project": 1}
+    assert any(m["message_id"] == "imap-1@x" for m in c.get("/api/projects/BV-RIEM/mailbox").json())
+    r = c.post(f"/api/projects/BV-RIEM/mail-accounts/{acc['account_id']}/sync").json()
+    assert r["new"] == 0 and r["duplicate"] == 1  # keine Doppelungen
+    # Passwort nur im Arbeitsspeicher: nach "Neustart" muss es neu eingegeben werden
+    imap_mail.forget(acc["account_id"])
+    assert c.post(f"/api/projects/BV-RIEM/mail-accounts/{acc['account_id']}/sync").status_code == 409
+    assert c.delete(f"/api/projects/BV-RIEM/mail-accounts/{acc['account_id']}").json()["ok"]
+    assert c.get("/api/projects/BV-RIEM/mail-accounts").json() == []

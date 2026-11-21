@@ -63,4 +63,6 @@ VISION_PROMPT = """Beschreibe dieses Baustellenfoto sachlich auf Deutsch für da
 - Geräte: in Betrieb oder abgestellt?
 - Personen: arbeitend oder wartend? (keine Identifizierung von Personen)
 - Auffälligkeiten (fehlende Bauteile, Schäden, Wasser, Sicherheitsmängel)
-Keine Vermutungen über Ursachen oder Verantwortliche."""
+Keine Vermutungen über Ursachen oder Verantwortliche.
+Falls im Bild Text lesbar ist (Schilder, Lieferscheine, Planköpfe, Bauteil-/Achsbezeichnungen, Firmennamen),
+gib ihn wörtlich in einer letzten Zeile wieder: "Text im Bild: …"."""

@@ -38,12 +38,24 @@ def _whisperx_model():
     return model, align_model, meta
 
 
-def _run_whisperx(path: Path, language: str) -> dict:
+def _with_options(opts: Any, **kw: Any) -> Any:
+    """TranscriptionOptions je Aufruf ersetzen (NamedTuple in älteren, Dataclass in neueren Versionen)."""
+    if hasattr(opts, "_replace"):
+        return opts._replace(**kw)
+    import dataclasses
+
+    return dataclasses.replace(opts, **kw)
+
+
+def _run_whisperx(path: Path, language: str, vocab: dict) -> dict:
     import whisperx  # type: ignore
 
     c = settings.models()["asr"]
     dev = settings.models()["runtime"]["device"]
     model, align_model, meta = _whisperx_model()
+    if getattr(model, "options", None) is not None:  # Projektvokabular statt des beim Laden gesetzten Prompts
+        model.options = _with_options(model.options, initial_prompt=vocab.get("initial_prompt"),
+                                      hotwords=" ".join(vocab.get("hotwords", [])) or None)
     audio = whisperx.load_audio(str(path))
     res = model.transcribe(audio, batch_size=c.get("batch_size", 16), language=language)
     if language != c["language"]:
@@ -66,12 +78,12 @@ def _fw_model():
                         compute_type=c.get("compute_type", "float16"))
 
 
-def _run_faster_whisper(path: Path, language: str) -> dict:
+def _run_faster_whisper(path: Path, language: str, vocab: dict) -> dict:
     c = settings.models()["asr"]
     segments, info = _fw_model().transcribe(
-        str(path), language=language, initial_prompt=c.get("initial_prompt"), beam_size=c.get("beam_size", 5),
+        str(path), language=language, initial_prompt=vocab.get("initial_prompt"), beam_size=c.get("beam_size", 5),
         word_timestamps=True, vad_filter=c.get("vad_filter", True),
-        hotwords=" ".join(c.get("hotwords", [])) or None,
+        hotwords=" ".join(vocab.get("hotwords", [])) or None,
     )
     segs = []
     for s in segments:
@@ -81,12 +93,12 @@ def _run_faster_whisper(path: Path, language: str) -> dict:
     return {"segments": segs, "duration": info.duration}
 
 
-def _run_mlx(path: Path, language: str) -> dict:
+def _run_mlx(path: Path, language: str, vocab: dict) -> dict:
     import mlx_whisper  # type: ignore
 
     c = settings.models()["asr"]
     res = mlx_whisper.transcribe(str(path), path_or_hf_repo=c["mlx_repo"], language=language,
-                                 initial_prompt=c.get("initial_prompt"), word_timestamps=True)
+                                 initial_prompt=vocab.get("initial_prompt"), word_timestamps=True)
     segs = []
     for s in res["segments"]:
         words = [{"word": w["word"].strip(), "start": w["start"], "end": w["end"], "score": w.get("probability")}
@@ -110,6 +122,12 @@ def transcribe(path: Path, project_id: Optional[str] = None, hint: Optional[str]
     hint: Im Demo-Modus ohne Fixture kann das Browser-Transkript (Web Speech API) übergeben werden.
     """
     c = settings.models()["asr"]
+    try:  # Projektvokabular (Vertrag/LV/Fotos/Stammdaten) → initial_prompt + hotwords
+        from .vocabulary import asr_prompt
+
+        vocab = asr_prompt(project_id)
+    except Exception:  # noqa: BLE001 – Vokabular ist eine Verbesserung, kein Muss
+        vocab = {"initial_prompt": c.get("initial_prompt"), "hotwords": c.get("hotwords", []), "used": 0}
     if settings.is_demo():
         fx = settings.demo_dir(project_id or "BV-RIEM") / "fixtures" / "asr" / f"{Path(path).stem}.json"
         if fx.exists():
@@ -122,10 +140,12 @@ def transcribe(path: Path, project_id: Optional[str] = None, hint: Optional[str]
     else:
         backend = c["backend"]
         res = {"whisperx": _run_whisperx, "faster_whisper": _run_faster_whisper, "mlx_whisper": _run_mlx}[backend](
-            Path(path), language or c["language"])
+            Path(path), language or c["language"], vocab)
     res["text"] = " ".join(s["text"] for s in res["segments"]).strip()
     res["backend"] = backend
     res["model"] = c["model"]
+    res["vocabulary"] = {"project_terms": vocab.get("used", 0), "hotwords": len(vocab.get("hotwords", [])),
+                         "applied": backend not in ("replay", "browser-hint")}
     scores = [w["score"] for s in res["segments"] for w in s["words"] if w.get("score") is not None]
     res["mean_score"] = round(sum(scores) / len(scores), 3) if scores else None
     return res
