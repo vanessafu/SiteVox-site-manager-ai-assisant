@@ -124,6 +124,8 @@ def _ingest_body(cap, project_id, kind, captured_at, day, file, text, title, met
         doc = {"doc_id": meta.get("doc_id") or cap["capture_id"], "project_id": project_id,
                "title": meta.get("doc_title") or Path(file).stem, "file": cap["file"], "kind": meta.get("doc_type", "dokument"),
                "collection": "project", "pages": parsed["pages"], "tables": parsed["tables"]}
+        if parsed.get("backend") == "gaeb":  # GAEB-LV: strukturierte Positionen für Re-Export und LV-Prüfung
+            doc.update(kind="lv", gaeb=parsed["gaeb"], lv_items=parsed["lv_items"])
         store.save_document(doc)
         rag.index(rebuild=True)
         if meta.get("doc_type") == "protokoll":

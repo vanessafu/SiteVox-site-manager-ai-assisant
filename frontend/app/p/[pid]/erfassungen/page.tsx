@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Pencil, Trash2 } from "lucide-react";
 import { api, dLong, time, useApi } from "@/lib/api";
 import { useT } from "@/lib/i18n";
-import { EvidenceCard, SOURCE_ICON } from "@/components/EvidenceViewer";
+import { EvidenceSources, SOURCE_ICON } from "@/components/EvidenceViewer";
 import { useDrawer } from "@/components/Drawer";
 import EditForm from "@/components/EditForm";
 
@@ -117,7 +117,7 @@ export default function Captures() {
                       <ul className="space-y-0.5">{c.minutes.open_items.map((o: any) => <li key={o.topic}>• {o.topic} – {o.responsible} – <b>{o.due ? dLong(o.due) : t("ohne Termin")}</b></li>)}</ul>
                     </div>
                   )}
-                  {open === c.capture_id && <div className="mt-2 space-y-2">{c.evidence_ids.map((id: string) => <EvidenceCard key={id} id={id} />)}</div>}
+                  {open === c.capture_id && <div className="mt-2"><EvidenceSources ids={c.evidence_ids} /></div>}
                 </li>
               );
             })}

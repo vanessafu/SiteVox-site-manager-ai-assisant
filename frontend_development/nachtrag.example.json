@@ -1,0 +1,286 @@
+{
+  "meta": {
+    "nachtrag_id": "NT-003",
+    "version": 1,
+    "date": "2026-11-20",
+    "subject": "Nachtragsangebot NT-003: Zusätzliche Wandaussparungen DN 300 für Lüftungsleitungen, Außenwände UG, Achsen 7–10",
+    "project": {
+      "name": "Neubau Bürogebäude München-Riem",
+      "project_no": "P-2026-014",
+      "contract_no": "V-2026-014-RB",
+      "contract_type": "Einheitspreisvertrag, VOB/B vereinbart",
+      "address": "Musterstraße 12, 81829 München"
+    },
+    "contractor": {
+      "company": "Musterbau GmbH",
+      "address": "Industriestraße 5, 85609 Aschheim",
+      "bauleiter": "Anna Becker",
+      "phone": "+49 89 0000000",
+      "email": "a.becker@musterbau.example"
+    },
+    "client": {
+      "name": "Riem Office Projekt GmbH & Co. KG",
+      "address": "Beispielweg 1, 80331 München",
+      "contact": "Herr Dr. Klein, Projektleitung",
+      "copy_to": [
+        "Architekturbüro Huber, Objektüberwachung"
+      ]
+    }
+  },
+  "reference": {
+    "trigger": {
+      "type": "schriftliche Anordnung",
+      "by": "Herr Huber, Architekturbüro Huber (Objektüberwachung im Auftrag des AG)",
+      "date": "2026-11-20T11:30:00+01:00",
+      "content": "Herstellung von 6 zusätzlichen Wandaussparungen DN 300 für Lüftungsleitungen in den Außenwänden UG, Achsen 7–10, gemäß TGA-Plan L-UG-07 Index b.",
+      "source_refs": [
+        "MAIL-003",
+        "PLAN-TGA-L-UG-07"
+      ]
+    },
+    "related_incidents": [
+      "EV-2026-11-20-03"
+    ],
+    "related_tagesberichte": [
+      "TB-2026-11-20"
+    ],
+    "mehrkostenanzeige": {
+      "sent": true,
+      "reference": "MKA-2026-003",
+      "sent_at": "2026-11-20T15:05:00+01:00",
+      "before_execution": true
+    }
+  },
+  "claim_basis": {
+    "category": "zusätzliche Leistung",
+    "legal_refs": [
+      "§ 1 Abs. 4 VOB/B",
+      "§ 2 Abs. 6 VOB/B"
+    ],
+    "note": "Die Aussparungen sind im Leistungsverzeichnis nicht enthalten und wurden vom AG nachträglich angeordnet. Anspruchsgrundlage ist ein Vorschlag des Assistenten und vom Bauleiter bzw. der Rechtsabteilung zu prüfen."
+  },
+  "change_description": {
+    "summary": "Herstellung von 6 zusätzlichen Aussparungen DN 300 in den Stahlbeton-Außenwänden UG (Achsen 7–10) einschließlich Zulagebewehrung und Anpassung der bereits verlegten Bewehrung.",
+    "reason": "Nachträgliche Änderung der Lüftungsplanung (TGA) durch den AG. Die Wandbewehrung in den Achsen 7–10 war zum Zeitpunkt der Anordnung bereits vollständig verlegt (Tagesbericht TB-2026-11-20).",
+    "location": "UG, Außenwände Achsen 7–10",
+    "affected_lv_positions": [
+      {
+        "lv_pos": "02.03.0040",
+        "short_text": "Stahlbeton-Außenwand UG C30/37, d = 30 cm",
+        "effect": "Betonmenge mindert sich geringfügig um das Volumen der Aussparungen (ca. 0,13 m³)."
+      },
+      {
+        "lv_pos": "02.04.0010",
+        "short_text": "Betonstahl B500B liefern und einbauen",
+        "effect": "Zusätzliche Zulagebewehrung, gesondert in N03.02."
+      }
+    ],
+    "plan_refs": [
+      "TGA-Plan L-UG-07 Index b vom 19.11.2026",
+      "Bewehrungsplan W-UG-03 Index a"
+    ]
+  },
+  "price_basis": {
+    "method": "Fortschreibung Urkalkulation",
+    "wage_rate_eur_h": 58.0,
+    "surcharges_pct": {
+      "bgk": 8.0,
+      "agk": 9.0,
+      "wg": 5.0
+    },
+    "note": "Kalkulationsansätze aus der Urkalkulation zum Hauptauftrag (KALK-2026-014). Beispielwerte für die Demo."
+  },
+  "positions": [
+    {
+      "pos": "N03.01",
+      "short_text": "Aussparung in Stahlbetonwand d = 30 cm, Futterrohr PVC DN 300",
+      "long_text": "Aussparung in Stahlbeton-Außenwand UG, Wanddicke 30 cm, mit Futterrohr PVC DN 300, Länge 30 cm, inkl. Einmessen nach TGA-Plan, Lagesicherung in der Schalung und Abdichtung gegen Bodenfeuchte (Dichtmanschette).",
+      "quantity": 6,
+      "unit": "Stk",
+      "unit_price_eur": 164.7,
+      "total_eur": 988.2,
+      "calculation": {
+        "labour_h": 1.5,
+        "labour_eur": 87.0,
+        "material_eur": 42.0,
+        "equipment_eur": 6.0,
+        "subcontractor_eur": 0,
+        "direct_cost_eur": 135.0
+      },
+      "source_refs": [
+        "MAIL-003",
+        "PLAN-TGA-L-UG-07",
+        "KALK-2026-014"
+      ]
+    },
+    {
+      "pos": "N03.02",
+      "short_text": "Zulagebewehrung an Öffnungsrändern, B500B",
+      "long_text": "Zusätzliche Bewehrung (Zulagen, Steckbügel) an den Rändern der Aussparungen nach Angabe Tragwerksplanung, liefern, schneiden, biegen und einbauen. Abrechnung nach Gewicht.",
+      "quantity": 0.18,
+      "unit": "t",
+      "unit_price_eur": 2198.44,
+      "total_eur": 395.72,
+      "calculation": {
+        "labour_h": 14.0,
+        "labour_eur": 812.0,
+        "material_eur": 950.0,
+        "equipment_eur": 40.0,
+        "subcontractor_eur": 0,
+        "direct_cost_eur": 1802.0
+      },
+      "source_refs": [
+        "MAIL-003",
+        "PLAN-TGA-L-UG-07",
+        "KALK-2026-014"
+      ]
+    },
+    {
+      "pos": "N03.03",
+      "short_text": "Anpassung Bewehrung im Bereich der Aussparungen",
+      "long_text": "Vorhandene, bereits verlegte Wandbewehrung im Bereich der Aussparungen ausbauen bzw. versetzen und wieder fachgerecht einbauen.",
+      "quantity": 6,
+      "unit": "Stk",
+      "unit_price_eur": 78.08,
+      "total_eur": 468.48,
+      "calculation": {
+        "labour_h": 1.0,
+        "labour_eur": 58.0,
+        "material_eur": 4.0,
+        "equipment_eur": 2.0,
+        "subcontractor_eur": 0,
+        "direct_cost_eur": 64.0
+      },
+      "source_refs": [
+        "MAIL-003",
+        "PLAN-TGA-L-UG-07",
+        "KALK-2026-014",
+        "VOICE-04"
+      ]
+    },
+    {
+      "pos": "N03.04",
+      "short_text": "Koordination und Einmessen, Stundenlohn Polier",
+      "long_text": "Abstimmung mit TGA-Planung und Objektüberwachung, Einmessen der Aussparungslagen, als Stundenlohnarbeit nach Nachweis.",
+      "quantity": 4,
+      "unit": "h",
+      "unit_price_eur": 75.64,
+      "total_eur": 302.56,
+      "calculation": {
+        "labour_h": 1.0,
+        "labour_eur": 62.0,
+        "material_eur": 0,
+        "equipment_eur": 0,
+        "subcontractor_eur": 0,
+        "direct_cost_eur": 62.0
+      },
+      "source_refs": [
+        "MAIL-003",
+        "PLAN-TGA-L-UG-07",
+        "KALK-2026-014"
+      ]
+    }
+  ],
+  "totals": {
+    "net_eur": 2154.96,
+    "vat_pct": 19,
+    "vat_eur": 409.44,
+    "gross_eur": 2564.4
+  },
+  "schedule_impact": {
+    "extension_working_days": 1,
+    "affected_activities": [
+      "A-126 Schalung und Betonage Außenwände UG, Achsen 7–10"
+    ],
+    "description": "Durch Einbau der Aussparungen und Anpassung der Bewehrung verschiebt sich die Betonage der Achsen 7–10 um voraussichtlich einen Arbeitstag.",
+    "reservation": "Die Geltendmachung weiterer Ansprüche aus der Bauzeitverlängerung bleibt vorbehalten."
+  },
+  "conditions": {
+    "acceptance_deadline": "2026-11-23",
+    "execution_note": "Um die Betonage der Achsen 7–10 nicht weiter zu verzögern, bitten wir um schriftliche Beauftragung bis zum 23.11.2026.",
+    "validity_note": "Die Preise gelten für die Ausführung im laufenden Bauablauf."
+  },
+  "attachments": [
+    "Anordnung per E-Mail vom 20.11.2026 (Architekturbüro Huber)",
+    "TGA-Plan L-UG-07 Index b",
+    "Mehrkostenanzeige MKA-2026-003 vom 20.11.2026",
+    "Preisermittlung (Kostenansätze je Position)",
+    "Foto Bewehrung Achsen 7–10 vom 20.11.2026"
+  ],
+  "sources": [
+    {
+      "source_id": "MAIL-003",
+      "type": "E-Mail",
+      "timestamp": "2026-11-20T11:30:00+01:00",
+      "author": "Architekturbüro Huber",
+      "original_language": "de",
+      "original_text": "Bitte in den Außenwänden UG, Achsen 7–10, sechs Aussparungen DN 300 für die Lüftung gemäß beigefügtem TGA-Plan L-UG-07 b vorsehen. Die Lage ist mit der TGA abgestimmt.",
+      "translation_de": null,
+      "file": "mails/mail-003.eml"
+    },
+    {
+      "source_id": "VOICE-04",
+      "type": "Sprachnotiz",
+      "timestamp": "2026-11-20T12:05:00+01:00",
+      "author": "Tomasz Nowak (Polier)",
+      "original_language": "pl",
+      "original_text": "Zbrojenie w osiach od siódmej do dziesiątej jest już gotowe. Na otwory trzeba będzie część prętów wyciąć i dołożyć dodatkowe.",
+      "translation_de": "Die Bewehrung in den Achsen 7 bis 10 ist schon fertig. Für die Öffnungen müssen wir einen Teil der Stäbe herausschneiden und zusätzliche einbauen.",
+      "file": "audio/voice-04.m4a"
+    },
+    {
+      "source_id": "PLAN-TGA-L-UG-07",
+      "type": "Plan",
+      "timestamp": "2026-11-19T16:00:00+01:00",
+      "author": "TGA-Planung Lindner",
+      "original_language": "de",
+      "original_text": "TGA-Plan L-UG-07 Index b: 6 Wanddurchführungen Lüftung DN 300, UG Achsen 7–10.",
+      "translation_de": null,
+      "file": "plans/L-UG-07_b.pdf"
+    },
+    {
+      "source_id": "KALK-2026-014",
+      "type": "Kalkulation",
+      "timestamp": "2026-09-15T00:00:00+02:00",
+      "author": "Musterbau GmbH, Kalkulation",
+      "original_language": "de",
+      "original_text": "Urkalkulation Hauptauftrag: Mittellohn 58,00 €/h, BGK 8 %, AGK 9 %, W+G 5 %.",
+      "translation_de": null,
+      "file": "docs/urkalkulation.xlsx"
+    }
+  ],
+  "review": {
+    "status": "KI-Entwurf",
+    "ai_generated": true,
+    "checks": [
+      {
+        "check": "Mehrkosten vor Ausführungsbeginn angekündigt",
+        "result": "ok",
+        "note": "MKA-2026-003 am 20.11.2026, 15:05 versendet; Ausführung noch nicht begonnen."
+      },
+      {
+        "check": "Anordnung durch berechtigte Person",
+        "result": "Hinweis",
+        "note": "Anordnung kam von der Objektüberwachung. Vollmacht zur Anordnung von Zusatzleistungen im Vertrag prüfen."
+      },
+      {
+        "check": "Leistung nicht bereits im LV enthalten",
+        "result": "ok",
+        "note": "Keine LV-Position für Aussparungen DN 300 gefunden."
+      },
+      {
+        "check": "Preise aus Urkalkulation abgeleitet",
+        "result": "ok",
+        "note": "Zuschläge 22 % gesamt gemäß KALK-2026-014."
+      }
+    ],
+    "unsupported_statements": [
+      "Bauzeitverlängerung 1 Arbeitstag: Schätzung des Assistenten, vom Bauleiter zu bestätigen."
+    ],
+    "open_questions": [
+      "Soll die Minderung der Betonmenge (ca. 0,13 m³) im Nachtrag verrechnet werden?"
+    ],
+    "reviewed_by": null,
+    "approved_at": null
+  }
+}

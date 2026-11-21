@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from .. import settings
-from . import ocr
+from . import gaeb_io, ocr
 
 PAGE_RE = re.compile(r"^-{3}\s*Seite\s+(\d+)\s*-{3}\s*$", re.M)
 
@@ -113,6 +113,12 @@ def _light(path: Path) -> dict[str, Any]:
 
 def parse(path: Path) -> dict[str, Any]:
     path = Path(path)
+    if gaeb_io.is_gaeb(path):  # LV-Austauschformat: strukturiert einlesen (Positionen, Mengen, Einheiten)
+        try:
+            return gaeb_io.parse(path)
+        except Exception as e:  # noqa: BLE001
+            note = f"[{path.name}: GAEB-Datei konnte nicht gelesen werden – {str(e)[:200]}]"
+            return {"pages": [{"page": 1, "text": note}], "tables": [], "markdown": note, "backend": "none"}
     if path.suffix.lower() in {".txt", ".md"} or settings.models()["documents"]["backend"] == "plain":
         return _plain(path)
     try:

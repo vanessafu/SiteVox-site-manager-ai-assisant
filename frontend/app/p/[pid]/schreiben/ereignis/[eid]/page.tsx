@@ -5,7 +5,7 @@ import { useState } from "react";
 import { ArrowLeft, BookOpenCheck, FilePlus2, FileText, Pencil, X } from "lucide-react";
 import { api, dLong, post, useApi } from "@/lib/api";
 import { EventDetail } from "@/components/EventCard";
-import { EvidenceCard } from "@/components/EvidenceViewer";
+import { EvidenceSources } from "@/components/EvidenceViewer";
 import EditForm, { EVENT_FIELDS } from "@/components/EditForm";
 import { ConfidencePill, StatusChip } from "@/components/ui";
 import { useT } from "@/lib/i18n";
@@ -87,8 +87,8 @@ export default function EventPage() {
           </details>
         </div>
         <aside className="space-y-3 overflow-y-auto bg-slate-50 p-4">
-          <div className="text-2xs uppercase tracking-wide text-slate-500">{t("Belege")} ({e.evidence.length})</div>
-          {e.evidence.map((id: string) => <EvidenceCard key={id} id={id} />)}
+          <div className="text-2xs uppercase tracking-wide text-slate-500">{t("Belege – je Quelle einmal")}</div>
+          <EvidenceSources ids={e.evidence} />
         </aside>
       </div>
     </div>

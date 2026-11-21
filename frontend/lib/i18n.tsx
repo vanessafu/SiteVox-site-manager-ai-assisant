@@ -299,21 +299,20 @@ const EN: Record<string, string> = {
   "Ende liegt vor dem Anfang": "End is before start", "Rechtsgrundlagen sind schreibgeschützt": "Legal sources are read-only",
   "Ereignis gehört zu einem freigegebenen/versendeten Schreiben": "Event belongs to an approved/sent notice",
 
-  // Wissensbasis + Spracherkennungs-Vokabular
-  "Wissensbasis": "Knowledge base",
-  "Unterlagen, auf die sich Schreiben, Prüfungen und die Spracherkennung stützen.": "Documents that notices, checks and speech recognition rely on.",
-  "Übertragen – Text wird extrahiert (PDF, Word, OCR für Bilder)": "Uploaded – extracting text (PDF, Word, OCR for images)",
-  "Achsen, Bauteile, Firmen und Materialien aus hochgeladenen Unterlagen gehen automatisch in das Spracherkennungs-Vokabular ein.": "Axes, components, companies and materials from uploaded documents are added to the speech recognition vocabulary automatically.",
-  "Zurück zum Spracherkennungs-Vokabular": "Back to speech vocabulary", "Keine Treffer": "No results",
-  "Spracherkennungs-Vokabular": "Speech recognition vocabulary",
-  "Achsen, Bauteile, Firmen und Materialien werden automatisch aus den Projektunterlagen, dem Text auf Fotos (OCR) und den Stammdaten gesammelt und der Spracherkennung (Whisper) als Vokabular mitgegeben.": "Axes, components, companies and materials are collected automatically from project documents, text in photos (OCR) and master data, and passed to speech recognition (Whisper) as vocabulary.",
-  "Begriffe im Prompt": "terms in prompt", "Begriff ergänzen, z. B. Kranbahn Süd": "Add a term, e.g. Kranbahn Süd", "Hinzufügen": "Add",
-  "Quellen": "Sources", "nicht im Prompt (Längengrenze)": "not in prompt (length limit)", "Entfernen": "Remove",
-  "Ausgeschlossen": "Excluded", "Zeichen": "characters",
-  "Gestrichelt: wegen der Prompt-Längengrenze von Whisper (~224 Token) nicht übergeben. Entfernen Sie unwichtige Begriffe, damit wichtigere nachrücken.": "Dashed: not passed on because of Whisper's prompt limit (~224 tokens). Remove less important terms so more important ones move up.",
-  "Prompt-Vorschau (an Whisper übergeben)": "Prompt preview (passed to Whisper)",
-  "Manuell": "Manual", "Achsen / Bereiche": "Axes / areas", "Firmen / Beteiligte": "Companies / parties",
-  "Materialien / Kennwerte": "Materials / specs", "Bauteile / Leistungen": "Components / work items", "Vorgänge / Kolonnen": "Activities / crews",
+  // Wissensbasis + GAEB
+  "Wissensbasis": "Knowledge base", "Keine Treffer": "No results",
+  "Unterlagen, auf die sich Schreiben und Prüfungen stützen.": "Documents that notices and checks rely on.",
+  "PDF / DOCX / GAEB / Bild wählen": "Choose PDF / DOCX / GAEB / image",
+  "GAEB: DA XML (.x81–.x89), GAEB 2000 (.p8x) und GAEB 90 (.d8x) werden als LV mit Positionen eingelesen.": "GAEB: DA XML (.x81–.x89), GAEB 2000 (.p8x) and GAEB 90 (.d8x) are imported as a BoQ with line items.",
+  "Suche schließen": "Close search", "Dokument links auswählen oder oben suchen": "Select a document on the left or search above",
+  "GAEB-Export": "GAEB export", "GAEB-Austauschphase": "GAEB exchange phase",
+  "X83 · Angebotsaufforderung": "X83 · Invitation to tender", "X84 · Angebotsabgabe": "X84 · Bid submission",
+  "X86 · Auftragserteilung": "X86 · Contract award", "X81 · Leistungsbeschreibung": "X81 · Specification",
+  "GAEB {v} · Phase {p} · {n} Positionen": "GAEB {v} · phase {p} · {n} items",
+
+  // Belege nach Quelle
+  "Alle Belege – je Quelle einmal": "All evidence – one entry per source", "Belege – je Quelle einmal": "Evidence – one entry per source",
+  "{n} Fundstellen": "{n} passages",
 
   // Postfach verbinden
   "Postfach verbinden": "Connect mailbox", "Anbieter": "Provider", "E-Mail-Adresse": "Email address", "App-Passwort": "App password",

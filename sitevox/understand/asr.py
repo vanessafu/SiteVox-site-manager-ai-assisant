@@ -65,10 +65,14 @@ def _detect_language(fw_model, audio, pipeline=None) -> tuple[str, Optional[floa
     return _asr_cfg().get("fallback_language", "de"), None
 
 
-def _with_prompt(options, prompt: Optional[str]):
+def _with_options(options, **kw):
     if dataclasses.is_dataclass(options):
-        return dataclasses.replace(options, initial_prompt=prompt)
-    return options._replace(initial_prompt=prompt)  # NamedTuple (ältere faster-whisper)
+        return dataclasses.replace(options, **kw)
+    return options._replace(**kw)  # NamedTuple (ältere faster-whisper)
+
+
+def _hotwords() -> Optional[str]:
+    return " ".join(_asr_cfg().get("hotwords", [])) or None
 
 
 def _words_from_segment(seg: dict) -> list[dict]:
@@ -113,7 +117,7 @@ def _run_whisperx(path: Path, language: str) -> dict:
     prob = None
     if language == "auto":
         language, prob = _detect_language(pipe.model, audio, pipeline=pipe)
-    pipe.options = _with_prompt(pipe.options, _prompt_for(language))
+    pipe.options = _with_options(pipe.options, initial_prompt=_prompt_for(language))
     res = pipe.transcribe(audio, batch_size=c.get("batch_size", 16), language=language)
     try:
         align_model, meta = _align_model(language)

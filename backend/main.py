@@ -25,8 +25,8 @@ from fastapi.responses import FileResponse  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
 
 from sitevox import DISCLAIMER, editing, mail_accounts, pipeline, rag, settings, store  # noqa: E402
-from sitevox.understand import imap_mail, vocabulary  # noqa: E402
 from sitevox.drafting import composer  # noqa: E402
+from sitevox.understand import gaeb_io, imap_mail  # noqa: E402
 from sitevox.export import daily_report as daily_report_export, docx_export, outlook  # noqa: E402
 
 from . import views  # noqa: E402
@@ -438,27 +438,11 @@ def mail_account_sync(pid: str, aid: str, background: BackgroundTasks) -> dict:
         raise HTTPException(400, str(e)) from e
 
 
-@app.get("/api/projects/{pid}/asr-vocabulary")
-def asr_vocabulary(pid: str) -> dict:
-    return vocabulary.summary(pid)
-
-
-@app.post("/api/projects/{pid}/asr-vocabulary")
-def asr_vocabulary_edit(pid: str, body: dict) -> dict:
-    term, action = (body.get("term") or "").strip(), body.get("action", "add")
-    if not term:
-        raise HTTPException(400, "Begriff fehlt")
-    fn = {"add": vocabulary.add_term, "remove": vocabulary.remove_term, "restore": vocabulary.restore_term}.get(action)
-    if not fn:
-        raise HTTPException(400, "unbekannte Aktion")
-    fn(pid, term, ACTOR)
-    return vocabulary.summary(pid)
-
-
 @app.get("/api/projects/{pid}/knowledge")
 def knowledge(pid: str) -> list[dict]:
     return [{"doc_id": d["doc_id"], "title": d["title"], "kind": d.get("kind"), "collection": d.get("collection"),
-             "project_id": d["project_id"], "pages": len(d["pages"]), "file": d.get("file")}
+             "project_id": d["project_id"], "pages": len(d["pages"]), "file": d.get("file"),
+             "format": "gaeb" if d.get("gaeb") else None}
             for d in store.documents(pid)]
 
 
@@ -467,7 +451,32 @@ def document(doc_id: str) -> dict:
     d = store.get("documents", doc_id)
     if not d:
         raise HTTPException(404)
+    d["gaeb_exportable"] = d.get("collection") == "project" and bool(gaeb_io.doc_items(d))
     return d
+
+
+@app.get("/api/documents/{doc_id}/gaeb")
+def document_gaeb(doc_id: str, phase: str = "83") -> FileResponse:
+    """LV → GAEB DA XML 3.3 (Phase 81/83/84/86), z. B. für Nachträge/Angebote an AVA-Software des AG."""
+    d = store.get("documents", doc_id)
+    if not d:
+        raise HTTPException(404)
+    if d.get("collection") != "project" or not gaeb_io.doc_items(d):
+        raise HTTPException(400, "Dokument enthält keine LV-Positionen (Tabelle mit Pos./Kurztext/Menge/Einheit)")
+    try:
+        p = gaeb_io.export(d, settings.data_dir() / d["project_id"] / "exports", phase=phase,
+                           project=settings.project_cfg(d["project_id"]), company=settings.baseline().get("company"))
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
+    store.audit(ACTOR, "document", doc_id, "gaeb_export", after={"phase": phase, "file": p.name})
+    return FileResponse(p, media_type="application/xml", filename=p.name)
+
+
+@app.get("/api/evidence-sources")
+def evidence_sources(ids: str) -> list[dict]:
+    """Belege nach Quelle gruppiert: eine Sprachnachricht/ein Foto/eine Mail/ein Dokument erscheint nur einmal,
+    mit allen Fundstellen (Audio-Abschnitte, Bildausschnitte, Zitate) zum Hervorheben."""
+    return views.evidence_sources([i for i in ids.split(",") if i])
 
 
 @app.get("/api/projects/{pid}/knowledge/search")

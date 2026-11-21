@@ -8,14 +8,17 @@ pyyaml>=6.0
 httpx>=0.27
 openai>=1.40            # OpenAI-kompatibler Client für vLLM / llama.cpp
 rank_bm25>=0.2.2
-openpyxl>=3.1           # Bauzeitenplan-Import (Excel)
-python-docx>=1.1        # DOCX-Export
-reportlab>=4.2          # PDF-Bautagesbericht (ohne LibreOffice)
 numpy>=1.26
-pillow>=10.0            # EXIF, Demo-Fotos
 opencv-python-headless>=4.9,<5   # Gesichter verpixeln (Haar-Kaskaden fehlen in OpenCV 5)
 soundfile>=0.12         # Audio-Augmentierung
-pypdf>=5.0              # PDF-Textebene ohne Docling (Wissensbasis → ASR-Vokabular)
-rapidocr>=3.4           # OCR für Fotos/Scans auf der CPU (PP-OCRv5 latin, Modelle ~15 MB beim ersten Lauf)
-onnxruntime>=1.20       # Laufzeit für RapidOCR (CPU)
 pytest>=8.0
+
+# Dateiverarbeitung (Import/Export von Unterlagen) – ohne GPU; Docling für komplexe Layouts: requirements-gpu.txt
+openpyxl>=3.1           # Bauzeitenplan-Import (Excel)
+python-docx>=1.1        # DOCX lesen (Wissensbasis) und schreiben (Export)
+reportlab>=4.2          # PDF-Bautagesbericht (ohne LibreOffice)
+pillow>=10.0            # EXIF, Demo-Fotos
+pypdf>=5.0              # PDF-Textebene ohne Docling (Wissensbasis)
+rapidocr>=3.4           # OCR für Scans/Bilder auf der CPU (PP-OCRv5 latin, Modelle ~15 MB beim ersten Lauf)
+onnxruntime>=1.20       # Laufzeit für RapidOCR (CPU)
+gaeb>=0.5.4             # GAEB DA XML 2.x–3.3 / GAEB 2000 / GAEB 90: LV-Import und -Export (X81/X83/X84/X86)
