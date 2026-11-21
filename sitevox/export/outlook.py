@@ -31,10 +31,11 @@ def _body(letter: dict) -> str:
 
 
 def write_eml_draft(letter: dict, attachment: Path, extra: list[Path] | None = None) -> Path:
-    project = settings.project_cfg(letter["project_id"])
     msg = EmailMessage()
     msg["X-Unsent"] = "1"
-    msg["To"] = project["client"]["email"]
+    from ..drafting.composer import recipient_email
+
+    msg["To"] = recipient_email(letter) or ""  # nur belegte/von der Bauleitung eingetragene Adresse
     msg["From"] = ""
     msg["Subject"] = next(s["text"] for s in letter["rendered"] if s["key"] == "betreff")
     msg["Date"] = formatdate(localtime=True)
@@ -56,11 +57,12 @@ def graph_create_draft(letter: dict, access_token: str, attachment: Path) -> dic
 
     import httpx
 
-    project = settings.project_cfg(letter["project_id"])
+    from ..drafting.composer import recipient_email
+
     payload = {
         "subject": next(s["text"] for s in letter["rendered"] if s["key"] == "betreff"),
         "body": {"contentType": "Text", "content": _body(letter)},
-        "toRecipients": [{"emailAddress": {"address": project["client"]["email"]}}],
+        "toRecipients": [{"emailAddress": {"address": a}} for a in [recipient_email(letter)] if a],
         "attachments": [{
             "@odata.type": "#microsoft.graph.fileAttachment", "name": Path(attachment).name,
             "contentBytes": base64.b64encode(Path(attachment).read_bytes()).decode(),

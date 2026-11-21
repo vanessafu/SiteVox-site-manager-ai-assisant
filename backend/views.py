@@ -107,7 +107,7 @@ def dashboard(project_id: str, day: str) -> dict[str, Any]:
 
 
 def letter_view(letter: dict) -> dict[str, Any]:
-    letter = composer.reverify(letter)
+    letter = composer.reverify(composer.ensure_recipient_email(letter))
     ev = []
     for ref, eid in letter["evidence_map"].items():
         d = store.evidence(eid) or {}
@@ -123,6 +123,8 @@ def letter_view(letter: dict) -> dict[str, Any]:
     return {
         **{k: letter[k] for k in ("letter_id", "project_id", "event_id", "kind", "status", "checklist", "issues",
                                   "created_at", "updated_at", "released_at", "released_by", "sent_at", "exports")},
+        "sent_method": letter.get("sent_method"), "sent_email": letter.get("sent_email"),
+        "original": letter.get("original"),
         "kind_label": DOC_KIND_LABELS[letter["kind"]],
         "rendered": letter["rendered"], "fields": fields, "evidence": ev,
         "queue": composer.review_queue(letter), "blockers": composer.release_blockers(letter),
@@ -194,3 +196,28 @@ def evidence_sources(ids: list[str]) -> list[dict]:
         if g["source"] in ("email", "note", "document"):
             g["full_text"] = max((i.get("full_text") or "" for i in g["items"]), key=len)
     return list(groups.values())
+
+
+def report_sections(project_id: str, day: str) -> dict[str, Any]:
+    """Bericht-Abschnitte (daily_report.build) + Fortschritts-Erfassungen des Tages für die Seitenleiste „Captures“.
+
+    Fortschritt = Erfassungen, deren Belege an einer Leistungszeile (§ 5) hängen, und alle Fotos (§ 8).
+    """
+    from sitevox.export import daily_report
+
+    rep = daily_report.build(project_id, day)
+    work_ev = {e for w in rep["work_performed"] for e in w.get("evidence_ids", [])}
+    work_events = {i for w in rep["work_performed"] for i in w.get("event_ids", [])}
+    caps = []
+    for c in sorted(store.captures(project_id, day), key=lambda c: c["captured_at"]):
+        linked = (c["kind"] == "photo" or work_ev & set(c.get("evidence_ids") or [])
+                  or work_events & set(c.get("event_ids") or []))
+        if not linked or c["kind"] not in ("photo", "audio", "note"):
+            continue
+        tr = c.get("transcript") or {}
+        text = " ".join(sg["text"] for sg in tr.get("segments", [])) or c.get("text") or c.get("summary") or ""
+        caps.append({"capture_id": c["capture_id"], "kind": c["kind"], "time": c["captured_at"][11:16],
+                     "title": c.get("title"), "summary": c.get("summary"), "excerpt": text[:280],
+                     "file": (c.get("file") or "").replace("\\", "/") or None,
+                     "evidence_ids": c.get("evidence_ids") or []})
+    return {**rep, "progress_captures": caps}

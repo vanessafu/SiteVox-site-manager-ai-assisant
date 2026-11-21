@@ -350,12 +350,64 @@ const EN: Record<string, string> = {
   "Notiz / Stichworte": "Note / keywords", "Senden": "Upload", "Heute erfasst": "Captured today",
   "Übertragen – wird ausgewertet": "Uploaded – being analysed", "Fehler: {e}": "Error: {e}",
   "Mikrofon nicht verfügbar (HTTPS bzw. Berechtigung nötig)": "Microphone unavailable (HTTPS or permission required)",
+  // Dashboard = Bautagesbericht-Abschnitte
+  "Heute beachten": "Attention today", "Bautagesbericht Nr. {n}": "Daily report No. {n}",
+  "Tagesfortschritt": "Daily progress", "Plan → Prognose Ende": "Planned → forecast end", "Ist / Tagessoll": "actual / daily target",
+  "Keine Fortschritts-Erfassungen an diesem Tag.": "No progress captures on this day.", "Vergrößern": "Enlarge",
+  "noch nicht freigegeben": "not yet released", "noch nicht erstellt": "not yet drafted",
+  "{doc} „{ev}“ {state} – {dl}": "{doc} “{ev}” {state} – {dl}", "{c}: {n} von {p} Personen": "{c}: {n} of {p} workers",
+  "Meilenstein gefährdet": "Milestone at risk", "seit {a}": "since {a}",
+  "Arbeitsfähigkeit": "Workability", "gegeben": "given", "nicht gegeben": "not given",
+  "trocken": "dry", "Regen": "rain", "Keine Wetterdaten erfasst.": "No weather data recorded.",
+  "Personaleinsatz": "Workforce", "Firma / Kolonne": "Company / crew", "Gewerk": "Trade", "Stunden": "Hours",
+  "davon Stillstand": "of which idle", "Summe": "Total", "Bewehrung": "Reinforcement", "Schalung": "Formwork", "Aushub": "Excavation",
+  "* nicht einzeln erfasst – aus der gemeldeten Gesamtzahl abgeleitet.": "* not recorded individually – derived from the reported total.",
+  "Geräteeinsatz": "Equipment", "Gerät": "Equipment", "Status": "Status", "Soll h": "Planned h", "Ist h": "Actual h",
+  "Ausfallzeit": "Downtime", "im Einsatz": "in operation", "Ausfall": "breakdown", "nicht eingesetzt": "not deployed",
+  "Kein Großgerät im Tagesverlauf erfasst.": "No heavy equipment recorded today.",
+  "Lieferungen": "Deliveries", "Lieferant": "Supplier", "Material": "Material", "geplant": "planned", "tatsächlich": "actual",
+  "pünktlich": "on time", "ja": "yes", "{n} min Verzug": "{n} min late", "Lieferschein": "Delivery note",
+  "Keine Lieferungen erfasst.": "No deliveries recorded.",
+  // E-Mail-Empfänger der Anzeigen
+  "An:": "To:", "E-Mail Empfänger (AG)": "Recipient email (client)",
+  "E-Mail-Adresse des AG fehlt – bitte prüfen und eintragen": "Client email address missing – please check and enter it",
+  "Keine E-Mail-Adresse des AG bzw. seines bevollmächtigten Vertreters in den hochgeladenen Unterlagen gefunden – Bauleitung bitte prüfen und eintragen (oder verwerfen, wenn nur per Post zugestellt wird).":
+    "No email address of the client or its authorised representative found in the uploaded documents – site manager, please check and enter it (or reject the field if delivered by post only).",
+  "„E-Mail Empfänger (AG)“ fehlt – Adresse eintragen oder Feld verwerfen (nur Postversand)":
+    "“Recipient email (client)” missing – enter the address or reject the field (post only)",
+  // Sendedialog (Versand über gebundenes Postfach)
+  "Schreiben per E-Mail an den AG senden": "Send notice to the client by email", "Von": "From", "An": "To", "Cc": "Cc",
+  "Betreff": "Subject", "Anhang": "Attachment", "Jetzt senden": "Send now", "sendet …": "sending …", "Entsperren": "Unlock",
+  "gesperrt": "locked", "App-Passwort des Postfachs": "Mailbox app password", "optional, mehrere mit Komma": "optional, separate with commas",
+  "Kein Postfach gebunden": "No mailbox connected", "Per E-Mail an AG senden …": "Send to client by email …",
+  "Erst freigeben – nur geprüfte Schreiben können gesendet werden": "Approve first – only approved notices can be sent",
+  "Keine E-Mail-Adresse des AG im Feld „E-Mail Empfänger (AG)“": "No client email address in the field “Recipient email (client)”",
+  "Kein Postfach gebunden – unter „Postfach“ verbinden": "No mailbox connected – connect one under “Mailbox”",
+  "Postfach gesperrt – Passwort eingeben": "Mailbox locked – enter password",
+  "Kein Export des Schreibens vorhanden": "No export of the notice available",
+  "Original per Einschreiben mit Rückschein versenden (E-Mail allein wahrt die Schriftform ggf. nicht)":
+    "Send the original by registered mail with return receipt (email alone may not satisfy the written-form requirement)",
+  "Original versendet": "Original sent", "Original versendet: {m}": "Original sent: {m}",
+  "Einschreiben mit Rückschein": "Registered mail with return receipt", "Bote mit Empfangsbestätigung": "Courier with receipt",
+  "Per E-Mail gesendet an {to} von {from} am {d}": "Emailed to {to} from {from} on {d}",
+  "SiteVox sendet nur nach Ihrer Bestätigung im Sendedialog über das gebundene Postfach. Alternativ: Outlook-Entwurf öffnen und selbst senden.":
+    "SiteVox only sends after you confirm in the send dialog, via the connected mailbox. Alternatively open the Outlook draft and send it yourself.",
+  "SMTP-Server (Versand, leer = automatisch)": "SMTP server (sending, empty = automatic)", "SMTP-Port": "SMTP port",
+  "Gerät hinzufügen": "Add equipment", "Name fehlt": "Name missing", "Zeile entfernen": "Remove row",
+  "Zeile „{n}“ aus dem Bericht entfernen?": "Remove row “{n}” from the report?", "manuell": "manual",
+  "manuell geändert": "edited manually", "Manuelle Änderung verwerfen": "Discard manual change",
+  "Doppelklick auf eine Zeile = bearbeiten · blau hinterlegt = manuell geändert · gilt auch für den PDF-Bericht":
+    "Double-click a row to edit · blue = edited manually · also applies to the PDF report",
   ...TERMS,
 };
 
 // Muster für zusammengesetzte Engine-Texte (Auswirkungsketten, Wetter, Blocker)
 const EN_RULES: [RegExp, string][] = [
   [/um (\d+) AT überschritten/g, "exceeded by $1 WD"],
+  [/Prognose überschreitet um (\d+) AT/g, "forecast exceeds by $1 WD"],
+  [/^Böen bis (\d+) km\/h$/, "gusts up to $1 km/h"],
+  [/^gefunden in: (.+)$/, "found in: $1"],
+  [/^Keine gültige E-Mail-Adresse: (.+)$/, "Not a valid email address: $1"],
   [/\(statt ([^)]+)\)/g, "(instead of $1)"],
   // mehrwortige Projektbegriffe innerhalb von Sätzen (längste zuerst, damit „Vertragsfrist Rohbau EG“ vor „… EG“ greift)
   ...Object.entries(TERMS).filter(([k]) => k.includes(" ")).sort((a, b) => b[0].length - a[0].length)

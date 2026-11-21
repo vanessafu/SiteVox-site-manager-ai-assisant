@@ -132,6 +132,50 @@ def set_staffing(project_id: str, day: str, crew: str, present: Optional[int], p
                 after={"present": present, "planned": planned})
 
 
+# ============================================================================ Berichtszeilen (Personal / Geräte)
+REPORT_FIELDS = {
+    "workforce": {"company": str, "trade": str, "planned": int, "count": int, "hours_total": float, "idle_hours": float},
+    "equipment": {"status": str, "hours_planned": float, "hours_operated": float, "downtime": list,
+                  "downtime_cause": str},
+}
+
+
+def _coerce(typ, v):
+    if v is None or v == "":
+        return None
+    if typ is list:
+        return [{"from": str(x.get("from") or ""), "to": (str(x["to"]) if x.get("to") else None)} for x in v
+                if x.get("from")]
+    return typ(v)
+
+
+def set_report_row(project_id: str, day: str, section: str, key: str, data: Optional[dict], action: str,
+                   actor: str) -> None:
+    """Manuelle Korrektur einer Zeile im Bautagesbericht (§ 2 Personal, § 3 Geräte).
+
+    action: "set" (Felder überschreiben bzw. neue Zeile), "delete" (Zeile ausblenden), "reset" (Korrektur verwerfen).
+    Gilt für Dashboard und PDF/DOCX gleichermaßen, weil beide aus daily_report.build lesen.
+    """
+    if section not in REPORT_FIELDS:
+        raise EditError(f"Abschnitt {section} nicht bearbeitbar")
+    key = (key or "").strip()
+    if not key:
+        raise EditError("Name fehlt")
+    prev = store.report_rows(project_id, day, section).get(key)
+    if action == "reset":
+        doc = None
+    elif action == "delete":
+        doc = {"deleted": True}
+    else:
+        fields = REPORT_FIELDS[section]
+        doc = {k: v for k, v in (prev or {}).items() if k != "deleted"}
+        for k, v in (data or {}).items():
+            if k in fields:
+                doc[k] = _coerce(fields[k], v)
+    store.save_report_row(project_id, day, section, key, doc)
+    store.audit(actor, "report_row", f"{project_id}/{day}/{section}/{key}", action, before=prev, after=doc)
+
+
 # ============================================================================ Ereignisse
 EVENT_FIELDS = ("type", "description", "cause", "start", "end", "blocked_until", "affected_activities",
                 "resource_effects")

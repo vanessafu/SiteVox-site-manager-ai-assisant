@@ -2,11 +2,12 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Fragment, useMemo, useState } from "react";
-import { ArrowLeft, Check, CheckCheck, CheckCircle2, Download, FileText, Lock, Mail, Pencil, RotateCcw, Send, ShieldCheck, X } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Check, CheckCheck, CheckCircle2, Download, FileText, Lock, Mail, Pencil, RotateCcw, Send, ShieldCheck, X } from "lucide-react";
 import { band, dLong, post, put, useApi } from "@/lib/api";
 import { EvidenceSources, SOURCE_ICON } from "@/components/EvidenceViewer";
 import { BandDot, ConfidencePill, Disclaimer, Elapsed, SphereChip, StatusChip } from "@/components/ui";
 import { useT } from "@/lib/i18n";
+import SendDialog from "@/components/SendDialog";
 
 type Sel = { kind: "field"; key: string } | { kind: "sentence"; section: string; idx: number } | { kind: "ref"; ref: string } | null;
 
@@ -63,8 +64,20 @@ export default function ReviewEditor() {
   const [draftText, setDraftText] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
   const [sentMethod, setSentMethod] = useState("E-Mail vorab + Einschreiben mit Rückschein");
+  const [sendOpen, setSendOpen] = useState(false);
+  const [origMethod, setOrigMethod] = useState("Einschreiben mit Rückschein");
   const { t } = useT();
 
+  // Feld speichern: Enter, ✓ oder Klick daneben (vorher ging die Eingabe ohne Enter verloren)
+  const saveField = (f: any) => {
+    if (editing !== `f:${f.key}`) return;
+    setEditing(null);
+    if (draftText === (Array.isArray(f.value) ? f.value.join(", ") : String(f.value ?? ""))) return;
+    const value = f.key === "impact_estimate_days" ? Number(draftText) : f.key === "affected_activities" ? draftText.split(",").map((s) => s.trim()) : draftText;
+    act(() => f.key === "recipient_email" && L.status === "Geprüft"
+      ? put(`/api/letters/${lid}/recipient-email`, { value })
+      : post(`/api/letters/${lid}/fields/${f.key}`, { action: "edit", value }));
+  };
   const act = async (fn: () => Promise<any>) => {
     setMsg(null);
     try { setData(await fn()); } catch (e: any) { setMsg(e.detail?.blockers ? e.detail.blockers.map((b: string) => t(b)).join(" · ") : e.message); }
@@ -112,7 +125,11 @@ export default function ReviewEditor() {
             )}
             {L.status === "Entwurf" && (
               <button className="btn-primary" disabled={L.blockers.length > 0} title={L.blockers.map((b: string) => t(b)).join("\n")}
-                onClick={() => act(() => post(`/api/letters/${lid}/release`))}>
+                onClick={() => act(async () => {
+                  const r = await post(`/api/letters/${lid}/release`);
+                  if (r.status === "Geprüft") setSendOpen(true); // Approve → Sendedialog (Versand erst nach Bestätigung)
+                  return r;
+                })}>
                 {L.blockers.length ? <Lock className="h-[18px] w-[18px]" /> : <ShieldCheck className="h-[18px] w-[18px]" />} {t("Freigeben")}
               </button>
             )}
@@ -144,6 +161,23 @@ export default function ReviewEditor() {
       <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
         {/* Links: Entwurf */}
         <div className="space-y-4 overflow-y-auto border-r border-slate-200 p-4">
+          {(() => {
+            const fe = L.fields.find((f: any) => f.key === "recipient_email");
+            if (!fe || fe.status === "rejected") return null;
+            return fe.value ? (
+              <div className="flex items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
+                <Mail className="h-4 w-4 shrink-0 text-slate-600" /> {t("An:")} <b>{fe.value}</b>
+                <span className="text-2xs text-slate-600">{t(fe.note)}</span>
+              </div>
+            ) : !locked && (
+              <button onClick={() => setSel({ kind: "field", key: "recipient_email" })}
+                className="flex w-full items-start gap-2 rounded-md border-2 border-bad bg-bad-soft px-3 py-2 text-left text-sm text-bad-text">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                <span><b>{t("E-Mail-Adresse des AG fehlt – bitte prüfen und eintragen")}</b><br />
+                  <span className="text-xs">{t(fe.note)}</span></span>
+              </button>
+            );
+          })()}
           <div className="card divide-y divide-slate-100">
             <div className="flex items-center gap-2 px-3 py-2">
               <span className="text-2xs uppercase tracking-wide text-slate-500">{t("Felder · Farbe = Konfidenz")} · <span className="normal-case">{t("Schreibentext bleibt deutsch (an deutschen AG nach VOB/B).")}</span></span>
@@ -162,8 +196,11 @@ export default function ReviewEditor() {
                   <div className="flex items-center gap-2">
                     <span className="w-44 shrink-0 text-xs text-slate-600">{t(f.label)}</span>
                     {editing === `f:${f.key}` ? (
-                      <input autoFocus className="flex-1 rounded border px-2 py-0.5 text-sm" value={draftText} onChange={(e) => setDraftText(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === "Enter") { act(() => post(`/api/letters/${lid}/fields/${f.key}`, { action: "edit", value: f.key === "impact_estimate_days" ? Number(draftText) : f.key === "affected_activities" ? draftText.split(",").map((s) => s.trim()) : draftText })); setEditing(null); } }} />
+                      <span className="flex flex-1 gap-1" onClick={(e) => e.stopPropagation()}>
+                        <input autoFocus className="flex-1 rounded border px-2 py-0.5 text-sm" value={draftText} onChange={(e) => setDraftText(e.target.value)}
+                          onBlur={() => saveField(f)} onKeyDown={(e) => { if (e.key === "Enter") saveField(f); if (e.key === "Escape") setEditing(null); }} />
+                        <button className="btn-xs" onMouseDown={(e) => e.preventDefault()} onClick={() => saveField(f)} title={t("Speichern")}><Check className="h-3.5 w-3.5" /></button>
+                      </span>
                     ) : (
                       <span className={`flex-1 text-sm ${f.status === "rejected" ? "line-through opacity-50" : ""}`}>{f.key === "sphere" ? <SphereChip sphere={f.value} /> : fmtValue(f, t)}</span>
                     )}
@@ -272,7 +309,26 @@ export default function ReviewEditor() {
                     : <span className="btn opacity-50" title={t("LibreOffice (soffice) auf dem Server installieren")}>{t("PDF n/v")}</span>}
                   <a className="btn" href={`/api/letters/${lid}/export/eml`}><Mail className="h-[18px] w-[18px]" /> {t("Outlook-Entwurf (.eml)")}</a>
                 </div>
-                <p className="text-2xs text-slate-600">{t("SiteVox versendet nichts. Entwurf in Outlook öffnen, prüfen und selbst auf „Senden“ klicken.")}</p>
+                {L.status === "Geprüft" && (
+                  <button className="btn-primary" onClick={() => setSendOpen(true)}><Send className="h-[18px] w-[18px]" /> {t("Per E-Mail an AG senden …")}</button>
+                )}
+                <p className="text-2xs text-slate-600">{t("SiteVox sendet nur nach Ihrer Bestätigung im Sendedialog über das gebundene Postfach. Alternativ: Outlook-Entwurf öffnen und selbst senden.")}</p>
+                {L.sent_email && (
+                  <div className="text-xs text-ok-text">{t("Per E-Mail gesendet an {to} von {from} am {d}", { to: L.sent_email.to, from: L.sent_email.from, d: `${dLong(L.sent_email.at)} ${L.sent_email.at.slice(11, 16)}` })}
+                    {L.sent_email.cc?.length > 0 && ` · Cc ${L.sent_email.cc.join(", ")}`}</div>
+                )}
+                {L.original?.pending && (
+                  <div className="space-y-1.5 rounded border border-warn bg-warn-soft p-2 text-xs text-warn-text">
+                    <div className="flex items-start gap-1.5"><AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" /> {t(L.original.reminder)}</div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <select className="rounded border px-2 py-1 text-xs text-slate-800" value={origMethod} onChange={(e) => setOrigMethod(e.target.value)}>
+                        {["Einschreiben mit Rückschein", "Bote mit Empfangsbestätigung", "Übergabe gegen Unterschrift"].map((o) => <option key={o} value={o}>{t(o)}</option>)}
+                      </select>
+                      <button className="btn-xs" onClick={() => act(() => post(`/api/letters/${lid}/original-sent`, { method: origMethod }))}><Check className="h-3.5 w-3.5" /> {t("Original versendet")}</button>
+                    </div>
+                  </div>
+                )}
+                {L.original && !L.original.pending && <div className="text-xs text-ok-text">{t("Original versendet: {m}", { m: t(L.original.method) })} · {dLong(L.original.at)}</div>}
                 {L.status === "Geprüft" && (
                   <div className="flex flex-wrap items-center gap-2">
                     <select className="rounded border px-2 py-1 text-xs" value={sentMethod} onChange={(e) => setSentMethod(e.target.value)}>
@@ -329,6 +385,7 @@ export default function ReviewEditor() {
           </ul>
         </aside>
       </div>
+      {sendOpen && <SendDialog pid={pid} lid={lid} onClose={() => setSendOpen(false)} onSent={(l) => { setData(l); setSendOpen(false); }} />}
     </div>
   );
 }
