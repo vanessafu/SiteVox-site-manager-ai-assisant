@@ -192,6 +192,18 @@ def _demo_exif(project_id: str, stem: str) -> dict[str, Any]:
     return json.loads(fx.read_text(encoding="utf-8")).get("exif", {})
 
 
+def live_in_demo() -> bool:
+    """Demo-Modus, aber Fotos trotzdem mit dem echten VLM: SITEVOX_VISION_LIVE=1 oder live_in_demo = true."""
+    import os
+
+    if not settings.is_demo():
+        return False
+    env = os.environ.get("SITEVOX_VISION_LIVE")
+    if env is not None:
+        return env.strip().lower() in ("1", "true", "yes", "on")
+    return bool(settings.models()["llm"]["vision"].get("live_in_demo", False))
+
+
 def analyze(path: Path, project_id: str, *, activities_today: Optional[list[str]] = None,
             tz_hint: Optional[str] = None) -> dict[str, Any]:
     """Foto → {exif, analysis (PhotoAnalysis), backend, model}. Wirft keine Fehler wegen des Modells:
@@ -199,17 +211,26 @@ def analyze(path: Path, project_id: str, *, activities_today: Optional[list[str]
     path = Path(path)
     cfg = settings.models()["llm"]["vision"]
     meta = exif_meta(path, tz_hint)
+    live = live_in_demo()
     if settings.is_demo():
         meta = {**meta, **_demo_exif(project_id, path.stem)}
     ctx = VISION_CONTEXT.format(activities=", ".join(activities_today)) if activities_today else ""
     prompt = VISION_PROMPT.format(context=ctx)
     content: list[dict] = [{"type": "text", "text": prompt}]
-    if not settings.is_demo():
+    if live or not settings.is_demo():
         b64 = base64.b64encode(_clean_jpeg(path, cfg.get("max_image_side", 1536))).decode()
         content.insert(0, {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}})
     msgs = [{"role": "user", "content": content}]
-    out: dict[str, Any] = {"exif": meta, "backend": "replay" if settings.is_demo() else cfg.get("backend"),
-                           "model": cfg["model"]}
+    out: dict[str, Any] = {"exif": meta, "backend": "replay" if settings.is_demo() and not live
+                           else cfg.get("backend"), "model": cfg["model"]}
+    if live:  # Demo, aber echtes VLM – bei jedem Fehler zurück auf Fixture/Fallback, damit die Demo nie hängt
+        try:
+            res = llm.get("vision")._call(PhotoAnalysis, msgs, n=1, temperature=cfg.get("temperature", 0.1))[0]
+            out["analysis"] = res.model_dump()
+            return out
+        except Exception as e:  # noqa: BLE001
+            log.warning("Live-VLM im Demo-Modus fehlgeschlagen, nutze Replay: %s", e)
+            out["backend"], out["live_error"] = "replay", str(e)[:300]
     try:
         res = llm.get("vision").structured(PhotoAnalysis, msgs, n=1, temperature=cfg.get("temperature", 0.1),
                                            fixture=(project_id, f"vision/{path.stem}"), fallback=_fallback)[0]
