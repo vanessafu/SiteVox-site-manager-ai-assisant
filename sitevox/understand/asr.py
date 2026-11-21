@@ -4,11 +4,16 @@ Backends (config/models.toml [asr].backend):
   whisperx       – faster-whisper + wav2vec2-Alignment, word.score = Alignment-Konfidenz
   faster_whisper – word.probability = ASR-Wortwahrscheinlichkeit
   mlx_whisper    – Apple Silicon
+  remote         – WhisperX auf dem GPU-Knoten (scripts/cluster/asr_server.py), Audio über SSH-Tunnel
+Sprache: "auto" erkennt pro Aufnahme unter allowed_languages (de/en/tr/pl) und wählt Prompt + Alignment-Modell.
 Demo-Modus: Replay aus data/demo/<projekt>/fixtures/asr/<dateiname>.json
 """
 from __future__ import annotations
 
+import dataclasses
 import json
+import logging
+import os
 import re
 from difflib import SequenceMatcher
 from functools import lru_cache
@@ -17,9 +22,63 @@ from typing import Any, Optional
 
 from .. import settings
 
+log = logging.getLogger(__name__)
+
 
 def _norm_word(w: str) -> str:
     return re.sub(r"[^\wäöüß]", "", w.lower())
+
+
+# ----------------------------------------------------------------------------- language & prompts
+def _asr_cfg() -> dict:
+    return settings.models()["asr"]
+
+
+def _prompt_for(lang: str) -> Optional[str]:
+    c = _asr_cfg()
+    return c.get("initial_prompts", {}).get(lang) or (c.get("initial_prompt") if lang == "de" else None)
+
+
+def _pick_language(probs: list[tuple[str, float]]) -> tuple[str, Optional[float]]:
+    """Wahrscheinlichste Sprache, aber nur unter allowed_languages (sonst fallback_language)."""
+    c = _asr_cfg()
+    allowed = set(c.get("allowed_languages") or [])
+    cand = [(lang, p) for lang, p in probs if not allowed or lang in allowed]
+    if not cand:
+        return c.get("fallback_language", "de"), None
+    lang, p = max(cand, key=lambda x: x[1])
+    return lang, round(float(p), 3)
+
+
+def _detect_language(fw_model, audio, pipeline=None) -> tuple[str, Optional[float]]:
+    """Spracherkennung auf den ersten Sprachabschnitten (VAD, robust gegen Lärm am Anfang)."""
+    try:
+        _, _, probs = fw_model.detect_language(audio=audio, vad_filter=True, language_detection_segments=3)
+        return _pick_language(probs)
+    except Exception as e:  # noqa: BLE001 – ältere faster-whisper-Versionen
+        log.warning("detect_language (faster-whisper) fehlgeschlagen: %s", e)
+    if pipeline is not None:
+        try:
+            return _pick_language([(pipeline.detect_language(audio), 1.0)])
+        except Exception as e:  # noqa: BLE001
+            log.warning("detect_language (whisperx) fehlgeschlagen: %s", e)
+    return _asr_cfg().get("fallback_language", "de"), None
+
+
+def _with_prompt(options, prompt: Optional[str]):
+    if dataclasses.is_dataclass(options):
+        return dataclasses.replace(options, initial_prompt=prompt)
+    return options._replace(initial_prompt=prompt)  # NamedTuple (ältere faster-whisper)
+
+
+def _words_from_segment(seg: dict) -> list[dict]:
+    """Fallback ohne Alignment-Modell: gleichmäßig verteilte Zeiten, kein Score."""
+    toks = seg["text"].split()
+    if not toks:
+        return []
+    step = (seg["end"] - seg["start"]) / len(toks)
+    return [{"word": w, "start": round(seg["start"] + i * step, 2), "end": round(seg["start"] + (i + 1) * step, 2),
+             "score": None} for i, w in enumerate(toks)]
 
 
 # ----------------------------------------------------------------------------- backends
@@ -27,49 +86,70 @@ def _norm_word(w: str) -> str:
 def _whisperx_model():
     import whisperx  # type: ignore
 
-    c = settings.models()["asr"]
+    c = _asr_cfg()
     dev = settings.models()["runtime"]["device"]
-    model = whisperx.load_model(
-        c["model"], dev, compute_type=c.get("compute_type", "float16"), language=c["language"],
-        asr_options={"initial_prompt": c.get("initial_prompt"), "beam_size": c.get("beam_size", 5),
+    fixed = None if c["language"] == "auto" else c["language"]
+    return whisperx.load_model(
+        c["model"], dev, compute_type=c.get("compute_type", "float16"), language=fixed,
+        asr_options={"beam_size": c.get("beam_size", 5), "initial_prompt": None,
                      "hotwords": " ".join(c.get("hotwords", [])) or None},
     )
-    align_model, meta = whisperx.load_align_model(language_code=c["language"], device=dev)
-    return model, align_model, meta
+
+
+@lru_cache(maxsize=4)
+def _align_model(lang: str):
+    import whisperx  # type: ignore
+
+    return whisperx.load_align_model(language_code=lang, device=settings.models()["runtime"]["device"])
 
 
 def _run_whisperx(path: Path, language: str) -> dict:
     import whisperx  # type: ignore
 
-    c = settings.models()["asr"]
+    c = _asr_cfg()
     dev = settings.models()["runtime"]["device"]
-    model, align_model, meta = _whisperx_model()
+    pipe = _whisperx_model()
     audio = whisperx.load_audio(str(path))
-    res = model.transcribe(audio, batch_size=c.get("batch_size", 16), language=language)
-    if language != c["language"]:
-        align_model, meta = whisperx.load_align_model(language_code=language, device=dev)
-    aligned = whisperx.align(res["segments"], align_model, meta, audio, dev, return_char_alignments=False)
+    prob = None
+    if language == "auto":
+        language, prob = _detect_language(pipe.model, audio, pipeline=pipe)
+    pipe.options = _with_prompt(pipe.options, _prompt_for(language))
+    res = pipe.transcribe(audio, batch_size=c.get("batch_size", 16), language=language)
+    try:
+        align_model, meta = _align_model(language)
+        segments = whisperx.align(res["segments"], align_model, meta, audio, dev,
+                                  return_char_alignments=False)["segments"]
+    except Exception as e:  # noqa: BLE001 – kein Alignment-Modell für die Sprache
+        log.warning("Kein Wort-Alignment für %s: %s", language, e)
+        segments = [{**s, "words": _words_from_segment(s)} for s in res["segments"]]
     segs = []
-    for s in aligned["segments"]:
+    for s in segments:
         words = [{"word": w["word"], "start": w.get("start"), "end": w.get("end"), "score": w.get("score")}
                  for w in s.get("words", [])]
         segs.append({"start": s["start"], "end": s["end"], "text": s["text"].strip(), "words": words})
-    return {"segments": segs, "duration": len(audio) / 16000}
+    return {"segments": segs, "duration": len(audio) / 16000, "language": language, "language_prob": prob}
 
 
 @lru_cache(maxsize=1)
 def _fw_model():
     from faster_whisper import WhisperModel  # type: ignore
 
-    c = settings.models()["asr"]
+    c = _asr_cfg()
     return WhisperModel(c["model"], device=settings.models()["runtime"]["device"],
                         compute_type=c.get("compute_type", "float16"))
 
 
 def _run_faster_whisper(path: Path, language: str) -> dict:
-    c = settings.models()["asr"]
-    segments, info = _fw_model().transcribe(
-        str(path), language=language, initial_prompt=c.get("initial_prompt"), beam_size=c.get("beam_size", 5),
+    from faster_whisper import decode_audio  # type: ignore
+
+    c = _asr_cfg()
+    model = _fw_model()
+    audio = decode_audio(str(path))
+    prob = None
+    if language == "auto":
+        language, prob = _detect_language(model, audio)
+    segments, info = model.transcribe(
+        audio, language=language, initial_prompt=_prompt_for(language), beam_size=c.get("beam_size", 5),
         word_timestamps=True, vad_filter=c.get("vad_filter", True),
         hotwords=" ".join(c.get("hotwords", [])) or None,
     )
@@ -78,21 +158,38 @@ def _run_faster_whisper(path: Path, language: str) -> dict:
         words = [{"word": w.word.strip(), "start": w.start, "end": w.end, "score": w.probability}
                  for w in (s.words or [])]
         segs.append({"start": s.start, "end": s.end, "text": s.text.strip(), "words": words})
-    return {"segments": segs, "duration": info.duration}
+    return {"segments": segs, "duration": info.duration, "language": language, "language_prob": prob}
 
 
 def _run_mlx(path: Path, language: str) -> dict:
     import mlx_whisper  # type: ignore
 
-    c = settings.models()["asr"]
-    res = mlx_whisper.transcribe(str(path), path_or_hf_repo=c["mlx_repo"], language=language,
-                                 initial_prompt=c.get("initial_prompt"), word_timestamps=True)
+    c = _asr_cfg()
+    lang = None if language == "auto" else language  # mlx: freie Erkennung, ohne allowed_languages
+    res = mlx_whisper.transcribe(str(path), path_or_hf_repo=c["mlx_repo"], language=lang,
+                                 initial_prompt=_prompt_for(lang or c.get("fallback_language", "de")),
+                                 word_timestamps=True)
     segs = []
     for s in res["segments"]:
         words = [{"word": w["word"].strip(), "start": w["start"], "end": w["end"], "score": w.get("probability")}
                  for w in s.get("words", [])]
         segs.append({"start": s["start"], "end": s["end"], "text": s["text"].strip(), "words": words})
-    return {"segments": segs, "duration": segs[-1]["end"] if segs else 0.0}
+    return {"segments": segs, "duration": segs[-1]["end"] if segs else 0.0, "language": res.get("language", lang),
+            "language_prob": None}
+
+
+def _run_remote(path: Path, language: str) -> dict:
+    """WhisperX auf dem GPU-Knoten (scripts/cluster/asr_server.py) über den SSH-Tunnel."""
+    import httpx
+
+    c = _asr_cfg()
+    key = os.environ.get("SITEVOX_LLM_API_KEY", "")
+    with open(path, "rb") as f:
+        r = httpx.post(f"{c['remote_url'].rstrip('/')}/transcribe", data={"language": language},
+                       files={"file": (Path(path).name, f, "application/octet-stream")},
+                       headers={"Authorization": f"Bearer {key}"}, timeout=600)
+    r.raise_for_status()
+    return r.json()
 
 
 def _from_text(text: str) -> dict:
@@ -105,11 +202,12 @@ def _from_text(text: str) -> dict:
 
 def transcribe(path: Path, project_id: Optional[str] = None, hint: Optional[str] = None,
                language: Optional[str] = None) -> dict[str, Any]:
-    """Gibt {"text", "segments":[{start,end,text,words:[{word,start,end,score}]}], "backend", ...} zurück.
+    """Gibt {"text", "segments":[{start,end,text,words:[{word,start,end,score}]}], "backend", "language", ...} zurück.
 
+    language: None → config (Standard "auto": Erkennung unter allowed_languages), sonst fester Code.
     hint: Im Demo-Modus ohne Fixture kann das Browser-Transkript (Web Speech API) übergeben werden.
     """
-    c = settings.models()["asr"]
+    c = _asr_cfg()
     if settings.is_demo():
         fx = settings.demo_dir(project_id or "BV-RIEM") / "fixtures" / "asr" / f"{Path(path).stem}.json"
         if fx.exists():
@@ -121,11 +219,16 @@ def transcribe(path: Path, project_id: Optional[str] = None, hint: Optional[str]
                                     f"oder SITEVOX_MODE=gpu verwenden")
     else:
         backend = c["backend"]
-        res = {"whisperx": _run_whisperx, "faster_whisper": _run_faster_whisper, "mlx_whisper": _run_mlx}[backend](
-            Path(path), language or c["language"])
+        runner = {"whisperx": _run_whisperx, "faster_whisper": _run_faster_whisper, "mlx_whisper": _run_mlx,
+                  "remote": _run_remote}[backend]
+        res = runner(Path(path), language or c["language"])
+        if backend == "remote":
+            res["backend"] = f"remote:{res.get('backend', '?')}"
+            return res
     res["text"] = " ".join(s["text"] for s in res["segments"]).strip()
     res["backend"] = backend
     res["model"] = c["model"]
+    res.setdefault("language", language if language and language != "auto" else None)
     scores = [w["score"] for s in res["segments"] for w in s["words"] if w.get("score") is not None]
     res["mean_score"] = round(sum(scores) / len(scores), 3) if scores else None
     return res
