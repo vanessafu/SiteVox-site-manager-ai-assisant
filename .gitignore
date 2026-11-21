@@ -7,7 +7,7 @@ __pycache__/
 data/sitevox.db*
 data/BV-*/
 data/index/
-data/serve_*.log
+*.log
 data/asr_eval/
 data/raw/
 # Frontend

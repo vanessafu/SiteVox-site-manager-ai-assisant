@@ -62,6 +62,9 @@ def main() -> None:
     ap.add_argument("--roles", help="Kommagetrennt, z. B. extractor,drafter oder vision (Standard: laut Config)")
     ap.add_argument("--gpu-util", action="append", default=[], metavar="ROLE=FRAC",
                     help="gpu_memory_utilization überschreiben, z. B. vision=0.55 (eigene GPU)")
+    ap.add_argument("--model", action="append", default=[], metavar="ROLE=PATH",
+                    help="Modell (HF-Repo oder lokaler Ordner) überschreiben, z. B. drafter=$WORK/mmr/models/Qwen3-8B; "
+                         "deaktiviert für diese Rolle die AWQ-Variante")
     ap.add_argument("--wait", action="store_true", help="Im Vordergrund auf die Server warten (sbatch)")
     args = ap.parse_args()
     api_key = os.environ.get("SITEVOX_LLM_API_KEY")
@@ -77,8 +80,12 @@ def main() -> None:
     for kv in args.gpu_util:
         role, frac = kv.split("=", 1)
         serve[f"gpu_memory_utilization_{role}"] = float(frac)
+    model_override = dict(kv.split("=", 1) for kv in args.model)
     for role in roles:
-        cfg = m["llm"][role]
+        cfg = dict(m["llm"][role])
+        if role in model_override:
+            cfg["model"] = model_override[role]
+            cfg.pop("awq_repo", None)  # lokales Vollmodell statt AWQ-Repo
         cmd = (vllm_cmd(role, cfg, serve, args.host, api_key) if engine == "vllm"
                else llama_cpp_cmd(role, cfg, args.host, api_key))
         shown = [("***" if api_key and c == api_key else c) for c in cmd]
