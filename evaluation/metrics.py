@@ -115,6 +115,84 @@ def term_hits(ref: str, hyp: str, terms: Iterable[str]) -> tuple[int, int, list[
 
 
 _NUM = re.compile(r"\d+(?:[.:]\d+)?")
+# Einheiten nach einer Zahl → Mengenangabe (de/en/tr/pl, normalisierte Schreibung)
+_UNITS = {
+    "m³": "m3", "m3": "m3", "kubik": "m3", "kubikmeter": "m3", "cbm": "m3", "cubic": "m3", "metreküp": "m3",
+    "metrów": "m3", "t": "t", "tonnen": "t", "tonne": "t", "tons": "t", "tonnes": "t", "ton": "t",
+    "m": "m", "meter": "m", "metre": "m", "metres": "m", "meters": "m", "metry": "m",
+    "mann": "pers", "leute": "pers", "arbeiter": "pers", "men": "pers", "workers": "pers", "kişi": "pers",
+    "ludzi": "pers", "osób": "pers", "stück": "stk", "stk": "stk", "%": "%", "prozent": "%", "grad": "°",
+}
+_TIME_WORDS = {"uhr", "o'clock", "saat", "godzina", "godz"}
+
+
+def _time_norm(h: str, m: str = "00") -> str:
+    return f"{int(h)}:{int(m):02d}"
+
+
+def numeric_entities(s: str) -> list[tuple[str, str]]:
+    """Zahlen-Entitäten als (Art, Normalform): time "7:30" · date "18.11" · quantity "190 m3" · number "14".
+
+    Vereinheitlicht Schreibweisen, die Whisper je nach Sprache wählt: "07:30" = "7.30 Uhr" = "7 Uhr 30",
+    "10 Uhr" = "10:00", "190 Kubikmeter" = "190 m³", "6,5 Tonnen" = "6.5 t". Zahlwörter ("vierzehn") werden NICHT
+    erkannt – Referenzen sollten Ziffern verwenden (wie die Szenario-Texte).
+    """
+    raw = (s or "").replace("m³", " m³ ")
+    raw = re.sub(r"(\d)\s*(m3|m|t|%)\b", r"\1 \2", raw)
+    toks = normalize(raw).split()
+    out: list[tuple[str, str]] = []
+    i = 0
+    while i < len(toks):
+        t, nxt = toks[i], toks[i + 1] if i + 1 < len(toks) else ""
+        nn = toks[i + 2] if i + 2 < len(toks) else ""
+        if re.fullmatch(r"\d{1,2}:\d{2}", t):
+            out.append(("time", _time_norm(*t.split(":"))))
+            i += 2 if nxt in _TIME_WORDS else 1
+        elif re.fullmatch(r"\d{1,2}\.\d{2}", t) and nxt in _TIME_WORDS:     # "7.30 Uhr"
+            out.append(("time", _time_norm(*t.split("."))))
+            i += 2
+        elif re.fullmatch(r"\d{1,2}", t) and nxt in _TIME_WORDS:            # "10 Uhr", "10 Uhr 30"
+            if re.fullmatch(r"\d{1,2}", nn):
+                out.append(("time", _time_norm(t, nn)))
+                i += 3
+            else:
+                out.append(("time", _time_norm(t)))
+                i += 2
+        elif (re.fullmatch(r"\d{1,2}\.\d{2}(?:\.\d{2,4})?|\d{1,2}\.\d{1,2}\.\d{2,4}", t) and nxt not in _UNITS
+              and int(t.split(".")[0]) <= 31 and int(t.split(".")[1]) <= 12):  # "18.11", "20.11.2026"; "6.5" bleibt Zahl
+            d, m = t.split(".")[:2]
+            out.append(("date", f"{int(d)}.{int(m)}"))
+            i += 1
+        elif _NUM.fullmatch(t):
+            v = f"{float(t.replace(':', '.')):g}"
+            if nxt in _UNITS:
+                out.append(("quantity", f"{v} {_UNITS[nxt]}"))
+                i += 2
+            else:
+                out.append(("number", v))
+                i += 1
+        else:
+            i += 1
+    return out
+
+
+def numeric_hits(ref: str, hyp: str) -> dict[str, tuple[int, int]]:
+    """Je Art (time/date/quantity/number): (getroffen, gesamt) als Multiset-Überdeckung der Referenz-Entitäten.
+    Eine Menge zählt nur als getroffen, wenn Zahl UND Einheit stimmen ("190 m3" ≠ "190 t")."""
+    rc, hc = defaultdict(int), defaultdict(int)
+    for e in numeric_entities(ref):
+        rc[e] += 1
+    for e in numeric_entities(hyp):
+        hc[e] += 1
+    out: dict[str, list[int]] = {}
+    for (kind, v), k in rc.items():
+        hit = min(k, hc.get((kind, v), 0))
+        if kind == "number" and hit < k:  # "14" in der Ref, Hyp schreibt "14 Mann" → Zahl trotzdem richtig
+            hit = min(k, hit + sum(c for (kk, vv), c in hc.items() if kk == "quantity" and vv.split()[0] == v))
+        o = out.setdefault(kind, [0, 0])
+        o[0] += hit
+        o[1] += k
+    return {k: (v[0], v[1]) for k, v in out.items()}
 
 
 def number_hits(ref: str, hyp: str) -> tuple[int, int]:
