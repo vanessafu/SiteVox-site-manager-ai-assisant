@@ -14,12 +14,11 @@ ACTIONABLE = ("open", "draft", "released")
 
 
 def default_day(project_id: str) -> str:
-    caps = store.captures(project_id)
-    today = date.today().isoformat()
-    days = sorted({c["date"] for c in caps})
-    if today in days or not days:
-        return today
-    return days[-1]
+    """Berichtstag des Dashboards = heute (Systemuhr des Servers). Frühere Tage stehen im Verlauf.
+    Für Vorführungen lässt sich der Tag mit SITEVOX_TODAY=JJJJ-MM-TT festhalten (z. B. Demo-Tag 2026-11-20)."""
+    import os
+
+    return os.environ.get("SITEVOX_TODAY") or date.today().isoformat()
 
 
 def pending_letters(project_id: str) -> int:
@@ -31,6 +30,24 @@ def projects() -> list[dict]:
     out = []
     for p in store.list_projects():
         out.append({**p, "badge": pending_letters(p["id"])})
+    return out
+
+
+def report_days(project_id: str) -> list[dict]:
+    """Verlauf: Berichtstage (neueste zuerst) mit Erfassungen, Ereignissen und Wetter."""
+    today = date.today().isoformat()
+    out = []
+    for d in store.report_days(project_id):
+        if d > today:
+            continue
+        caps = store.captures(project_id, d)
+        evs = [e for e in store.events(project_id, d) if e["status"] != "dismissed"]
+        wx = store.weather(project_id, d) or {}
+        out.append({"date": d, "captures": len(caps), "events": len(evs),
+                    "open_letters": sum(1 for e in evs if e["recommended_document"]["requires_letter"]
+                                        and e["status"] in ACTIONABLE),
+                    "weather": (wx.get("summary") or {}).get("condition"),
+                    "temp_max": (wx.get("summary") or {}).get("temp_max"), "photos": sum(1 for c in caps if c["kind"] == "photo")})
     return out
 
 
@@ -76,8 +93,11 @@ def dashboard(project_id: str, day: str) -> dict[str, Any]:
     planned = total["planned"] if total else sum(s["planned"] for s in staff)
     wx = store.weather(project_id, day) or {}
     evs = [e for e in store.events(project_id, day) if e["status"] != "dismissed"]
-    cards = [event_card(e) for e in evs]
-    extra = [c for c in cards if c["type"] in ("additional_work", "leistungsaenderung")]
+    # offene fristgebundene Vorgänge früherer Tage bleiben im Handlungsbedarf, bis sie erledigt sind
+    carried = [e for e in store.events(project_id) if e["date"] < day and e["status"] in ACTIONABLE
+               and e["recommended_document"]["requires_letter"]]
+    cards = [event_card(e) for e in evs] + [{**event_card(e), "carried_from": e["date"]} for e in carried]
+    extra = [c for c in cards if c["type"] in ("additional_work", "leistungsaenderung") and not c.get("carried_from")]
     bullets = []
     for r in a["activities"]:
         if not r["today"]["soll"]:
@@ -96,7 +116,7 @@ def dashboard(project_id: str, day: str) -> dict[str, Any]:
         "overview": {"kpis": a["kpis"], "window": a["window"], "today_idx": a["today_idx"],
                      "activities": a["activities"], "impact": a["impact"], "milestones": a["milestones"]},
         "today": {
-            "kpis": {"day_target_ratio": a["kpis"]["day_target_ratio"],
+            "kpis": {"day_target_ratio": a["kpis"].get("day_target_ratio"),
                      "staff": {"present": present, "planned": planned, "detail": staff},
                      "weather": wx},
             "bullets": bullets, "extra_work": extra, "timeline": tl,

@@ -56,6 +56,86 @@ def projects() -> list[dict]:
     return views.projects()
 
 
+@app.post("/api/projects")
+def create_project(body: dict) -> dict:
+    return _edit(editing.create_project, body, ACTOR)
+
+
+@app.post("/api/projects/{pid}/schedule-import")
+async def schedule_import(pid: str, file: UploadFile = File(...)) -> dict:
+    """Bauzeitenplan (Excel) beim Anlegen eines Projekts einlesen – ersetzt die Vorgänge des Projekts."""
+    if pid not in {p["id"] for p in store.list_projects()}:
+        raise HTTPException(404, "Projekt unbekannt")
+    path = await _tmp_file(file, "Bauzeitenplan.xlsx")
+    return _edit(editing.import_schedule, pid, path, ACTOR)
+
+
+@app.delete("/api/projects/{pid}")
+def delete_project(pid: str) -> dict:
+    try:
+        return editing.delete_project(pid, ACTOR)
+    except KeyError as e:
+        raise HTTPException(404, "Projekt unbekannt") from e
+
+
+@app.get("/api/projects/{pid}/days")
+def report_days(pid: str) -> list[dict]:
+    """Verlauf: alle Berichtstage (neueste zuerst) mit Kurzinfo."""
+    return views.report_days(pid)
+
+
+@app.get("/api/projects/{pid}/contacts")
+def contacts_list(pid: str) -> list[dict]:
+    """Kontakte aus Stammdaten, Vertrag, Dokumenten und E-Mails (+ manuelle)."""
+    from sitevox.understand import contacts
+
+    return contacts.all_contacts(pid)
+
+
+@app.post("/api/projects/{pid}/contacts")
+def contacts_add(pid: str, body: dict) -> dict:
+    from sitevox.understand import contacts
+
+    try:
+        return contacts.save_contact(pid, body, ACTOR)
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
+
+
+@app.put("/api/projects/{pid}/contacts/{cid}")
+def contacts_edit(pid: str, cid: str, body: dict) -> dict:
+    from sitevox.understand import contacts
+
+    try:
+        return contacts.save_contact(pid, body, ACTOR, cid)
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
+
+
+@app.delete("/api/projects/{pid}/contacts/{cid}")
+def contacts_remove(pid: str, cid: str) -> dict:
+    from sitevox.understand import contacts
+
+    contacts.hide_contact(pid, cid, ACTOR)
+    return {"ok": True}
+
+
+@app.get("/api/projects/{pid}/contract-info")
+def contract_info_get(pid: str) -> dict:
+    """Aus dem Vertrag erkannte Angaben im Vergleich zu den Stammdaten."""
+    from sitevox.understand import contract_info
+
+    return contract_info.compare(pid)
+
+
+@app.post("/api/projects/{pid}/contract-info/apply")
+def contract_info_apply(pid: str, body: dict) -> dict:
+    """Ausgewählte Vertragsangaben in die Stammdaten übernehmen (auch abweichende – Entscheidung der Bauleitung)."""
+    from sitevox.understand import contract_info
+
+    return {"applied": contract_info.apply(pid, keys=body.get("keys") or [], actor=ACTOR, only_empty=False)}
+
+
 @app.get("/api/projects/{pid}/dashboard")
 def dashboard(pid: str, date: Optional[str] = None) -> dict:
     return views.dashboard(pid, date or views.default_day(pid))
@@ -468,22 +548,37 @@ def mail_account_list(pid: str) -> list[dict]:
     return mail_accounts.accounts(pid)
 
 
+def _mail_ingest(pid: str):
+    """Abgerufene Mails laufen durch die normale E-Mail-Erfassung."""
+    return lambda path, received_at: _run_ingest(pid, "email", path, None, received_at, {"source": "imap"})
+
+
+@app.on_event("startup")
+def _start_mail_auto_sync() -> None:
+    mail_accounts.start_auto_sync(_mail_ingest)
+    pipeline.start_weather_auto()  # Wetter heute stündlich, ältere Tage beim ersten Öffnen
+
+
 @app.post("/api/projects/{pid}/mail-accounts")
 def mail_account_add(pid: str, body: dict) -> dict:
     try:
-        return mail_accounts.add(pid, body, ACTOR)
+        acc = mail_accounts.add(pid, body, ACTOR)
     except imap_mail.MailError as e:
         raise HTTPException(400, str(e)) from e
+    mail_accounts.sync_soon(pid, acc["account_id"], _mail_ingest(pid))
+    return acc
 
 
 @app.post("/api/projects/{pid}/mail-accounts/{aid}/unlock")
 def mail_account_unlock(pid: str, aid: str, body: dict) -> dict:
     try:
-        return mail_accounts.unlock(pid, aid, body.get("password") or "")
+        acc = mail_accounts.unlock(pid, aid, body.get("password") or "")
     except KeyError as e:
         raise HTTPException(404) from e
     except imap_mail.MailError as e:
         raise HTTPException(400, str(e)) from e
+    mail_accounts.sync_soon(pid, aid, _mail_ingest(pid))
+    return acc
 
 
 @app.delete("/api/projects/{pid}/mail-accounts/{aid}")
@@ -514,7 +609,9 @@ def mail_account_sync(pid: str, aid: str, background: BackgroundTasks) -> dict:
 def knowledge(pid: str) -> list[dict]:
     return [{"doc_id": d["doc_id"], "title": d["title"], "kind": d.get("kind"), "collection": d.get("collection"),
              "project_id": d["project_id"], "pages": len(d["pages"]), "file": d.get("file"),
-             "format": "gaeb" if d.get("gaeb") else None}
+             "format": "gaeb" if d.get("gaeb") else None, "version": d.get("version"),
+             "uploaded_at": d.get("uploaded_at"), "superseded_by": d.get("superseded_by"),
+             "superseded_at": d.get("superseded_at")}
             for d in store.documents(pid)]
 
 
@@ -693,6 +790,22 @@ def update_capture(cid: str, body: dict) -> dict:
 @app.delete("/api/captures/{cid}")
 def delete_capture(cid: str) -> dict:
     return _edit(editing.delete_capture, cid, ACTOR)
+
+
+@app.post("/api/legal")
+async def legal_upload(file: UploadFile = File(...), title: Optional[str] = Form(None), version: Optional[str] = Form(None),
+                       replaces: Optional[str] = Form(None)) -> dict:
+    """Rechtsgrundlage hinzufügen oder neue Fassung hochladen (alte wird archiviert). Gilt für alle Projekte."""
+    path = await _tmp_file(file, "rechtsgrundlage.pdf")
+    d = _edit(editing.upload_legal, path, title or "", version or "", replaces or None, ACTOR)
+    return {k: d.get(k) for k in ("doc_id", "title", "version", "replaces")} | {"pages": len(d["pages"])}
+
+
+@app.post("/api/legal/{doc_id}/archive")
+def legal_archive(doc_id: str) -> dict:
+    """Archivieren bzw. aus dem Archiv wiederherstellen."""
+    d = _edit(editing.archive_legal, doc_id, ACTOR)
+    return {"doc_id": d["doc_id"], "collection": d["collection"]}
 
 
 @app.delete("/api/documents/{doc_id}")

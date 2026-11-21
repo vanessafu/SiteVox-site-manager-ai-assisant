@@ -59,7 +59,8 @@ class Index:
     def build(self) -> "Index":
         from rank_bm25 import BM25Okapi
 
-        self.chunks = [c for d in store.documents() for c in chunk_document(d)]
+        # frühere Fassungen von Rechtsgrundlagen (legal_archive) bleiben abrufbar, werden aber nicht mehr durchsucht
+        self.chunks = [c for d in store.documents() if d.get("collection") != "legal_archive" for c in chunk_document(d)]
         self._bm25 = BM25Okapi([tokenize(c["title"] + " " + c["text"]) for c in self.chunks]) if self.chunks else None
         if not settings.is_demo() and settings.models()["rag"]["backend"] == "chroma":
             self._dense = _Dense(self.chunks)

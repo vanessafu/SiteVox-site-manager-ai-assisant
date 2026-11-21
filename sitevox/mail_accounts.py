@@ -5,6 +5,9 @@ Synchronisieren: neue Nachrichten holen → .eml ablegen → Projektzuordnung �
 """
 from __future__ import annotations
 
+import os
+import threading
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Optional
@@ -16,6 +19,11 @@ PUBLIC = ("account_id", "provider", "address", "username", "imap_host", "imap_po
           "since_days", "only_project", "created_at", "last_sync", "last_result", "smtp_host", "smtp_port")
 
 
+AUTO_SYNC_MIN = float(os.environ.get("SITEVOX_MAIL_SYNC_MIN", "5"))  # 0 = kein automatischer Abruf (auch nicht nach Entsperren)
+_locks: dict[str, threading.Lock] = {}
+_auto = {"running": False, "next": None}
+
+
 def _project(pid: str) -> dict:
     return store.get("projects", pid) or dict(settings.project_cfg(pid))
 
@@ -25,7 +33,8 @@ def _public(a: dict) -> dict:
 
     host, port, _ = smtp_settings(a)
     return {**{k: a.get(k) for k in PUBLIC}, "smtp_host": host, "smtp_port": port,
-            "connected": imap_mail.has_secret(a["account_id"])}
+            "connected": imap_mail.has_secret(a["account_id"]),
+            "auto_sync_min": AUTO_SYNC_MIN if _auto["running"] else None, "next_sync": _auto["next"]}
 
 
 def accounts(pid: str) -> list[dict]:
@@ -89,7 +98,27 @@ def remove(pid: str, aid: str, actor: str) -> None:
 
 def sync(pid: str, aid: str, ingest: Callable[[Path, str], Any], actor: str,
          fetcher: Optional[Callable] = None) -> dict:
-    """Holt neue Nachrichten und übergibt passende an `ingest(path, received_at)`. Gibt Zähler zurück."""
+    """Holt neue Nachrichten und übergibt passende an `ingest(path, received_at)`. Gibt Zähler zurück.
+    Manueller und automatischer Abruf desselben Kontos laufen nie gleichzeitig (Sperre je Konto)."""
+    with _locks.setdefault(aid, threading.Lock()):
+        try:
+            return _sync(pid, aid, ingest, actor, fetcher)
+        except imap_mail.MailError as e:
+            _record(pid, aid, {"error": str(e)})
+            raise
+
+
+def _record(pid: str, aid: str, res: dict) -> None:
+    accs = _project(pid).get("mail_accounts", [])
+    for a in accs:
+        if a["account_id"] == aid:
+            a["last_sync"] = datetime.now().astimezone().isoformat(timespec="seconds")
+            a["last_result"] = res
+    _save(pid, accs)
+
+
+def _sync(pid: str, aid: str, ingest: Callable[[Path, str], Any], actor: str,
+          fetcher: Optional[Callable] = None) -> dict:
     acc = _get(pid, aid)
     password = imap_mail._secrets.get(aid)
     if password is None:
@@ -115,11 +144,50 @@ def sync(pid: str, aid: str, ingest: Callable[[Path, str], Any], actor: str,
         ingest(dest, received)
         res["new"] += 1
     (folder / "_incoming.eml").unlink(missing_ok=True)
-    accs = _project(pid).get("mail_accounts", [])
-    for a in accs:
-        if a["account_id"] == aid:
-            a["last_sync"] = datetime.now().astimezone().isoformat(timespec="seconds")
-            a["last_result"] = res
-    _save(pid, accs)
+    _record(pid, aid, res)
     store.audit(actor, "project", pid, "mail_sync", after={"account": acc["address"], **res})
     return res
+
+
+# ---------------------------------------------------------------------------- automatischer Abruf
+def sync_all(ingest_for: Callable[[str], Callable[[Path, str], Any]]) -> dict[str, Any]:
+    """Alle entsperrten Postfächer aller Projekte abrufen (Fehler je Konto, nie für alle)."""
+    out: dict[str, Any] = {}
+    for p in store.list_projects():
+        for a in p.get("mail_accounts", []):
+            if not imap_mail.has_secret(a["account_id"]):
+                continue
+            try:
+                out[a["account_id"]] = sync(p["id"], a["account_id"], ingest_for(p["id"]), "system (Auto-Abruf)")
+            except Exception as e:  # noqa: BLE001 – ein defektes Konto darf die anderen nicht aufhalten
+                out[a["account_id"]] = {"error": str(e)}
+    return out
+
+
+def start_auto_sync(ingest_for: Callable[[str], Callable[[Path, str], Any]]) -> bool:
+    """Hintergrund-Thread: alle AUTO_SYNC_MIN Minuten sync_all. Gesperrte Postfächer (ohne Passwort) werden übersprungen."""
+    if AUTO_SYNC_MIN <= 0 or _auto["running"]:
+        return False
+    _auto["running"] = True
+
+    def loop() -> None:
+        while True:
+            _auto["next"] = datetime.fromtimestamp(time.time() + AUTO_SYNC_MIN * 60).astimezone().isoformat(timespec="seconds")
+            time.sleep(AUTO_SYNC_MIN * 60)
+            sync_all(ingest_for)
+
+    threading.Thread(target=loop, name="mail-auto-sync", daemon=True).start()
+    return True
+
+
+def sync_soon(pid: str, aid: str, ingest: Callable[[Path, str], Any]) -> None:
+    """Direkt nach Verbinden/Entsperren einmal abrufen, ohne die Anfrage aufzuhalten."""
+    if AUTO_SYNC_MIN <= 0:  # automatischer Abruf ganz abgeschaltet
+        return
+    def run() -> None:
+        try:
+            sync(pid, aid, ingest, "system (Auto-Abruf)")
+        except Exception:  # noqa: BLE001 – Fehler steht in last_result
+            pass
+
+    threading.Thread(target=run, name=f"mail-sync-{aid}", daemon=True).start()

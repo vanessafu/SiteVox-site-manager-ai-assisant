@@ -5,8 +5,8 @@
  */
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { AlertTriangle, Lock, Mail, Paperclip, Send, X } from "lucide-react";
-import { api, post } from "@/lib/api";
+import { AlertTriangle, BadgeCheck, Lock, Mail, Paperclip, Send, X } from "lucide-react";
+import { api, post, useApi } from "@/lib/api";
 import { useT } from "@/lib/i18n";
 
 export default function SendDialog({ pid, lid, onClose, onSent }: { pid: string; lid: string; onClose: () => void; onSent: (letter: any) => void }) {
@@ -18,6 +18,11 @@ export default function SendDialog({ pid, lid, onClose, onSent }: { pid: string;
   const [pw, setPw] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const { data: contacts } = useApi<any[]>(`/api/projects/${pid}/contacts`);
+  const withMail = (contacts || []).filter((c) => c.email);
+  const toContact = withMail.find((c) => c.email === to.trim().toLowerCase());
+  const ccList = cc.split(/[,;\s]+/).filter(Boolean);
+  const addCc = (e: string) => !ccList.includes(e) && e !== to.trim() && setCc([...ccList, e].join(", "));
 
   const load = async () => {
     const d = await api(`/api/letters/${lid}/send-preview`);
@@ -87,6 +92,22 @@ export default function SendDialog({ pid, lid, onClose, onSent }: { pid: string;
                   <input type="email" className={`w-full rounded border px-2 py-1 text-sm font-semibold ${validTo ? "" : "border-bad"}`} value={to}
                     placeholder={t("E-Mail-Adresse des AG fehlt – bitte prüfen und eintragen")} onChange={(e) => setTo(e.target.value)} />
                   {to.trim() !== (pv.to || "") && validTo && <div className="text-2xs text-warn-text">{t("Geänderter Empfänger wird beim Senden gespeichert (Audit-Log)")}</div>}
+                  {toContact?.authority === "not_authorized" && (
+                    <div className="flex items-start gap-1 text-2xs font-semibold text-bad-text"><AlertTriangle className="mt-px h-3 w-3 shrink-0" />
+                      {t("{x} ist laut Vertrag nicht bevollmächtigt – eine Anzeige an diese Adresse ist ggf. unwirksam.", { x: toContact.company || toContact.name })}</div>
+                  )}
+                  {withMail.length > 0 && (
+                    <div className="flex flex-wrap gap-1 pt-1">
+                      {withMail.map((c) => (
+                        <span key={c.id} className={`inline-flex items-center overflow-hidden rounded-full border text-2xs ${c.email === to.trim().toLowerCase() ? "border-slate-800 bg-slate-800 text-white" : c.authority === "not_authorized" ? "border-warn text-warn-text" : "border-slate-300 text-slate-700"}`}>
+                          <button className="inline-flex items-center gap-1 px-2 py-0.5 hover:bg-slate-100/40" title={`${c.email}${c.role ? " · " + t(c.role) : ""}`} onClick={() => setTo(c.email)}>
+                            {c.authority === "authorized" && <BadgeCheck className="h-3 w-3" />}{c.name || c.company || c.email}
+                          </button>
+                          <button className="border-l px-1.5 py-0.5 hover:bg-slate-100/40" title={t("als Cc")} onClick={() => addCc(c.email)}>Cc</button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div></div>
               <div className={row}><span className="text-xs text-slate-600">{t("Cc")}</span>
                 <input className="rounded border px-2 py-1 text-sm" placeholder={t("optional, mehrere mit Komma")} value={cc} onChange={(e) => setCc(e.target.value)} /></div>

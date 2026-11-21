@@ -9,7 +9,7 @@ Grundsätze
 """
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Optional
 
@@ -25,7 +25,7 @@ class EditError(ValueError):
 
 # ============================================================================ Projekt-Stammdaten
 PROJECT_FIELDS = ("name", "title", "address", "contract_no", "contract_date", "contract_basis", "lat", "lon")
-CLIENT_FIELDS = ("name", "address", "representative", "representative_role", "email")
+CLIENT_FIELDS = ("name", "address", "representative", "representative_role", "email", "phone")
 
 
 def update_project(project_id: str, patch: dict, actor: str) -> dict:
@@ -34,8 +34,13 @@ def update_project(project_id: str, patch: dict, actor: str) -> dict:
     for k in PROJECT_FIELDS:
         if k in patch:
             p[k] = patch[k]
+    if "coords" in patch:
+        p["lat"], p["lon"] = parse_coords(patch["coords"]) if (patch["coords"] or "").strip() else (None, None)
+        store.delete_weather(project_id)  # neuer Standort → Wetter neu holen
     if "client" in patch:
         p["client"] = {**p.get("client", {}), **{k: v for k, v in patch["client"].items() if k in CLIENT_FIELDS}}
+        if "email" in patch["client"]:  # von der Bauleitung eingetragen → darf als Empfänger vorgeschlagen werden
+            p["client"]["email_source"] = "manual" if patch["client"]["email"] else None
     if "crews" in patch:
         p["crews"] = patch["crews"]
     if "resources" in patch:
@@ -369,3 +374,147 @@ def delete_document(doc_id: str, actor: str) -> None:
 
 def capture_file_path(cap: dict) -> Optional[Path]:
     return settings.data_dir() / cap["file"] if cap.get("file") else None
+
+
+def parse_coords(text: str) -> tuple[float, float]:
+    """„48.1305, 11.6955“ (Google Maps) oder „48,1305 11,6955“ → (Breite, Länge)."""
+    import re
+
+    nums = re.findall(r"-?\d+(?:[.,]\d+)?", text or "")
+    if len(nums) == 4 and "," in text and "." not in text:  # 48,1305, 11,6955
+        nums = [f"{nums[0]}.{nums[1]}", f"{nums[2]}.{nums[3]}"]
+    if len(nums) != 2:
+        raise EditError("Koordinaten als „Breite, Länge“ angeben, z. B. 48.1305, 11.6955")
+    lat, lon = (float(n.replace(",", ".")) for n in nums)
+    if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+        raise EditError("Koordinaten außerhalb des gültigen Bereichs")
+    return round(lat, 5), round(lon, 5)
+
+
+# ============================================================================ Projekte anlegen / löschen
+def create_project(data: dict, actor: str) -> dict:
+    """Neues, leeres Projekt. Kennung aus dem Kurznamen („BV Pasing“ → BV-PASING), eindeutig gemacht."""
+    import re
+
+    name = (data.get("name") or "").strip()
+    if not name:
+        raise EditError("Kurzname fehlt")
+    base = re.sub(r"[^A-Z0-9]+", "-", name.upper().replace("Ä", "AE").replace("Ö", "OE").replace("Ü", "UE")
+                  .replace("ß", "SS")).strip("-") or "PROJEKT"
+    if not base.startswith("BV"):
+        base = f"BV-{base}"
+    ids = {p["id"] for p in store.list_projects()}
+    pid, n = base, 2
+    while pid in ids:
+        pid, n = f"{base}-{n}", n + 1
+    g = lambda k: (data.get(k) or "").strip()  # noqa: E731
+    p = {"id": pid, "name": name, "title": g("title") or name, "address": g("address"),
+         "contract_no": g("contract_no"), "contract_date": g("contract_date") or None,
+         "contract_basis": g("contract_basis") or "VOB/B (aktuelle Fassung) als Vertragsbestandteil vereinbart",
+         "client": {"name": g("client_name") or "N. N.", "address": g("client_address"),
+                    "representative": g("client_representative") or "N. N.", "email": g("client_email"),
+                    "email_source": "manual" if g("client_email") else None},
+         "parties": [], "crews": [], "resources": [], "milestones": []}
+    if g("coords"):
+        p["lat"], p["lon"] = parse_coords(g("coords"))
+    if g("client_email") and not re.fullmatch(r"[^@\s,;]+@[^@\s,;]+\.[^@\s,;]+", g("client_email")):
+        raise EditError(f"Keine gültige E-Mail-Adresse: {g('client_email')}")
+    store.save_project(p)
+    store.audit(actor, "project", pid, "create", after=p)
+    return p
+
+
+def delete_project(project_id: str, actor: str) -> dict:
+    if project_id not in {p["id"] for p in store.list_projects()}:
+        raise KeyError(project_id)
+    before = settings.project_cfg(project_id)
+    counts = store.delete_project(project_id)
+    store.audit(actor, "project", project_id, "delete", before={"name": before.get("name"), "title": before.get("title")},
+                after=counts)
+    return counts
+
+
+def import_schedule(project_id: str, path: Path, actor: str) -> dict:
+    """Bauzeitenplan (xlsx/csv) einlesen; ersetzt die bisherigen Vorgänge des Projekts."""
+    try:
+        acts = schedule.import_plan(path)
+    except Exception as e:  # noqa: BLE001 – Datei unlesbar/falsches Format
+        raise EditError(f"Bauzeitenplan nicht lesbar ({e})") from e
+    if not acts:
+        raise EditError("Keine Vorgänge im Bauzeitenplan gefunden")
+    c = store.connect()
+    c.execute("DELETE FROM activities WHERE project_id=?", (project_id,))
+    c.commit()
+    for a in acts:
+        store.save_activity(project_id, a)
+    store.audit(actor, "project", project_id, "schedule_import", after={"file": Path(path).name, "activities": len(acts)})
+    return {"activities": len(acts)}
+
+
+# ============================================================================ Rechtsgrundlagen pflegen
+LEGAL = "_legal"
+
+
+def _legal_sections(text: str) -> str:
+    """Hochgeladene Gesetzestexte (PDF/DOCX) haben keine Markdown-Überschriften → vor jedem „§ n“ einen Abschnitt
+    beginnen, damit die Suche je Paragraph trifft (wie bei den mitgelieferten .md-Texten)."""
+    import re
+
+    if re.search(r"(?m)^## ", text):
+        return text
+    return re.sub(r"(?m)^\s*(§{1,2}\s*\d+[a-z]?\b[^\n]{0,160})$", r"## \1", text)
+
+
+def upload_legal(path: Path, title: str, version: str, replaces: Optional[str], actor: str) -> dict:
+    """Neue Rechtsgrundlage bzw. neue Fassung. Bei `replaces` wird die alte Fassung archiviert (nicht gelöscht:
+    bereits freigegebene Schreiben stützen sich ggf. darauf) und aus der Suche genommen."""
+    import re
+    import shutil
+
+    from .understand import documents
+
+    old = store.get("documents", replaces) if replaces else None
+    if replaces and (not old or old["project_id"] != LEGAL or old.get("collection") != "legal"):
+        raise EditError("Zu ersetzende Rechtsgrundlage nicht gefunden")
+    title = (title or "").strip() or (old["title"] if old else Path(path).stem)
+    dest_dir = settings.data_dir() / LEGAL
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    dest = dest_dir / f"{stamp}_{Path(path).name}"
+    shutil.copyfile(path, dest)
+    parsed = documents.parse(dest)
+    pages = [{**p, "text": _legal_sections(p["text"])} for p in parsed["pages"]]
+    if not any(p["text"].strip() for p in pages) or parsed.get("backend") == "none":
+        dest.unlink(missing_ok=True)
+        raise EditError("Kein Text lesbar – bitte PDF mit Textebene, DOCX, TXT oder MD hochladen")
+    slug = re.sub(r"[^A-Z0-9]+", "-", title.upper()).strip("-")[:40] or "TEXT"
+    doc = {"doc_id": f"LEGAL-{slug}-{stamp}", "project_id": LEGAL, "title": title, "file": f"{LEGAL}/{dest.name}",
+           "kind": "rechtsgrundlage", "collection": "legal", "pages": pages, "tables": [],
+           "version": (version or "").strip() or None, "uploaded_at": store.now_iso(), "uploaded_by": actor,
+           "replaces": replaces}
+    store.save_document(doc)
+    if old:
+        old.update(collection="legal_archive", superseded_by=doc["doc_id"], superseded_at=store.now_iso())
+        store.save_document(old)
+    rag.index(rebuild=True)
+    store.audit(actor, "document", doc["doc_id"], "legal_update" if old else "legal_add",
+                before={"doc_id": replaces, "title": old["title"], "version": old.get("version")} if old else None,
+                after={"title": title, "version": doc["version"], "file": doc["file"]})
+    return doc
+
+
+def archive_legal(doc_id: str, actor: str) -> dict:
+    """Rechtsgrundlage aus der Suche nehmen (archivieren); Text bleibt für bestehende Schreiben erhalten."""
+    d = store.get("documents", doc_id)
+    if not d or d["project_id"] != LEGAL:
+        raise EditError("Rechtsgrundlage nicht gefunden")
+    if d.get("collection") == "legal_archive":
+        d.update(collection="legal", superseded_by=None, superseded_at=None)  # wiederherstellen
+        action = "legal_restore"
+    else:
+        d.update(collection="legal_archive", superseded_at=store.now_iso())
+        action = "legal_archive"
+    store.save_document(d)
+    rag.index(rebuild=True)
+    store.audit(actor, "document", doc_id, action, after={"title": d["title"]})
+    return d

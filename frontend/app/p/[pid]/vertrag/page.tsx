@@ -3,7 +3,8 @@ import { useT } from "@/lib/i18n";
 import { useParams } from "next/navigation";
 import { useState } from "react";
 import { api, useApi } from "@/lib/api";
-import { ArrowLeft, Download, FileText, Scale, Search, Trash2, Upload } from "lucide-react";
+import { Archive, ArchiveRestore, ArrowLeft, Download, FilePlus2, FileText, Plus, Scale, Search, Trash2, Upload } from "lucide-react";
+import LegalUpload from "@/components/LegalUpload";
 
 const GAEB_ACCEPT = ".x31,.x80,.x81,.x82,.x83,.x84,.x85,.x86,.x87,.x88,.x89,.d81,.d82,.d83,.d84,.d85,.d86,.p81,.p82,.p83,.p84,.p85,.p86";
 const GAEB_PHASES: [string, string][] = [
@@ -16,6 +17,7 @@ export default function Knowledge() {
   const { data: docs, reload } = useApi<any[]>(`/api/projects/${pid}/knowledge`);
   const [docType, setDocType] = useState("lv");
   const [upMsg, setUpMsg] = useState<string | null>(null);
+  const [legal, setLegal] = useState<{ replaces?: any } | null>(null);
   const [doc, setDoc] = useState<any>(null);
   const [q, setQ] = useState("");
   const [hits, setHits] = useState<any[] | null>(null);
@@ -35,6 +37,11 @@ export default function Knowledge() {
     if (!window.confirm(t("„{x}“ löschen?", { x: d.title }))) return;
     try { await api(`/api/documents/${d.doc_id}`, { method: "DELETE" }); setDoc(null); reload(); } catch (e: any) { window.alert(e.message); }
   };
+  const archive = async (d: any) => {
+    const restore = d.collection === "legal_archive";
+    if (!restore && !window.confirm(t("„{x}“ archivieren? Sie wird dann nicht mehr für neue Schreiben herangezogen.", { x: d.title }))) return;
+    try { await api(`/api/legal/${d.doc_id}/archive`, { method: "POST" }); reload(); } catch (e: any) { window.alert(e.message); }
+  };
   const search = async () => { if (q.trim()) { setDoc(null); setHits(await api(`/api/projects/${pid}/knowledge/search?q=${encodeURIComponent(q)}`)); } };
   const home = () => { setDoc(null); setHits(null); };
   const open = async (d: any) => { setHits(null); setDoc(await api(`/api/documents/${d.doc_id}`)); };
@@ -53,7 +60,11 @@ export default function Knowledge() {
             <section key={col}>
               <div className="mb-2 flex items-center gap-1.5 text-2xs font-medium uppercase tracking-wide text-slate-500">
                 {col === "legal" ? <Scale className="h-3.5 w-3.5" /> : <FileText className="h-3.5 w-3.5" />}
-                {t(col === "legal" ? "Rechtsgrundlagen (VOB/B aktuelle Fassung)" : "Projektunterlagen")} · {list.length}
+                {t(col === "legal" ? "Rechtsgrundlagen" : "Projektunterlagen")} · {list.length}
+                {col === "legal" && (
+                  <button className="ml-auto inline-flex items-center gap-1 rounded px-1.5 py-0.5 normal-case tracking-normal text-accent-text hover:bg-accent-soft"
+                    onClick={() => setLegal({})} title={t("Rechtsgrundlage hinzufügen")}><Plus className="h-3.5 w-3.5" /> {t("Hinzufügen")}</button>
+                )}
               </div>
               <ul className="space-y-1">{list.map((d) => (
                 <li key={d.doc_id} className={`group flex items-center rounded-md ${doc?.doc_id === d.doc_id ? "bg-white shadow-sm ring-1 ring-slate-200" : "hover:bg-white"}`}>
@@ -61,12 +72,35 @@ export default function Knowledge() {
                     <div className="text-[15px] leading-snug">{d.title}</div>
                     <div className="mt-0.5 flex items-center gap-1.5 text-xs text-slate-500">
                       {t("{n} S.", { n: d.pages })}
+                      {d.version && <span>· {d.version}</span>}
                       {d.format === "gaeb" && <span className="pill bg-accent-soft text-accent-text">GAEB</span>}
                     </div>
                   </button>
+                  {col === "legal" && (
+                    <span className="mr-1 flex opacity-60 group-hover:opacity-100">
+                      <button onClick={() => setLegal({ replaces: d })} className="rounded p-1.5 text-slate-400 hover:text-accent-text" title={t("Neue Fassung hochladen")}><FilePlus2 className="h-4 w-4" /></button>
+                      <button onClick={() => archive(d)} className="rounded p-1.5 text-slate-400 hover:text-warn-text" title={t("Archivieren")}><Archive className="h-4 w-4" /></button>
+                    </span>
+                  )}
                   {col === "project" && <button onClick={() => removeDoc(d)} className="mr-2 rounded p-1.5 text-slate-400 opacity-60 hover:text-bad group-hover:opacity-100" aria-label={t("Löschen")}><Trash2 className="h-4 w-4" /></button>}
                 </li>
               ))}</ul>
+              {col === "legal" && (docs || []).some((d) => d.collection === "legal_archive") && (
+                <details className="mt-2 text-xs text-slate-600">
+                  <summary className="cursor-pointer">{t("Frühere / archivierte Fassungen")} · {(docs || []).filter((d) => d.collection === "legal_archive").length}</summary>
+                  <ul className="mt-1 space-y-0.5">
+                    {(docs || []).filter((d) => d.collection === "legal_archive").map((d) => (
+                      <li key={d.doc_id} className="flex items-center gap-1 rounded px-2 py-1 hover:bg-white">
+                        <button className="min-w-0 flex-1 truncate text-left" onClick={() => open(d)}>
+                          {d.title}{d.version ? ` · ${d.version}` : ""}
+                          {d.superseded_by && <span className="text-slate-400"> · {t("ersetzt")}</span>}
+                        </button>
+                        <button onClick={() => archive(d)} className="rounded p-1 text-slate-400 hover:text-ok-text" title={t("Wiederherstellen")}><ArchiveRestore className="h-3.5 w-3.5" /></button>
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              )}
             </section>
           );
         })}
@@ -121,6 +155,8 @@ export default function Knowledge() {
           </div>
         )}
       </main>
+      {legal && <LegalUpload replaces={legal.replaces} onClose={() => setLegal(null)}
+        onDone={() => { setLegal(null); reload(); setDoc(null); }} />}
     </div>
   );
 }

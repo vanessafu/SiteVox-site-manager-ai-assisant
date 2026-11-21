@@ -19,6 +19,8 @@ def demo_db(tmp_path_factory):
     os.environ["SITEVOX_MODE"] = "demo"
     os.environ["SITEVOX_DB"] = str(tmp / "test.db")
     os.environ["SITEVOX_DATA"] = str(tmp / "data")
+    os.environ["SITEVOX_WEATHER_ONLINE"] = "0"  # Tests nie gegen den echten Wetterdienst
+    os.environ["SITEVOX_MAIL_SYNC_MIN"] = "0"  # kein Hintergrund-Abruf; Tests rufen sync/sync_all direkt
     os.environ["SITEVOX_OCR"] = "0"  # OCR separat getestet (test_ocr_image_text), Seed bleibt schnell
     subprocess.run([sys.executable, str(ROOT / "scripts" / "make_demo_data.py")], check=True, capture_output=True)
     subprocess.run([sys.executable, str(ROOT / "scripts" / "seed_demo.py")], check=True, capture_output=True,
@@ -777,3 +779,215 @@ def test_recipient_email_change_after_release_and_in_send_dialog(monkeypatch):
     assert sent[0][0] == "abcdefghijklmnop"  # Leerzeichen aus App-Passwort entfernt
     assert sent[0][1]["To"] == "neu@ag.example" and v["sent_email"]["to"] == "neu@ag.example"
     assert any(a["action"] == "field_edit" for a in v["audit"])
+
+
+def test_project_create_history_and_delete():
+    """Projekte anlegen/löschen über die Sidebar; Verlauf listet Berichtstage, Dashboard für frühere Tage."""
+    from fastapi.testclient import TestClient
+
+    from backend.main import app
+
+    c = TestClient(app)
+    r = c.post("/api/projects", json={"name": "BV Übungsstraße", "client_name": "ACME GmbH"})
+    assert r.status_code == 200
+    pid = r.json()["id"]
+    assert pid == "BV-UEBUNGSSTRASSE"
+    assert c.post("/api/projects", json={"name": "BV Übungsstraße"}).json()["id"] == "BV-UEBUNGSSTRASSE-2"
+    assert c.post("/api/projects", json={"name": " "}).status_code == 409
+    for u in ("dashboard", "report", "days", "letters", "captures"):  # leeres Projekt darf nicht abstürzen
+        assert c.get(f"/api/projects/{pid}/{u}").status_code == 200
+    days = c.get("/api/projects/BV-RIEM/days").json()
+    assert days[0]["date"] == "2026-11-20" and days[0]["events"] > 0
+    assert [d["date"] for d in days] == sorted((d["date"] for d in days), reverse=True)
+    old = c.get("/api/projects/BV-RIEM/dashboard?date=2026-11-18").json()
+    assert old["date"] == "2026-11-18" and not old["actions"]["events"]
+    for p in (pid, "BV-UEBUNGSSTRASSE-2"):
+        assert c.delete(f"/api/projects/{p}").json()["projects"] == 1
+    assert pid not in {p["id"] for p in c.get("/api/projects").json()}
+    assert c.delete(f"/api/projects/{pid}").status_code == 404
+
+
+def test_mail_auto_sync_and_schedule_import(monkeypatch):
+    """Automatischer Abruf: nur entsperrte Konten, Fehler je Konto im last_result; Bauzeitenplan beim Anlegen."""
+    from fastapi.testclient import TestClient
+
+    from backend.main import app
+    from sitevox import mail_accounts, settings
+    from sitevox.understand import imap_mail
+
+    c = TestClient(app)
+    pid = c.post("/api/projects", json={"name": "BV Mailtest", "client_address": "Hauptstr. 1"}).json()["id"]
+    assert c.get(f"/api/projects/{pid}/master").json()["client"]["address"] == "Hauptstr. 1"
+    xlsx = settings.demo_dir("BV-RIEM") / "plan" / "Bauzeitenplan.xlsx"
+    r = c.post(f"/api/projects/{pid}/schedule-import", files={"file": ("Bauzeitenplan.xlsx", xlsx.read_bytes())})
+    assert r.status_code == 200 and r.json()["activities"] > 3
+    assert c.get(f"/api/projects/{pid}/dashboard").status_code == 200
+    assert c.post(f"/api/projects/{pid}/schedule-import", files={"file": ("x.xlsx", b"kaputt")}).status_code == 409
+
+    monkeypatch.setattr(mail_accounts, "sync_soon", lambda *a, **k: None)
+    acc = mail_accounts.add(pid, {"provider": "gmail", "address": "bau@example.com", "password": "ab cd"}, "t",
+                            tester=lambda a, pw: {"messages": 0})
+    calls = []
+    monkeypatch.setattr(imap_mail, "fetch", lambda a, pw, days: calls.append(pw) or [])
+    res = mail_accounts.sync_all(lambda p: (lambda path, at: None))
+    assert res[acc["account_id"]] == {"fetched": 0, "new": 0, "duplicate": 0, "other_project": 0} and "abcd" in calls
+
+    def boom(*a):
+        raise imap_mail.MailError("Server weg")
+    monkeypatch.setattr(imap_mail, "fetch", boom)
+    assert mail_accounts.sync_all(lambda p: (lambda path, at: None))[acc["account_id"]] == {"error": "Server weg"}
+    assert mail_accounts.accounts(pid)[0]["last_result"] == {"error": "Server weg"}
+    imap_mail.forget(acc["account_id"])  # gesperrt → wird übersprungen
+    assert acc["account_id"] not in mail_accounts.sync_all(lambda p: (lambda path, at: None))
+    c.delete(f"/api/projects/{pid}")
+
+
+def test_legal_knowledge_base_update_and_archive():
+    """Rechtsgrundlagen: neue Fassung ersetzt die alte in der Suche, alte bleibt archiviert abrufbar; Wiederherstellen."""
+    from fastapi.testclient import TestClient
+
+    from backend.main import app
+    from sitevox import rag
+
+    c = TestClient(app)
+    legal = [d for d in c.get("/api/projects/BV-RIEM/knowledge").json() if d["collection"] == "legal"]
+    old = next(d for d in legal if "VOB" in d["title"])
+    txt = ("VOB/B Testfassung\n\n§ 6 Behinderung und Unterbrechung der Ausführung\n"
+           "(1) Glaubt sich der Auftragnehmer behindert, so hat er es unverzüglich schriftlich anzuzeigen. Zylinderkopf.\n")
+    r = c.post("/api/legal", files={"file": ("vob_b_neu.txt", txt.encode())},
+               data={"title": "VOB/B Test", "version": "Stand 2026", "replaces": old["doc_id"]})
+    assert r.status_code == 200, r.text
+    new = r.json()["doc_id"]
+    docs = {d["doc_id"]: d for d in c.get("/api/projects/BV-RIEM/knowledge").json()}
+    assert docs[old["doc_id"]]["collection"] == "legal_archive" and docs[old["doc_id"]]["superseded_by"] == new
+    assert docs[new]["version"] == "Stand 2026"
+    hits = rag.index().search("Zylinderkopf", collection="legal", k=3)
+    assert hits and hits[0]["doc_id"] == new and "§ 6" in hits[0]["title"]
+    assert all(h["doc_id"] != old["doc_id"] for h in rag.index().search("Behinderung", k=20))
+    assert c.post("/api/legal", files={"file": ("leer.txt", b"   ")}).status_code == 409
+    # zurück auf den Ausgangszustand
+    assert c.post(f"/api/legal/{old['doc_id']}/archive").json()["collection"] == "legal"
+    assert c.post(f"/api/legal/{new}/archive").json()["collection"] == "legal_archive"
+    assert c.delete(f"/api/documents/{old['doc_id']}").status_code == 409  # Rechtsgrundlagen nie hart löschen
+
+
+def test_weather_is_fetched_automatically(monkeypatch):
+    """Wetter ohne Zutun: beim Öffnen eines Tages geholt, heute höchstens 60 min alt, Bericht ohne Belege-Verweis."""
+    from datetime import datetime, timedelta
+
+    from fastapi.testclient import TestClient
+
+    from backend.main import app
+    from sitevox import editing, pipeline, store
+    from sitevox.engine import weather
+    from sitevox.export import daily_report
+
+    assert editing.parse_coords("48.1305, 11.6955") == (48.1305, 11.6955)
+    assert editing.parse_coords("48,1305 11,6955") == (48.1305, 11.6955)
+    with pytest.raises(editing.EditError):
+        editing.parse_coords("München")
+
+    c = TestClient(app)
+    pid = c.post("/api/projects", json={"name": "BV Wetter", "coords": "48.14, 11.58"}).json()["id"]
+    calls = []
+    raw = {"weather": [{"timestamp": f"2026-11-21T{h:02d}:00:00+01:00", "temperature": 5.0 + h / 10, "precipitation": 0.2,
+                        "wind_gust_speed": 20, "condition": "rain"} for h in range(7, 18)],
+           "sources": [{"station_name": "MUENCHEN-STADT"}]}
+    monkeypatch.setattr(weather, "fetch", lambda lat, lon, day, pid=None: calls.append((lat, lon, day)) or raw)
+    today = date.today()
+    rep = daily_report.build(pid, today.isoformat())
+    assert calls == [(48.14, 11.58, today)] and rep["weather"]["condition"] and "evidence_ids" not in rep["weather"]
+    daily_report.build(pid, today.isoformat())
+    assert len(calls) == 1  # innerhalb einer Stunde kein erneuter Abruf
+    wx = store.weather(pid, today.isoformat())
+    wx["fetched_at"] = (datetime.now().astimezone() - timedelta(minutes=61)).isoformat(timespec="seconds")
+    store.save_weather(pid, today.isoformat(), wx)
+    eid = wx["evidence_id"]
+    pipeline.ensure_weather(pid, today)
+    assert len(calls) == 2 and store.weather(pid, today.isoformat())["evidence_id"] == eid  # gleicher Beleg, neue Werte
+    assert pipeline.ensure_weather(pid, today + timedelta(days=1)) is None and len(calls) == 2  # Zukunft: nichts
+    # neuer Standort → Wetter wird neu geholt
+    editing.update_project(pid, {"coords": "48.2, 11.6"}, "t")
+    assert store.weather(pid, today.isoformat()) is None
+    c.delete(f"/api/projects/{pid}")
+
+
+def test_contract_upload_fills_master_data_and_contacts():
+    """Vertrag hochladen → leere Stammdaten aus dem Vertrag; Kontakte mit Vollmacht; manuelle AG-Adresse als Fallback."""
+    import time
+
+    from fastapi.testclient import TestClient
+
+    from backend.main import app
+    from sitevox import settings, store
+    from sitevox.drafting import composer
+    from sitevox.understand import contacts
+
+    c = TestClient(app)
+    pid = c.post("/api/projects", json={"name": "BV Vertragstest", "contract_no": "EIGENE-NR",
+                                        "client_email": "ag@kunde.example"}).json()["id"]
+    assert c.post("/api/projects", json={"name": "BV X", "client_email": "kein-mail"}).status_code == 409
+    # vor dem Vertrag: nur die von der Bauleitung eingetragene Adresse (gelb, prüfen)
+    f, eid = composer.recipient_email_field(pid)
+    assert f.value == "ag@kunde.example" and eid is None and 0.5 <= f.confidence < 0.8
+    assert any(k["email"] == "ag@kunde.example" for k in c.get(f"/api/projects/{pid}/contacts").json())
+
+    vertrag = (settings.demo_dir("BV-RIEM") / "docs" / "Bauvertrag_RI-2026-014.md").read_bytes()
+    r = c.post(f"/api/projects/{pid}/captures", data={"kind": "document", "doc_type": "vertrag", "doc_title": "Bauvertrag"},
+               files={"file": ("Bauvertrag.md", vertrag)})
+    assert r.status_code == 200
+    for _ in range(50):  # Verarbeitung im Hintergrund
+        m = c.get(f"/api/projects/{pid}/master").json()
+        if m["client"].get("representative", "").endswith("Wagner"):
+            break
+        time.sleep(0.1)
+    assert m["client"]["name"] == "Wohnbau Riem GmbH & Co. KG" and m["contract_date"] == "2026-08-14"
+    assert m["address"] == "Willy-Brandt-Allee 12, 81829 München" and m["milestones"][0]["date"] == "2026-12-16"
+    assert m["contract_no"] == "EIGENE-NR"  # Eingetragenes wird nie überschrieben …
+    assert m["client"]["email"] == "ag@kunde.example"
+    info = {r["key"]: r for r in c.get(f"/api/projects/{pid}/contract-info").json()["fields"]}
+    assert info["contract_no"]["state"] == "differs" and "Bauvertrag Nr. RI-2026-014" in info["contract_no"]["quote"]
+    assert c.post(f"/api/projects/{pid}/contract-info/apply", json={"keys": ["contract_no"]}).json()["applied"] == ["contract_no"]
+    assert c.get(f"/api/projects/{pid}/master").json()["contract_no"] == "RI-2026-014"  # … außer die Bauleitung will es
+
+    ks = c.get(f"/api/projects/{pid}/contacts").json()
+    wagner = next(k for k in ks if k["email"] == "t.wagner@wohnbau-riem.example")
+    assert wagner["authority"] == "authorized" and wagner["recommended"] and wagner["name"].endswith("Thomas Wagner")
+    assert any(s["source"] == "contract" for s in wagner["sources"])
+    assert any(k["company"] == "Architekturbüro Lechner" and k["authority"] == "not_authorized" for k in ks)
+    assert not any("hofbau" in (k["email"] or "") for k in ks)  # eigene Firma nicht
+    # jetzt belegt → Empfänger aus dem Vertrag statt der manuellen Adresse
+    f, eid = composer.recipient_email_field(pid)
+    assert f.value == "t.wagner@wohnbau-riem.example" and eid
+
+    # Kontakte pflegen
+    new = c.post(f"/api/projects/{pid}/contacts", json={"name": "Eva Prüfer", "company": "Prüfstatik", "email": "eva@pruef.example",
+                                                       "phone": "089 123456"}).json()
+    assert c.post(f"/api/projects/{pid}/contacts", json={"email": "falsch"}).status_code == 400
+    c.put(f"/api/projects/{pid}/contacts/{wagner['id']}", json={**wagner, "phone": "+49 89 555"})
+    ks = {k["id"]: k for k in c.get(f"/api/projects/{pid}/contacts").json()}
+    assert ks[new["id"]]["phone"] == "089 123456" and ks[wagner["id"]]["phone"] == "+49 89 555"
+    c.delete(f"/api/projects/{pid}/contacts/{new['id']}")
+    c.delete(f"/api/projects/{pid}/contacts/{wagner['id']}")
+    ids = {k["id"] for k in c.get(f"/api/projects/{pid}/contacts").json()}
+    assert new["id"] not in ids and wagner["id"] not in ids  # erkannte werden ausgeblendet
+    c.delete(f"/api/projects/{pid}")
+    assert contacts.all_contacts("BV-RIEM")[0]["email"] == "t.wagner@wohnbau-riem.example"
+
+
+def test_dashboard_defaults_to_today_and_carries_open_letters(monkeypatch):
+    """Dashboard = heute; offene fristgebundene Vorgänge früherer Tage bleiben sichtbar (mit „offen seit“)."""
+    from fastapi.testclient import TestClient
+
+    from backend import views
+    from backend.main import app
+
+    monkeypatch.delenv("SITEVOX_TODAY", raising=False)
+    assert views.default_day("BV-RIEM") == date.today().isoformat()
+    monkeypatch.setenv("SITEVOX_TODAY", "2026-11-20")
+    assert views.default_day("BV-RIEM") == "2026-11-20"
+    d = TestClient(app).get("/api/projects/BV-RIEM/dashboard?date=2026-11-23").json()
+    assert d["date"] == "2026-11-23" and d["actions"]["events"]
+    assert all(e["carried_from"] == "2026-11-20" for e in d["actions"]["events"])
+    assert all(e["recommended_document"]["requires_letter"] for e in d["actions"]["events"])
+    assert not d["today"]["extra_work"]

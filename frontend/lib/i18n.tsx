@@ -398,6 +398,57 @@ const EN: Record<string, string> = {
   "manuell geändert": "edited manually", "Manuelle Änderung verwerfen": "Discard manual change",
   "Doppelklick auf eine Zeile = bearbeiten · blau hinterlegt = manuell geändert · gilt auch für den PDF-Bericht":
     "Double-click a row to edit · blue = edited manually · also applies to the PDF report",
+  "An diesem Tag beachten": "Attention on this day", "Verlauf": "History", "Verlauf – Bericht vom {d}": "History – report of {d}", "Alle Tage": "All days", "Zu heute": "Back to today",
+  "Frühere Tage als komplettes Dashboard ansehen": "View earlier days as the full dashboard",
+  "Noch keine Berichtstage vorhanden.": "No report days yet.", "{n} Erfassungen": "{n} captures", "{n} Ereignisse": "{n} events",
+  "Projekt bearbeiten": "Edit project", "Kurzname": "Short name",
+  "offen seit {d}": "open since {d}",
+  "Kontakte": "Contacts", "Kontakt hinzufügen": "Add contact", "Kontakt bearbeiten": "Edit contact", "Firma": "Company",
+  "Telefon": "Phone", "Vollmacht": "Authority", "unbekannt": "unknown", "bevollmächtigt": "authorised",
+  "nicht bevollmächtigt": "not authorised", "bevollmächtigt (Anzeigen an diese Person)": "authorised (notices go to this person)",
+  "Suchen …": "Search …", "Entfernen": "Remove", "Fundstellen": "Found in",
+  "Empfänger für Anzeigen": "Recipient for notices", "Stammdaten": "Master data",
+  "„{x}“ aus den Kontakten entfernen?": "Remove “{x}” from contacts?",
+  "Automatisch aus Vertrag, Unterlagen und E-Mails dieses Projekts erkannt – mit Fundstelle. Im Sendedialog per Klick als Empfänger übernehmen.":
+    "Detected automatically from this project's contract, documents and e-mails – with source. Pick them as recipients in the send dialog.",
+  "Noch keine Kontakte erkannt – Vertrag oder E-Mails hochladen bzw. Postfach verbinden.": "No contacts yet – upload the contract or e-mails, or connect a mailbox.",
+  "als Cc": "as Cc",
+  "{x} ist laut Vertrag nicht bevollmächtigt – eine Anzeige an diese Adresse ist ggf. unwirksam.":
+    "{x} is not authorised under the contract – a notice sent to this address may be ineffective.",
+  "Aus dem Vertrag erkannt": "Detected in the contract", "Alle übernehmen": "Apply all", "bisher": "currently",
+  "Alle erkannten Angaben stimmen mit den Stammdaten überein.": "All detected details match the master data.",
+  "Telefon AG": "Client phone", "Beteiligte ohne Vollmacht": "Parties without authority",
+  "Vertragsfristen": "Contract deadlines", "E-Mail AG (Empfänger der Anzeigen)": "Client e-mail (recipient of notices)",
+  "Leer lassen, was im Vertrag steht – nach dem Hochladen des Vertrags füllt SiteVox leere Felder automatisch (mit Fundstelle).":
+    "Leave blank what is in the contract – after the contract upload SiteVox fills empty fields automatically (with source).",
+  "DWD · automatisch": "DWD · automatic",
+  "Keine Wetterdaten – Koordinaten der Baustelle in den Projekt-Stammdaten eintragen": "No weather data – enter the site coordinates in the project master data",
+  "Wetterdienst gerade nicht erreichbar – wird automatisch erneut versucht": "Weather service unreachable – retrying automatically",
+  "Koordinaten Baustelle (Breite, Länge) – für das Wetter": "Site coordinates (lat, lon) – for weather",
+  "In Google Maps: Rechtsklick auf die Baustelle → erste Zeile (Koordinaten) anklicken = kopiert.": "In Google Maps: right-click the site → click the first line (coordinates) to copy.",
+  "Rechtsgrundlagen": "Legal basis", "Hinzufügen": "Add", "Hochladen": "Upload", "Archivieren": "Archive",
+  "Rechtsgrundlage hinzufügen": "Add legal text", "Neue Fassung hochladen": "Upload new version",
+  "Fassung / Stand": "Version / as of", "z. B. Ausgabe 2026, Stand 01.10.2026": "e.g. 2026 edition, as of 01/10/2026",
+  "wird eingelesen …": "reading …", "ersetzt": "superseded", "Frühere / archivierte Fassungen": "Earlier / archived versions",
+  "PDF (mit Textebene), DOCX, TXT oder MD hierher ziehen oder auswählen": "Drop or select a PDF (with text layer), DOCX, TXT or MD",
+  "Gilt für alle Projekte. Der Text wird je Paragraph (§) in die Suche aufgenommen.": "Applies to all projects. The text is indexed per section (§).",
+  "Ersetzt „{x}“. Die bisherige Fassung wird archiviert und nicht mehr für neue Schreiben herangezogen; bereits erstellte Schreiben behalten ihren Bezug.":
+    "Replaces “{x}”. The previous version is archived and no longer used for new letters; existing letters keep their reference.",
+  "„{x}“ archivieren? Sie wird dann nicht mehr für neue Schreiben herangezogen.": "Archive “{x}”? It will no longer be used for new letters.",
+  "Unterlagen": "Documents", "Bauzeitenplan (Excel)": "Schedule (Excel)", "wird angelegt …": "creating …",
+  "Vertrag, LV (auch GAEB), Bauzeitenplan (Excel), Protokolle … hierher ziehen oder auswählen":
+    "Drop or select contract, BoQ (incl. GAEB), schedule (Excel), minutes …",
+  "Dokumente landen in der Wissensbasis und werden im Hintergrund ausgewertet; der Bauzeitenplan liefert die Vorgänge für Dashboard und Bericht.":
+    "Documents go to the knowledge base and are analysed in the background; the schedule provides the activities for dashboard and report.",
+  "Projekt angelegt, {n} Datei(en) nicht übernommen – später unter Wissensbasis erneut hochladen.":
+    "Project created, {n} file(s) failed – upload again later under Knowledge base.",
+  "Entsperrt – E-Mails werden jetzt im Hintergrund abgerufen.": "Unlocked – fetching e-mails in the background now.",
+  "Gesperrt – Passwort eingeben, dann wird automatisch abgerufen": "Locked – enter the password to enable automatic fetching",
+  "Automatischer Abruf alle {n} Min.": "Auto-fetch every {n} min", "nächster": "next", "Automatischer Abruf aus": "Auto-fetch off",
+  "Letzter Abruf fehlgeschlagen": "Last fetch failed",
+  "Neues Projekt": "New project", "Kurzname *": "Short name *", "Anlegen": "Create", "Projekt löschen": "Delete project",
+  "Projekt „{n}“ mit allen Erfassungen, Ereignissen und Schreiben löschen? Das kann nicht rückgängig gemacht werden.":
+    "Delete project “{n}” with all captures, events and letters? This cannot be undone.",
   ...TERMS,
 };
 

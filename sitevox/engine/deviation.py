@@ -40,7 +40,8 @@ def daily_target(a: dict, cal: schedule.WorkCalendar, day: date) -> float:
 def analyze(project_id: str, day: date) -> dict[str, Any]:
     acts = store.activities(project_id)
     if not acts:
-        return {"activities": [], "alerts": [], "kpis": {}, "impact": [], "milestones": []}
+        return {"activities": [], "alerts": [], "kpis": {}, "impact": [], "milestones": [], "window": None,
+                "today_idx": None}
     prog = store.progress(project_id)
     evs = store.events(project_id)
     rules = settings.rules()

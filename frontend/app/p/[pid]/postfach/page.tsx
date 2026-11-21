@@ -9,7 +9,7 @@ import MailConnect from "@/components/MailConnect";
 export default function Mailbox() {
   const { pid } = useParams<{ pid: string }>();
   const { data, reload } = useApi<any[]>(`/api/projects/${pid}/mailbox`, 15_000);
-  const { data: accounts, reload: reloadAcc } = useApi<any[]>(`/api/projects/${pid}/mail-accounts`);
+  const { data: accounts, reload: reloadAcc } = useApi<any[]>(`/api/projects/${pid}/mail-accounts`, 30_000);
   const [sel, setSel] = useState<any>(null);
   const [connect, setConnect] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
@@ -30,7 +30,9 @@ export default function Mailbox() {
   const unlock = async (a: any) => {
     const pw = window.prompt(t("App-Passwort für {a} eingeben (wird nicht gespeichert):", { a: a.address }));
     if (!pw) return;
-    try { await post(`/api/projects/${pid}/mail-accounts/${a.account_id}/unlock`, { password: pw }); reloadAcc(); await sync({ ...a, connected: true }); }
+    try { await post(`/api/projects/${pid}/mail-accounts/${a.account_id}/unlock`, { password: pw }); reloadAcc();
+      setMsg(t("Entsperrt – E-Mails werden jetzt im Hintergrund abgerufen."));
+      setTimeout(() => { reload(); reloadAcc(); }, 6000); }
     catch (e: any) { setMsg(e.message); }
   };
   const remove = async (a: any) => {
@@ -53,6 +55,12 @@ export default function Mailbox() {
               <div className="min-w-0 flex-1">
                 <div className="truncate font-medium">{a.address}</div>
                 <div className="text-2xs text-slate-500">{a.imap_host} · {a.folder}{a.last_sync ? ` · ${t("zuletzt")} ${dLong(a.last_sync)} ${time(a.last_sync)}` : ""}</div>
+                <div className={`text-2xs ${a.connected ? "text-ok-text" : "text-warn-text"}`}>
+                  {!a.connected ? t("Gesperrt – Passwort eingeben, dann wird automatisch abgerufen")
+                    : a.auto_sync_min ? t("Automatischer Abruf alle {n} Min.", { n: a.auto_sync_min }) + (a.next_sync ? ` · ${t("nächster")} ${time(a.next_sync)}` : "")
+                    : t("Automatischer Abruf aus")}
+                </div>
+                {a.last_result?.error && <div className="text-2xs text-bad-text" title={a.last_result.error}>{t("Letzter Abruf fehlgeschlagen")}: {a.last_result.error}</div>}
               </div>
               {a.connected
                 ? <button className="btn-xs" disabled={busy === a.account_id} onClick={() => sync(a)}><RefreshCw className={`h-3.5 w-3.5 ${busy === a.account_id ? "animate-spin" : ""}`} /> {t("Abrufen")}</button>
