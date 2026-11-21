@@ -8,6 +8,27 @@ export type Lang = "de" | "en";
  * Feste Texte aus der Engine (Fristen, Sphären-Begründungen, Auswirkungsketten …) werden ebenfalls übersetzt.
  * Bewusst NICHT übersetzt: Schreiben an den AG (deutscher Vertrag, VOB/B) und Freitext aus Erfassungen.
  */
+
+/**
+ * Projektbegriffe (Vorgänge aus dem Bauzeitenplan, Geräte, Kolonnen). Gelten als exakte Einträge UND innerhalb
+ * zusammengesetzter Engine-Texte (Auswirkungsketten, Alarme). BP = Bodenplatte, EG = Erdgeschoss, BA = Bauabschnitt.
+ */
+const TERMS: Record<string, string> = {
+  "Vertragsfrist Rohbau EG": "Contractual deadline shell ground floor",
+  "Baustelleneinrichtung": "Site setup",
+  "Aushub BA1": "Excavation section 1",
+  "Schalung Rand": "Edge formwork",
+  "Bewehrung BP": "Rebar base slab",
+  "Betonage BP": "Concreting base slab",
+  "Wände EG": "Walls ground floor",
+  "Kolonne Müller": "Müller crew",
+  "Kolonne Schalung": "Formwork crew",
+  "Erdbau": "Earthworks",
+  "Bagger": "Excavator",
+  "Betonpumpe": "Concrete pump",
+};
+const reEscape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 const EN: Record<string, string> = {
   // Navigation / Shell
   "Projekte": "Projects", "Dashboard": "Dashboard", "Erfassungen": "Captures", "Bauzeitenplan": "Schedule",
@@ -18,7 +39,7 @@ const EN: Record<string, string> = {
   "{n} fristgebundene Schreiben offen": "{n} time-critical notices open",
   "Entwurf – keine Rechtsberatung, Prüfung durch Bauleitung/Unternehmen erforderlich":
     "Draft – not legal advice, review by site management/company required",
-  "{n} AT": "{n} WD", "Vertragsfrist Rohbau EG": "Contractual deadline: shell EG", "ID": "ID",
+  "{n} AT": "{n} WD", "ID": "ID",
   "Fortschritt der Kolonne": "Crew progress", "lädt …": "loading …", "Schließen": "Close", "Sprache": "Language",
   "API nicht erreichbar: {e}. Läuft das Backend (uvicorn backend.main:app)?": "API unreachable: {e}. Is the backend running (uvicorn backend.main:app)?",
 
@@ -183,6 +204,23 @@ const EN: Record<string, string> = {
   "Entwurf aus Erfassungen, Soll-Ist, Wetter (DWD), Ereignissen und Fotos (Gesichter automatisch verpixelt, mit Zeitstempel/GPS).":
     "Draft from captures, plan vs. actual, weather (DWD), events and photos (faces blurred automatically, with timestamp/GPS).",
   "Bautagesbericht {d} (DOCX)": "Daily site report {d} (DOCX)",
+  "Bautagesbericht {d} (PDF)": "Daily site report {d} (PDF)",
+  "im Bautagebuch dokumentiert": "logged in site diary", "offen": "open", "Zurücksetzen": "Reset",
+  "Bestätigung zurücknehmen – Sphäre wieder als Vorschlag des Regelwerks": "Undo confirmation – risk sphere back to the rule-based suggestion",
+  "Noch nicht bestätigt": "Not confirmed yet",
+  "Ereignisse ohne Schreiben an den AG": "Events without a notice to the client",
+  "Interne Ereignisse (AN-Risiko) und Ereignisse, für die noch kein Entwurf erstellt wurde.":
+    "Internal events (contractor risk) and events without a draft yet.",
+  "Freigabe zurückziehen": "Revoke approval", "Versand zurücknehmen": "Undo 'sent'", "Wiederherstellen": "Restore",
+  "Verworfenes Schreiben wiederherstellen – es wird wieder zum Entwurf und kann geprüft und freigegeben werden. Begründung (geht ins Audit-Log):":
+    "Restore the rejected notice – it goes back to draft and can be reviewed and approved. Reason (recorded in the audit log):",
+  "Freigabe zurückziehen – das Schreiben wird wieder zum Entwurf. Begründung (geht ins Audit-Log):":
+    "Revoke approval – the notice goes back to draft. Reason (recorded in the audit log):",
+  "Versand-Markierung zurücknehmen – Status wird wieder „Geprüft“. Begründung (geht ins Audit-Log):":
+    "Undo the 'sent' mark – status returns to approved. Reason (recorded in the audit log):",
+  "Alle übernehmen ({n})": "Accept all ({n})", "{n} Punkte offen": "{n} items open", "Prüfen & freigeben": "Review & approve",
+  "Übernimmt alle noch offenen Felder. Bearbeitete und verworfene Felder bleiben unverändert.":
+    "Accepts all open fields. Edited and rejected fields stay unchanged.",
   "Export erst nach Freigabe. Outlook-Entwurf als .eml (X-Unsent) – der Versand erfolgt durch Sie.": "Export only after approval. Outlook draft as .eml (X-Unsent) – you send it.",
   "gesperrt bis Freigabe": "locked until approved",
 
@@ -231,13 +269,16 @@ const EN: Record<string, string> = {
   "Notiz / Stichworte": "Note / keywords", "Senden": "Upload", "Heute erfasst": "Captured today",
   "Übertragen – wird ausgewertet": "Uploaded – being analysed", "Fehler: {e}": "Error: {e}",
   "Mikrofon nicht verfügbar (HTTPS bzw. Berechtigung nötig)": "Microphone unavailable (HTTPS or permission required)",
+  ...TERMS,
 };
 
 // Muster für zusammengesetzte Engine-Texte (Auswirkungsketten, Wetter, Blocker)
 const EN_RULES: [RegExp, string][] = [
   [/um (\d+) AT überschritten/g, "exceeded by $1 WD"],
   [/\(statt ([^)]+)\)/g, "(instead of $1)"],
-  [/Vertragsfrist Rohbau EG/g, "Contractual deadline shell EG"],
+  // mehrwortige Projektbegriffe innerhalb von Sätzen (längste zuerst, damit „Vertragsfrist Rohbau EG“ vor „… EG“ greift)
+  ...Object.entries(TERMS).filter(([k]) => k.includes(" ")).sort((a, b) => b[0].length - a[0].length)
+    .map(([k, v]) => [new RegExp(reEscape(k), "g"), v] as [RegExp, string]),
   [/^Sprachmemo (\d\d:\d\d)/, "Voice memo $1"],
   [/^Foto (\d\d:\d\d)/, "Photo $1"],
   [/^Mail (\d\d:\d\d)/, "Email $1"],
@@ -247,6 +288,7 @@ const EN_RULES: [RegExp, string][] = [
   [/ – Bewehrung unvollständig/, " – reinforcement incomplete"],
   [/ · Bagger nach Reparatur/, " · excavator after repair"],
   [/(\d+) AT\b/g, "$1 WD"],
+  [/\bAchse ([A-Z0-9]+)\b/g, "axis $1"],
   [/^Nicht belegt: (\w+) „(.+)“ \((\w+) Satz (\d+)\)$/, "Unsupported: $1 “$2” ($3 sentence $4)"],
   [/^Feld „(.+)“ unsicher – bitte übernehmen, bearbeiten oder verwerfen$/, "Field “$1” uncertain – please accept, edit or reject"],
   [/^Pflichtfeld „(.+)“ verworfen$/, "Required field “$1” rejected"],

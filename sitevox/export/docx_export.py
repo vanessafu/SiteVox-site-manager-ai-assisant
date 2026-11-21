@@ -1,4 +1,4 @@
-"""DOCX-Export (python-docx) für Schreiben und Bautagesbericht; PDF über LibreOffice.
+"""DOCX-Export (python-docx) für Schreiben; PDF über LibreOffice. Bautagesbericht: siehe daily_report.py.
 
 * Interne [E-xx]-Belegverweise werden im Außenschreiben auf Anlagen abgebildet ("vgl. Anlage 2");
   nicht beifügbare Belege (Audio, Engine) entfallen im Außentext, bleiben aber im Audit-Log.
@@ -17,8 +17,6 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.shared import Cm, Pt, RGBColor
 
 from .. import DISCLAIMER, settings, store
-from ..engine import deviation, timeline
-from ..schemas import DOC_KIND_LABELS, EVENT_TYPE_LABELS
 from . import pdf, privacy
 
 ATTACHABLE = {"photo", "email", "document", "contract", "weather"}
@@ -119,66 +117,7 @@ def letter_docx(letter: dict) -> dict[str, str]:
 
 
 def daily_report_docx(project_id: str, day: str) -> dict[str, str]:
-    """Bautagesbericht-Entwurf aus Fotos, Notizen, Terminen und Ereignissen."""
-    project = settings.project_cfg(project_id)
-    a = deviation.analyze(project_id, date.fromisoformat(day))
-    wx = store.weather(project_id, day) or {}
-    doc = _doc()
-    doc.add_heading(f"Bautagesbericht {date.fromisoformat(day):%A, %d.%m.%Y}".replace(
-        "Monday", "Montag").replace("Tuesday", "Dienstag").replace("Wednesday", "Mittwoch").replace(
-        "Thursday", "Donnerstag").replace("Friday", "Freitag"), level=1)
-    doc.add_paragraph(f"{project['title']} · Vertrag Nr. {project['contract_no']} · Bauleitung "
-                      f"{settings.baseline()['company']['signer']}")
-    s = wx.get("summary", {})
-    if s.get("available"):
-        doc.add_paragraph(f"Wetter (DWD via Bright Sky): {s['temp_min']:.0f}–{s['temp_max']:.0f} °C, "
-                          f"Niederschlag {s['precip_sum']:.1f} mm, Böen {s['gust_max']:.0f} km/h · Bewertung: "
-                          f"{'; '.join(wx['assessment']['reasons'])}")
-    doc.add_heading("Personal", level=2)
-    for r in store.staffing(project_id, day):
-        doc.add_paragraph(f"{r['crew']}: {r['present']} anwesend (Soll {r['planned']})", style="List Bullet")
-    doc.add_heading("Leistungen (Soll-Ist)", level=2)
-    t = doc.add_table(rows=1, cols=5)
-    t.style = "Light Grid Accent 1"
-    for c, h in zip(t.rows[0].cells, ["Vorgang", "Tagessoll", "Ist", "Erfüllung", "Prognose Ende"]):
-        c.text = h
-    for r in a["activities"]:
-        if r["today"]["soll"] or r["today"]["ist"]:
-            row = t.add_row().cells
-            ratio = r["today"]["ratio"]
-            row[0].text = r["name"]
-            row[1].text = f"{r['today']['soll']:g} {r['unit']}".replace(".", ",")
-            row[2].text = f"{r['today']['ist']:g} {r['unit']}".replace(".", ",")
-            row[3].text = f"{ratio:.0%}" if ratio is not None else "—"
-            row[4].text = f"{date.fromisoformat(r['forecast_finish']):%d.%m.} ({r['delay_days']:+d} AT)"
-    doc.add_heading("Geräte / Kolonnen", level=2)
-    tl = timeline.day_timeline(project_id, day, {r["id"] for r in a["activities"] if r["today"]["soll"]})
-    labels = {"work": "Arbeit", "restricted": "eingeschränkt", "idle": "Stillstand",
-              "planned_not_started": "geplant, nicht begonnen"}
-    for row in tl["rows"]:
-        doc.add_paragraph(f"{row['name']}: " + ", ".join(f"{s['start']}–{s['end']} {labels[s['status']]}"
-                                                        for s in row["segments"]), style="List Bullet")
-    doc.add_heading("Besondere Vorkommnisse", level=2)
-    for e in store.events(project_id, day):
-        if e["status"] == "dismissed":
-            continue
-        doc.add_paragraph(f"{e['start'][11:16]} {EVENT_TYPE_LABELS[e['type']]} – {e['description']} "
-                          f"[Sphäre {e['sphere']} (Vorschlag) · {DOC_KIND_LABELS[e['recommended_document']['kind']]}]",
-                          style="List Bullet")
-    for ch in a["impact"]:
-        doc.add_paragraph(f"Auswirkung: {ch['text']}", style="List Bullet")
-    doc.add_heading("Erfassungen", level=2)
-    for c in store.captures(project_id, day):
-        doc.add_paragraph(f"{c['captured_at'][11:16]} {c['title']}: {(c.get('summary') or '')[:200]}",
-                          style="List Bullet")
-    photos = [store.evidence(c["evidence_ids"][0]) for c in store.captures(project_id, day)
-              if c["kind"] == "photo" and c["evidence_ids"]]
-    if photos:
-        doc.add_page_break()
-        doc.add_heading("Fotodokumentation", level=2)
-        for ev in photos:
-            _add_photo(doc, ev, project_id, day)
-    out = _out_dir(project_id, day) / f"Bautagesbericht_{project_id}_{day}.docx"
-    doc.save(out)
-    pdf_path = pdf.to_pdf(out)
-    return {"docx": str(out), **({"pdf": str(pdf_path)} if pdf_path else {})}
+    """Bautagesbericht (PDF/DOCX/JSON) – delegiert an daily_report, damit es nur ein Layout gibt."""
+    from . import daily_report
+
+    return daily_report.export_files(project_id, day)

@@ -37,14 +37,14 @@ export default function Schedule() {
     });
 
   return (
-    <div className="mx-auto max-w-6xl space-y-4 p-4">
+    <div className="mx-auto max-w-[1440px] space-y-4 px-6 py-4">
       <div className="flex items-center gap-2">
         <h1 className="text-lg font-semibold">{t("Bauzeitenplan · Stand {d}", { d: dShort(data.date) })}</h1>
         <button className="btn ml-auto" onClick={create}><Plus className="h-4 w-4" /> {t("Neuer Vorgang")}</button>
       </div>
       <div className="card p-3">
         <Gantt overview={data} onSelect={(r) => edit(r.id)} />
-        <div className="pl-[144px]"><Legend items={[{ cls: "bg-ok", label: "Ist" }, { cls: "border border-slate-300 bg-slate-100", label: "Soll" }, { cls: "bg-bad", label: "Rückstand" }, { cls: "border border-dashed border-bad", label: "Prognose" }]} /></div>
+        <div className="pl-[302px]"><Legend items={[{ cls: "bg-bh-blue", label: "Ist" }, { cls: "border border-bh-black/25 bg-bh-paper", label: "Soll" }, { cls: "bg-bh-red", label: "Rückstand" }, { cls: "border-2 border-dashed border-bh-black", label: "Prognose" }]} /></div>
       </div>
       <div className="card overflow-x-auto">
         <table className="w-full text-sm">
@@ -52,7 +52,7 @@ export default function Schedule() {
           <tbody>
             {data.activities.map((r: any) => (
               <tr key={r.id} onClick={() => edit(r.id)} className={`cursor-pointer border-t hover:bg-slate-50 ${r.critical ? "font-medium" : ""}`}>
-                <td className="px-2 py-1.5">{r.id}</td><td className="px-2 py-1.5">{r.name}{r.critical && " ●"}</td><td className="px-2 py-1.5">{r.lv_pos}</td>
+                <td className="px-2 py-1.5">{r.id}</td><td className="px-2 py-1.5">{t(r.name)}{r.critical && " ●"}</td><td className="px-2 py-1.5">{r.lv_pos}</td>
                 <td className="px-2 py-1.5">{dShort(r.planned_start)}–{dShort(r.planned_finish)}</td><td className="px-2 py-1.5">{dShort(r.forecast_start)}–{dShort(r.forecast_finish)}</td>
                 <td className={`px-2 py-1.5 ${r.delay_days > 0 ? "text-bad-text" : ""}`}>{t("{n} AT", { n: r.delay_days > 0 ? `+${r.delay_days}` : r.delay_days })}</td>
                 <td className="px-2 py-1.5">{r.total_float}</td><td className="px-2 py-1.5">{pct(r.pct)}</td><td className="px-2 py-1.5">{num(r.cum)} / {num(r.qty)} {r.unit}</td>

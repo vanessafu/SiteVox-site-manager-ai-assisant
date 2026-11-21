@@ -2,15 +2,15 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { AlertCircle, ArrowRight, Building2, CalendarClock, CloudRain, FileDown, ListChecks, Pencil } from "lucide-react";
-import { api, dLong, dShort, num, pct, post, put, RES_STATUS, useApi } from "@/lib/api";
+import { api, dLong, dShort, num, pct, put, RES_STATUS, useApi } from "@/lib/api";
 import { LangToggle, useT } from "@/lib/i18n";
 import { useDrawer } from "@/components/Drawer";
 import Gantt from "@/components/Gantt";
 import { BulletRow, ExtraWorkRow } from "@/components/Bullet";
 import DayTimeline from "@/components/DayTimeline";
-import EventCard, { EventDetail } from "@/components/EventCard";
+import EventCard from "@/components/EventCard";
 import { Legend, Ratio } from "@/components/ui";
-import EditForm, { ACTIVITY_FIELDS, EVENT_FIELDS, predsToString } from "@/components/EditForm";
+import EditForm, { ACTIVITY_FIELDS, predsToString } from "@/components/EditForm";
 import StaffEditor from "@/components/StaffEditor";
 
 const SECTIONS = [
@@ -51,14 +51,6 @@ export default function Dashboard() {
     );
 
   // ------------------------------------------------------------ Bearbeiten (Eingaben ändern → alles neu berechnet)
-  const editEvent = (e: any) =>
-    drawer.open({
-      title: `${t("Ereignis bearbeiten")}: ${t(e.label)}`, subtitle: e.event_id,
-      body: <EditForm fields={EVENT_FIELDS} initial={{ ...e, work_started: e.attrs?.work_started }}
-        note="Risikosphäre, Empfehlung und Konfidenz werden nach dem Speichern regelbasiert neu berechnet."
-        onSave={async (patch) => { await api(`/api/events/${e.event_id}`, { method: "PATCH", body: JSON.stringify(patch) }); refresh(); }}
-        onDelete={async () => { await api(`/api/events/${e.event_id}`, { method: "DELETE" }); refresh(); drawer.close(); }} />,
-    });
   const editActivity = (id: string) => {
     const a = rawActs?.find((x) => x.id === id);
     if (!a) return;
@@ -72,7 +64,7 @@ export default function Dashboard() {
   };
   const editProgress = (b: any) =>
     drawer.open({
-      title: `${t("Ist-Menge korrigieren")}: ${b.name}`, subtitle: dLong(d.date),
+      title: `${t("Ist-Menge korrigieren")}: ${t(b.name)}`, subtitle: dLong(d.date),
       body: <EditForm fields={[{ key: "qty", label: `${t("Ist heute")} (${b.unit})`, type: "number", help: "Leer lassen = Eintrag löschen" }]}
         initial={{ qty: b.ist }} note="Manuelle Korrektur der aus der Sprachnotiz übernommenen Menge (Audit-Log)."
         onSave={async (patch) => { await put(`/api/projects/${pid}/progress`, { activity_id: b.id, date: d.date, qty: patch.qty }); refresh(); }} />,
@@ -100,20 +92,14 @@ export default function Dashboard() {
         }} />,
     });
 
-  const openEvent = (e: any) =>
-    drawer.open({
-      title: t(e.label), subtitle: `${e.event_id} · ${dLong(e.start)} ${e.start.slice(11, 16)}`,
-      body: <div className="space-y-3"><EventDetail e={e} onChanged={reload} /><button className="btn" onClick={() => editEvent(e)}><Pencil className="h-4 w-4" /> {t("Ereignis bearbeiten")}</button></div>, evidence: e.evidence,
-      edit: e.letter ? { label: "Entwurf bearbeiten", href: `/p/${pid}/schreiben/${e.letter.letter_id}` }
-        : e.recommended_document.requires_letter ? { label: "Entwurf erstellen", onClick: async () => {
-            const l = await post(`/api/events/${e.event_id}/draft`);
-            drawer.close();
-            router.push(`/p/${pid}/schreiben/${l.letter_id}`);
-          } } : undefined,
-    });
+  // Ereignis öffnen = eigene Seite unter „Schreiben“ (mit Schreiben → Review-Editor, sonst Ereignisseite)
+  const openEvent = (e: any) => {
+    drawer.close();
+    router.push(e.letter ? `/p/${pid}/schreiben/${e.letter.letter_id}` : `/p/${pid}/schreiben/ereignis/${e.event_id}`);
+  };
   const openActivity = (r: any) =>
     drawer.open({
-      title: r.name, subtitle: `${r.id}${r.lv_pos ? ` · LV ${r.lv_pos}` : ""}${r.critical ? ` · ${t("kritischer Pfad")}` : ""}`,
+      title: t(r.name), subtitle: `${r.id}${r.lv_pos ? ` · LV ${r.lv_pos}` : ""}${r.critical ? ` · ${t("kritischer Pfad")}` : ""}`,
       body: r.kind === "milestone" ? (
         <p>{t("Vertragsfrist {d}", { d: dShort(r.planned_finish) })} · {t("Prognose")} {dShort(r.forecast_finish)} {r.delay_days > 0 ? <b className="text-bad-text">(+{t("{n} AT", { n: r.delay_days })})</b> : t("(im Plan)")}</p>
       ) : (
@@ -144,7 +130,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="mx-auto max-w-5xl space-y-8 p-4">
+      <div className="mx-auto max-w-[1440px] space-y-8 px-6 py-4">
         {d.alerts.some((a: any) => a.kind === "milestone") && (
           <div className="flex items-start gap-2 rounded-lg border border-bad/30 bg-bad-soft p-3 text-sm text-bad-text">
             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
@@ -170,9 +156,9 @@ export default function Dashboard() {
             </Kpi>
           </div>
           <Gantt overview={d.overview} onSelect={openActivity} dense />
-          <div className="pl-[144px]">
-            <Legend items={[{ cls: "bg-ok", label: "Ist" }, { cls: "border border-slate-300 bg-slate-100", label: "Soll" }, { cls: "bg-bad", label: "Rückstand" },
-              { cls: "border border-dashed border-bad", label: "Prognose" }, { cls: "bg-accent/70", label: "Heute" }]} />
+          <div className="pl-[302px]">
+            <Legend items={[{ cls: "bg-bh-blue", label: "Ist" }, { cls: "border border-bh-black/25 bg-bh-paper", label: "Soll" }, { cls: "bg-bh-red", label: "Rückstand" },
+              { cls: "border-2 border-dashed border-bh-black", label: "Prognose" }, { cls: "!w-0.5 bg-bh-black", label: "Heute" }]} />
           </div>
         </section>
 
@@ -197,7 +183,7 @@ export default function Dashboard() {
           <div className="mb-1 text-2xs text-slate-600">{t("Tagesleistung je Vorgang · Strich = Tagessoll")}</div>
           {td.bullets.map((b: any) => (
             <BulletRow key={b.id} b={b} onClick={() => drawer.open({
-              title: t("{n} heute", { n: b.name }), subtitle: b.lv_pos ? `LV ${b.lv_pos}` : undefined,
+              title: t("{n} heute", { n: t(b.name) }), subtitle: b.lv_pos ? `LV ${b.lv_pos}` : undefined,
               body: <div className="space-y-1"><p>{t("Tagessoll")} {num(b.soll)} {b.unit} · {t("Ist")} {num(b.ist)} {b.unit} (<Ratio r={b.ratio} />)</p>
                 <p className="text-xs text-slate-600">{t("Gesamt {a} / {b}", { a: num(b.cum), b: `${num(b.qty)} ${b.unit}` })} · {t("Prognose Ende")} {dShort(b.forecast_finish)}{b.delay_days > 0 ? ` (+${t("{n} AT", { n: b.delay_days })})` : ""}</p>
                 {b.events.map(cause)}</div>,
@@ -208,10 +194,10 @@ export default function Dashboard() {
 
           <div className="mb-1 mt-5 text-2xs text-slate-600">{t("Tagesverlauf {a}–{b} Uhr · Symbole = Erfassungen", { a: td.timeline.start, b: td.timeline.end })}</div>
           <DayTimeline tl={td.timeline}
-            onMarker={(m) => drawer.open({ title: t(m.title), subtitle: m.time, body: <p className="text-xs text-slate-600">{t("Verknüpft mit")}: {m.events.map((id: string) => evById[id] && t(evById[id].label)).filter(Boolean).join(", ") || "—"}</p>, evidence: [], edit: { label: "In Erfassungen öffnen", href: `/p/${pid}/erfassungen#${m.capture_id}` } })}
+            onMarker={(m) => router.push(`/p/${pid}/erfassungen#${encodeURIComponent(m.capture_id)}`)}
             onSegment={(r, s) => {
               const ev = s.event_id ? evById[s.event_id] : null;
-              drawer.open({ title: `${r.name}: ${t(RES_STATUS[s.status])}`, subtitle: `${s.start}–${s.end}`,
+              drawer.open({ title: `${t(r.name)}: ${t(RES_STATUS[s.status])}`, subtitle: `${s.start}–${s.end}`,
                 body: ev ? <p>{t("Ursache")}: <button className="text-accent-text underline" onClick={() => openEvent(ev)}>{t(ev.label)}</button> – {ev.cause}</p> : <p className="text-slate-600">{t("Planmäßiger Einsatz.")}</p>,
                 evidence: ev?.evidence || [] });
             }} />

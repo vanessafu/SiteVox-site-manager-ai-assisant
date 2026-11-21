@@ -1,6 +1,6 @@
 "use client";
 import { useParams } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Pencil, Trash2 } from "lucide-react";
 import { api, dLong, time, useApi } from "@/lib/api";
 import { useT } from "@/lib/i18n";
@@ -17,6 +17,33 @@ export default function Captures() {
   const drawer = useDrawer();
   const { t } = useT();
   const days = Array.from(new Set((caps || []).map((c) => c.date))).sort().reverse();
+
+  // Deep-Link /erfassungen#CAP-…: Die Liste lädt asynchron, daher greift der Browser-Anker nicht –
+  // nach dem Laden selbst hinscrollen, Belege aufklappen und den Eintrag kurz hervorheben.
+  const [focus, setFocus] = useState<string | null>(null);
+  const [flash, setFlash] = useState<string | null>(null);
+  const handled = useRef<string | null>(null);
+  useEffect(() => {
+    const read = () => {
+      const id = decodeURIComponent(window.location.hash.slice(1));
+      if (id) { setFocus(id); handled.current = null; }
+    };
+    read();
+    window.addEventListener("hashchange", read);
+    return () => window.removeEventListener("hashchange", read);
+  }, []);
+  useEffect(() => {
+    if (!focus || !caps || handled.current === focus || !caps.some((c) => c.capture_id === focus)) return;
+    handled.current = focus;
+    setOpen(focus);
+    setFlash(focus);
+    requestAnimationFrame(() => document.getElementById(focus)?.scrollIntoView({ behavior: "smooth", block: "center" }));
+  }, [focus, caps]);
+  useEffect(() => {
+    if (!flash) return;
+    const timer = setTimeout(() => setFlash(null), 2500);
+    return () => clearTimeout(timer);
+  }, [flash]);
 
   const remove = async (c: any) => {
     if (!window.confirm(t("„{x}“ löschen? Abgeleitete Mengen, Belege und Ereignisse werden mit entfernt (Audit-Log).", { x: t(c.title) }))) return;
@@ -58,7 +85,8 @@ export default function Captures() {
             {(caps || []).filter((c) => c.date === d).map((c) => {
               const Icon = SOURCE_ICON[c.kind] || SOURCE_ICON.note;
               return (
-                <li key={c.capture_id} id={c.capture_id} className="card p-3">
+                <li key={c.capture_id} id={c.capture_id}
+                  className={`card scroll-mt-20 p-3 transition-shadow duration-700 ${flash === c.capture_id ? "ring-[3px] ring-bh-yellow" : ""}`}>
                   <span className="absolute -left-[9px] mt-1 h-4 w-4 rounded-full border-2 border-white bg-slate-400" />
                   <div className="flex items-start gap-2">
                     <button className="flex min-w-0 flex-1 items-start gap-2 text-left" onClick={() => setOpen(open === c.capture_id ? null : c.capture_id)}>

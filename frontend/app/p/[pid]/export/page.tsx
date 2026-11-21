@@ -17,7 +17,13 @@ export default function ExportPage() {
       <div className="card p-4">
         <div className="mb-2 font-medium">{t("Bautagesbericht")}</div>
         <p className="mb-2 text-xs text-slate-600">{t("Entwurf aus Erfassungen, Soll-Ist, Wetter (DWD), Ereignissen und Fotos (Gesichter automatisch verpixelt, mit Zeitstempel/GPS).")}</p>
-        {dash && <a className="btn" href={`/api/projects/${pid}/daily-report?date=${dash.date}`}><FileDown className="h-[18px] w-[18px]" /> {t("Bautagesbericht {d} (DOCX)", { d: dash.date })}</a>}
+        {dash && (
+          <div className="flex flex-wrap items-center gap-2">
+            <a className="btn" href={`/api/projects/${pid}/daily-report?date=${dash.date}&fmt=pdf`}><FileDown className="h-[18px] w-[18px]" /> {t("Bautagesbericht {d} (PDF)", { d: dash.date })}</a>
+            <a className="btn-xs" href={`/api/projects/${pid}/daily-report?date=${dash.date}&fmt=docx`}>DOCX</a>
+            <a className="btn-xs" href={`/api/projects/${pid}/daily-report?date=${dash.date}&fmt=json`}>JSON</a>
+          </div>
+        )}
       </div>
       <div className="card p-4">
         <div className="mb-2 font-medium">{t("Schreiben")}</div>
@@ -27,6 +33,8 @@ export default function ExportPage() {
             <Link className="font-medium hover:underline" href={`/p/${pid}/schreiben/${l.letter_id}`}>{t(l.kind_label)} {l.letter_id}</Link> <StatusChip status={l.status} />
             {l.status !== "Entwurf" && l.status !== "Verworfen" ? (
               <span className="ml-auto flex gap-1"><a className="btn-xs" href={`/api/letters/${l.letter_id}/export/docx`}>DOCX</a><a className="btn-xs" href={`/api/letters/${l.letter_id}/export/pdf`}>PDF</a><a className="btn-xs" href={`/api/letters/${l.letter_id}/export/eml`}><Mail className="h-3.5 w-3.5" /> .eml</a></span>
+            ) : l.status === "Entwurf" ? (
+              <Link className="btn-xs ml-auto" href={`/p/${pid}/schreiben/${l.letter_id}`} title={t("gesperrt bis Freigabe")}>{t("Prüfen & freigeben")} →</Link>
             ) : <span className="ml-auto text-2xs text-slate-500">{t("gesperrt bis Freigabe")}</span>}
           </li>
         ))}</ul>

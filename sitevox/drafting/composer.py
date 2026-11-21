@@ -273,6 +273,24 @@ def field_action(letter_id: str, key: str, action: str, actor: str, value: Any =
     return letter
 
 
+def accept_all_fields(letter_id: str, actor: str) -> dict:
+    """Alle noch offenen Felder übernehmen (bearbeitete/verworfene bleiben unverändert). Ein Audit-Eintrag.
+    Ersetzt NICHT die Faktenprüfung (rote Werte) und die Checkliste – die bleiben bewusste Einzelentscheidungen."""
+    letter = store.get("letters", letter_id)
+    if letter["status"] != "Entwurf":
+        raise ValueError("Nur Entwürfe sind bearbeitbar")
+    keys = [k for k, f in letter["fields"].items() if f["status"] == "pending"]
+    for k in keys:
+        letter["fields"][k]["status"] = "accepted"
+    if keys:
+        letter["updated_at"] = store.now_iso()
+        letter = reverify(letter)
+        store.save_letter(letter)
+        store.audit(actor, "letter", letter_id, "field_accept_all",
+                    after={k: {"value": letter["fields"][k]["value"], "status": "accepted"} for k in keys})
+    return letter
+
+
 def edit_sentence(letter_id: str, section: str, idx: int, text: str, actor: str,
                   evidence: Optional[list[str]] = None) -> dict:
     letter = store.get("letters", letter_id)
@@ -355,6 +373,38 @@ def mark_sent(letter_id: str, actor: str, method: str, sent_at: Optional[str] = 
     ev["status"], ev["sent_at"] = "sent", letter["sent_at"]
     store.save_event(ev)
     store.audit(actor, "letter", letter_id, "mark_sent", after={"method": method, "sent_at": letter["sent_at"]})
+    return letter
+
+
+def revoke(letter_id: str, actor: str, note: str) -> dict:
+    """Eine Stufe zurück (menschliche Korrektur, mit Begründung im Audit-Log):
+    Versendet → Geprüft (Versand-Markierung zurücknehmen), Geprüft → Entwurf (Freigabe zurückziehen),
+    Verworfen → Entwurf (wiederherstellen, danach normal prüfen und freigeben).
+    Feldentscheidungen und Checkliste bleiben erhalten; die erneute Freigabe prüft alle Blocker wieder."""
+    if not note.strip():
+        raise ValueError("Begründung erforderlich")
+    letter = store.get("letters", letter_id)
+    ev = store.get("events", letter["event_id"])
+    before = {"status": letter["status"]}
+    if letter["status"] == "Versendet":
+        letter["status"], letter["sent_at"], letter["sent_method"] = "Geprüft", None, None
+        ev["status"], ev["sent_at"] = "released", None
+        action = "revoke_sent"
+    elif letter["status"] == "Geprüft":
+        letter["status"], letter["released_at"], letter["released_by"] = "Entwurf", None, None
+        letter["exports"] = {}  # Downloads gesperrt; neue Freigabe erzeugt die Dateien neu
+        ev["status"] = "draft"
+        action = "revoke_release"
+    elif letter["status"] == "Verworfen":
+        letter["status"] = "Entwurf"
+        ev["status"] = "draft"
+        action = "restore"
+    else:
+        raise ValueError("Nur freigegebene, versendete oder verworfene Schreiben können zurückgenommen werden")
+    letter["updated_at"] = store.now_iso()
+    store.save_letter(letter)
+    store.save_event(ev)
+    store.audit(actor, "letter", letter_id, action, before=before, after={"status": letter["status"]}, note=note)
     return letter
 
 
