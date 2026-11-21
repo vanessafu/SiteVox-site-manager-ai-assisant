@@ -32,6 +32,37 @@ def tokens(s: str) -> list[str]:
     return normalize(s).split()
 
 
+_MONTHS_ALL = {}
+for _ms in (["januar", "februar", "märz", "april", "mai", "juni", "juli", "august", "september", "oktober", "november",
+             "dezember"],
+            ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october",
+             "november", "december"],
+            ["stycznia", "lutego", "marca", "kwietnia", "maja", "czerwca", "lipca", "sierpnia", "września",
+             "października", "listopada", "grudnia"],
+            ["ocak", "şubat", "mart", "nisan", "mayıs", "haziran", "temmuz", "ağustos", "eylül", "ekim", "kasım",
+             "aralık"]):
+    for _i, _m in enumerate(_ms, 1):
+        _MONTHS_ALL.setdefault(_m, _i)
+_MON_RX = "|".join(sorted(_MONTHS_ALL, key=len, reverse=True))
+
+
+def canonical(s: str) -> str:
+    """Wie normalize(), plus einheitliche Schreibweise von Uhrzeit/Datum/Dezimalzahl – damit WER Formatierung
+    ("08:15" vs "8.15 Uhr", "26.11." vs "26. November" / "the 26th of November", "7,2" vs "7.2") nicht als
+    Fehler zählt. Gesprochene Fehler (falsche Zahl, fehlendes Wort) bleiben Fehler."""
+    t = normalize(s)
+    t = re.sub(r"\b0(\d):", r"\1:", t)                                            # 08:15 → 8:15
+    t = re.sub(r"\b(\d{1,2})\.(\d{2}) (?:uhr|h)\b", lambda m: f"{int(m[1])}:{m[2]}", t)
+    t = re.sub(r"\b(\d{1,2}):(\d{2}) (?:uhr|h|o clock)\b", lambda m: f"{int(m[1])}:{m[2]}", t)
+    t = re.sub(r"\b(\d{1,2}) uhr (\d{1,2})\b", lambda m: f"{int(m[1])}:{int(m[2]):02d}", t)
+    t = re.sub(r"\b(\d{1,2}) (?:uhr|o clock)\b", lambda m: f"{int(m[1])}:00", t)
+    t = re.sub(r"\b(?:the )?(\d{1,2})(?:st|nd|rd|th)?(?: of)? (" + _MON_RX + r")\b",
+               lambda m: f"{int(m[1])}.{_MONTHS_ALL[m[2]]}", t)
+    t = re.sub(r"\b(\d{1,2})\.(\d{1,2})\.(?:\d{2,4})\b", lambda m: f"{int(m[1])}.{int(m[2])}", t)
+    t = re.sub(r"\b(\d{1,2})\.0?(\d{1,2})\b(?!:)", lambda m: f"{int(m[1])}.{int(m[2])}", t)
+    return " ".join(t.split())
+
+
 # ----------------------------------------------------------------------------- Edit-Distanz
 def align(ref: Sequence[str], hyp: Sequence[str]) -> list[tuple[str, Optional[str], Optional[str]]]:
     """Levenshtein-Alignment → [(op, ref_tok, hyp_tok)], op ∈ {ok, sub, del, ins}."""

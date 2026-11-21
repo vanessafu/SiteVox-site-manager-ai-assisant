@@ -85,7 +85,7 @@ class QC:
         segs, _ = self.model.transcribe(y, language=lang, beam_size=5, vad_filter=False,
                                         condition_on_previous_text=False)
         hyp = " ".join(s.text.strip() for s in segs)
-        w = self.M.wer_counts(ref, hyp)
+        w = self.M.wer_counts(self.M.canonical(ref), self.M.canonical(hyp))  # Formatierung ≠ Fehler
         n = max(1, w["n_ref"])
         r = {"qc_hyp": hyp, "qc_wer": round(w["errors"] / n, 3), "qc_ins": round(w["ins"] / n, 3)}
         r["qc_pass"] = r["qc_ins"] <= self.max_ins and r["qc_wer"] <= self.max_wer

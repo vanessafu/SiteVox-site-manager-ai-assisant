@@ -30,6 +30,8 @@ def models() -> dict[str, Any]:
         cfg["asr"]["backend"] = os.environ["SITEVOX_ASR_BACKEND"]
     if os.environ.get("SITEVOX_VISION_BACKEND"):
         cfg["llm"]["vision"]["backend"] = os.environ["SITEVOX_VISION_BACKEND"]
+    if os.environ.get("SITEVOX_RAG_BACKEND"):  # z. B. bm25 in einer Umgebung ohne chromadb/sentence-transformers
+        cfg["rag"]["backend"] = os.environ["SITEVOX_RAG_BACKEND"]
     # API-Key der (getunnelten) vLLM-Server – nie in die Config/Git schreiben
     if os.environ.get("SITEVOX_LLM_API_KEY"):
         for role_cfg in cfg["llm"].values():
