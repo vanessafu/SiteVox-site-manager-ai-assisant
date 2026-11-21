@@ -11,7 +11,7 @@ const NAV = [
   { href: "/bauzeitenplan", label: "Bauzeitenplan", icon: GanttChartSquare },
   { href: "/schreiben", label: "Schreiben", icon: FileWarning },
   { href: "/postfach", label: "Postfach", icon: Mail },
-  { href: "/vertrag", label: "Vertrag / LV", icon: BookOpen },
+  { href: "/vertrag", label: "Wissensbasis", icon: BookOpen },
   { href: "/export", label: "Export", icon: FileDown },
 ];
 

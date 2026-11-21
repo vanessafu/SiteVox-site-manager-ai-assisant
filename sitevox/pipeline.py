@@ -88,6 +88,8 @@ def _ingest_body(cap, project_id, kind, captured_at, day, file, text, title, met
         vis = vision.describe(file, project_id)
         cap["vision"] = vis
         body = vis.get("description", "")
+        if vis.get("ocr_text") and "Text im Bild" not in body:
+            body += "\nText im Bild (OCR): " + vis["ocr_text"].replace("\n", " · ")
     elif kind == "email":
         mail = email_ingest.parse_eml(file)
         mail["project_id"] = email_ingest.assign_project(mail) or project_id

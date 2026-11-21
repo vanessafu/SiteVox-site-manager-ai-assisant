@@ -13,6 +13,7 @@ from typing import Any, Optional
 
 from .. import settings
 from ..prompts import VISION_PROMPT
+from . import ocr
 
 _lock = threading.Lock()
 _model: dict[str, Any] = {}
@@ -104,8 +105,12 @@ def _describe_openai(path: Path) -> str:
 
 
 def describe(path: Path, project_id: Optional[str] = None) -> dict[str, Any]:
+    """Beschreibung + EXIF + im Bild lesbarer Text (OCR, CPU – Schilder, Lieferscheine, Planköpfe)."""
     path = Path(path)
     meta = exif_meta(path)
+    ocr_text = ocr.image_text(path)
+    if ocr_text:
+        meta["ocr_text"] = ocr_text
     if settings.is_demo():
         fx = settings.demo_dir(project_id or "BV-RIEM") / "fixtures" / "vision" / f"{path.stem}.json"
         d = json.loads(fx.read_text(encoding="utf-8")) if fx.exists() else {"description": "Foto ohne Beschreibung"}
