@@ -24,7 +24,7 @@ from . import confidence as conf
 from . import rag, settings, store
 from .engine import deadlines, deviation, sphere as sph, weather
 from .schemas import EVENT_TYPE_LABELS, OBSERVATION_LABELS, Event, Evidence, ResourceEffect, ValueConf
-from .understand import asr, documents, email_ingest, extract, vision
+from .understand import asr, documents, email_ingest, extract, ocr, vision
 
 log = logging.getLogger(__name__)
 KIND_TITLES = {"audio": "Sprachmemo", "photo": "Foto", "note": "Notiz", "email": "Mail", "document": "Dokument"}
@@ -244,6 +244,11 @@ def _photo_analyze(cap: dict, file: Optional[Path], acts: list[dict]) -> None:
         {"exif": {}, "analysis": vision._fallback().model_dump(), "backend": None, "model": None}
     analysis = vis["analysis"]
     cap["vision"] = {**vis["exif"], **{k: v for k, v in vis.items() if k != "exif"}}
+    # Lesbarer Text im Foto (Schilder, Lieferscheine, Planköpfe) – CPU-OCR, nur für das Spracherkennungs-
+    # Vokabular; bewusst KEIN Beleg und nicht im Text (KI-Ausgaben werden erst durch die Antwort gestützt)
+    ocr_text = ocr.image_text(file) if file else ""
+    if ocr_text:
+        cap["vision"]["ocr_text"] = ocr_text
     sc = analysis.get("scene") or {}
     guess = " ".join(x for x in (sc.get("activity_guess"), sc.get("bauteil")) if x)
     aid = extract.match_activity(guess, acts) if guess else None

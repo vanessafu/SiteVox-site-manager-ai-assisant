@@ -24,8 +24,8 @@ from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 from fastapi.responses import FileResponse  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
 
-from sitevox import DISCLAIMER, editing, mail_accounts, pipeline, rag, settings, store  # noqa: E402
-from sitevox.understand import imap_mail, vocabulary  # noqa: E402
+from sitevox import DISCLAIMER, editing, pipeline, rag, settings, store  # noqa: E402
+from sitevox.understand import vocabulary  # noqa: E402
 from sitevox.drafting import composer  # noqa: E402
 from sitevox.export import daily_report as daily_report_export, docx_export, outlook  # noqa: E402
 
@@ -380,58 +380,6 @@ def mailbox(pid: str) -> list[dict]:
         out.append({**m, "summary": cap.get("summary") if cap else None,
                     "event_ids": cap.get("event_ids", []) if cap else []})
     return out
-
-
-@app.get("/api/mail-providers")
-def mail_providers() -> dict:
-    return imap_mail.PRESETS
-
-
-@app.get("/api/projects/{pid}/mail-accounts")
-def mail_account_list(pid: str) -> list[dict]:
-    return mail_accounts.accounts(pid)
-
-
-@app.post("/api/projects/{pid}/mail-accounts")
-def mail_account_add(pid: str, body: dict) -> dict:
-    try:
-        return mail_accounts.add(pid, body, ACTOR)
-    except imap_mail.MailError as e:
-        raise HTTPException(400, str(e)) from e
-
-
-@app.post("/api/projects/{pid}/mail-accounts/{aid}/unlock")
-def mail_account_unlock(pid: str, aid: str, body: dict) -> dict:
-    try:
-        return mail_accounts.unlock(pid, aid, body.get("password") or "")
-    except KeyError as e:
-        raise HTTPException(404) from e
-    except imap_mail.MailError as e:
-        raise HTTPException(400, str(e)) from e
-
-
-@app.delete("/api/projects/{pid}/mail-accounts/{aid}")
-def mail_account_remove(pid: str, aid: str) -> dict:
-    try:
-        mail_accounts.remove(pid, aid, ACTOR)
-    except KeyError as e:
-        raise HTTPException(404) from e
-    return {"ok": True}
-
-
-@app.post("/api/projects/{pid}/mail-accounts/{aid}/sync")
-def mail_account_sync(pid: str, aid: str, background: BackgroundTasks) -> dict:
-    def ingest(path: Path, received_at: str) -> None:
-        background.add_task(_run_ingest, pid, "email", path, None, received_at, {"source": "imap"})
-
-    try:
-        return mail_accounts.sync(pid, aid, ingest, ACTOR)
-    except KeyError as e:
-        raise HTTPException(404) from e
-    except PermissionError as e:
-        raise HTTPException(409, str(e)) from e
-    except imap_mail.MailError as e:
-        raise HTTPException(400, str(e)) from e
 
 
 @app.get("/api/projects/{pid}/asr-vocabulary")

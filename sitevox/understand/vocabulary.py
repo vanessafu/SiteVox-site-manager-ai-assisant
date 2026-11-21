@@ -23,6 +23,7 @@ CATEGORIES = {"manual": 0, "axis": 1, "company": 2, "spec": 3, "component": 4, "
 CATEGORY_LABELS = {"manual": "Manuell", "axis": "Achsen / Bereiche", "company": "Firmen / Beteiligte",
                    "spec": "Materialien / Kennwerte", "component": "Bauteile / Leistungen", "activity": "Vorgänge / Kolonnen"}
 
+AUDIO_PREFIX = "Sprachmemo: "
 PROMPT_MAX_CHARS = 620    # Basis-Prompt + Projektbegriffe (~170 Token Deutsch)
 HOTWORDS_MAX_CHARS = 180  # (~50 Token)
 
@@ -31,8 +32,9 @@ AXIS_RE = re.compile(r"\b(Achsen?|Bauteil|Bauabschnitt|BA|Haus|Treppenhaus|TH)\s
 AXIS_GLUED_RE = re.compile(r"\b(BA|TH)(\d{1,2})\b")
 COMPANY_RE = re.compile(
     # "AG" bewusst nicht als Rechtsform: im Bauvertrag steht AG für Auftraggeber
-    r"\b((?:[A-ZÄÖÜ][\wÄÖÜäöüß&.\-]*\s){1,3}(?:GmbH(?:\s*&\s*Co\.?\s*KG)?|KG|GbR|e\.\s?K\.|mbB))"
-    r"|\b((?:Ingenieurbüro|Architekturbüro|Planungsbüro|Vermessungsbüro|Kolonne|Firma|Fa\.)\s+[A-ZÄÖÜ][\wäöüß\-]+)")
+    # Trennzeichen [ \t] statt \s: Firmennamen nie über Zeilenumbrüche (OCR: "Lieferschein\nBetonwerk Huber GmbH")
+    r"\b((?:[A-ZÄÖÜ][\wÄÖÜäöüß&.\-]*[ \t]){1,3}(?:GmbH(?:[ \t]*&[ \t]*Co\.?[ \t]*KG)?|KG|GbR|e\.[ \t]?K\.|mbB))"
+    r"|\b((?:Ingenieurbüro|Architekturbüro|Planungsbüro|Vermessungsbüro|Kolonne|Firma|Fa\.)[ \t]+[A-ZÄÖÜ][\wäöüß\-]+)")
 SPEC_RE = re.compile(
     r"\b(L?C\d{2}/\d{2}(?:\s*WU)?|X[CDFAM][A-Z]?\d|B500\s?[AB]?|DN\s?\d{2,4}|[QR]\d{3}\s?[AB]|"
     r"S\d{3}\s?(?:JR|J0|J2)?|HE[ABM]\s?\d{3}|IPE\s?\d{3}|WU-Beton|Ortbeton|Fertigteil\w*|Spannbeton)\b")
@@ -69,7 +71,10 @@ def _scan(text: str, source: str, acc: dict[str, dict]) -> None:
     for m in AXIS_GLUED_RE.finditer(text):
         add(f"{m.group(1)}{m.group(2)}", "axis")
     for m in COMPANY_RE.finditer(text):
-        add(m.group(1) or m.group(2), "company")
+        if m.group(1):  # "Firma Kranbau Sedlmeier GmbH" → "Kranbau Sedlmeier GmbH"
+            add(re.sub(r"^(?:(?:Firma|Fa\.|Die|Der|Von|Bei|Mit|Und)\s+)+", "", m.group(1)), "company")
+        else:
+            add(re.sub(r"^(?:Firma|Fa\.)\s+", "", m.group(2)) if not m.group(2).startswith("Kolonne") else m.group(2), "company")
     for m in SPEC_RE.finditer(text):
         add(m.group(1), "spec")
     for m in COMPONENT_RE.finditer(text):
@@ -100,6 +105,11 @@ def collect(project_id: str) -> list[dict[str, Any]]:
         ocr_text = (cap.get("vision") or {}).get("ocr_text")
         if cap.get("kind") == "photo" and ocr_text:
             _scan(ocr_text, f"Foto-Text: {cap['title']}", acc)
+        # Gesprochenes: Sprachmemos und gesprochene Antworten auf Foto-Rückfragen
+        spoken = [(cap.get("transcript") or {}).get("text") if cap.get("kind") == "audio" else None,
+                  ((cap.get("answer") or {}).get("transcript") or {}).get("text")]
+        for s in filter(None, spoken):
+            _scan(s, f"{AUDIO_PREFIX}{cap['title']}", acc)
     try:
         cfg = settings.project_cfg(project_id)
     except KeyError:
@@ -110,15 +120,23 @@ def collect(project_id: str) -> list[dict[str, Any]]:
         acc[n.lower()]["sources"].append("Stammdaten")
         acc[n.lower()]["category"] = "company"
     for n in [c.get("name") for c in cfg.get("crews", [])] + [a.get("name") for a in store.activities(project_id)]:
-        if n and n.lower() not in acc:
+        if not n:
+            continue
+        if n.lower() not in acc:
             acc[n.lower()] = {"term": n, "category": "activity", "count": 1, "sources": ["Stammdaten"]}
+        elif "Stammdaten" not in acc[n.lower()]["sources"]:
+            acc[n.lower()]["sources"].append("Stammdaten")
 
     ov = _overrides(project_id)
     removed = {t.lower() for t in ov.get("removed", [])}
     for t in ov.get("added", []):
         acc[t.lower()] = {"term": t, "category": "manual", "count": 0, "sources": ["manuell"]}
     terms = [e for k, e in acc.items() if k not in removed]
-    terms.sort(key=lambda e: (CATEGORIES[e["category"]], -len(e["sources"]), -e["count"], e["term"]))
+    for e in terms:
+        e["from_audio"] = any(s.startswith(AUDIO_PREFIX) for s in e["sources"])
+        # Nur aus Audio: könnte selbst ein Erkennungsfehler sein → nachrangig (keine Fehler-Rückkopplung)
+        e["audio_only"] = e["from_audio"] and all(s.startswith(AUDIO_PREFIX) for s in e["sources"])
+    terms.sort(key=lambda e: (e["audio_only"], CATEGORIES[e["category"]], -len(e["sources"]), -e["count"], e["term"]))
     return terms
 
 
@@ -132,24 +150,43 @@ def _fit(items: list[str], limit: int, sep: str = ", ") -> list[str]:
     return out
 
 
-def asr_prompt(project_id: str | None) -> dict[str, Any]:
-    """initial_prompt + hotwords für Whisper: Basisvokabular (config) + Projektbegriffe, gekürzt."""
-    c = settings.models()["asr"]
-    base = re.sub(r"\s+", " ", c.get("initial_prompt") or "").strip()
-    base_hot = list(c.get("hotwords", []))
+def for_asr(project_id: str | None) -> dict[str, list[str]]:
+    """Sprachunabhängige Projektbegriffe für die Spracherkennung, nach Priorität (JSON-serialisierbar,
+    wird bei asr.backend = "remote" mit dem Audio an den GPU-Knoten geschickt)."""
     if not project_id:
-        return {"initial_prompt": base or None, "hotwords": base_hot, "terms": [], "used": 0}
+        return {"terms": [], "hot": []}
     terms = collect(project_id)
+    return {"terms": [e["term"] for e in terms],
+            "hot": [e["term"] for e in terms if CATEGORIES[e["category"]] <= CATEGORIES["spec"] and not e["audio_only"]]}
+
+
+def compose(base: str | None, v: dict | None) -> dict[str, Any]:
+    """initial_prompt + hotwords: Basis-Prompt (je erkannter Sprache) + Projektbegriffe, auf Whispers
+    Prompt-Grenze gekürzt. Fachbegriffe/Eigennamen bleiben deutsch – so werden sie auch in TR/PL/EN-Aufnahmen erkannt."""
+    v = v or {"terms": [], "hot": []}
+    base = re.sub(r"\s+", " ", base or "").strip()
     base_l = base.lower()
-    fresh = [e["term"] for e in terms if e["term"].lower() not in base_l]
+    fresh = [t for t in v.get("terms", []) if t.lower() not in base_l]
     used = _fit(fresh, max(0, PROMPT_MAX_CHARS - len(base) - 2))
-    prompt = (base.rstrip(".") + ", " + ", ".join(used) + ".") if used else base
-    hot_candidates = [e["term"] for e in terms if CATEGORIES[e["category"]] <= CATEGORIES["spec"]]
-    hot = _fit(list(dict.fromkeys(base_hot + hot_candidates)), HOTWORDS_MAX_CHARS, " ")
-    in_prompt = {t.lower() for t in used}
+    prompt = (base.rstrip(".") + ", " + ", ".join(used) + ".") if used and base else (", ".join(used) or base)
+    base_hot = list(settings.models()["asr"].get("hotwords", []))
+    hot = _fit(list(dict.fromkeys(base_hot + list(v.get("hot", [])))), HOTWORDS_MAX_CHARS, " ")
+    return {"initial_prompt": prompt or None, "hotwords": hot, "used": used}
+
+
+def asr_prompt(project_id: str | None, base: str | None = None) -> dict[str, Any]:
+    """Vorschau/Gesamtsicht: wie compose(), plus Begriffsliste mit in_prompt-Markierung (Basis: deutscher Prompt)."""
+    if base is None:
+        base = settings.models()["asr"].get("initial_prompt") or ""
+    terms = collect(project_id) if project_id else []
+    v = {"terms": [e["term"] for e in terms],
+         "hot": [e["term"] for e in terms if CATEGORIES[e["category"]] <= CATEGORIES["spec"] and not e["audio_only"]]}
+    p = compose(base, v)
+    base_l = re.sub(r"\s+", " ", base).lower()
+    in_prompt = {t.lower() for t in p["used"]}
     for e in terms:
         e["in_prompt"] = e["term"].lower() in in_prompt or e["term"].lower() in base_l
-    return {"initial_prompt": prompt or None, "hotwords": hot, "terms": terms, "used": len(used)}
+    return {"initial_prompt": p["initial_prompt"], "hotwords": p["hotwords"], "terms": terms, "used": len(p["used"])}
 
 
 def add_term(project_id: str, term: str, actor: str) -> dict:
@@ -191,6 +228,8 @@ def summary(project_id: str) -> dict[str, Any]:
     return {
         "initial_prompt": p["initial_prompt"], "hotwords": p["hotwords"], "used": p["used"],
         "total": len(p["terms"]), "prompt_max_chars": PROMPT_MAX_CHARS,
+        "from_audio": sum(1 for e in p["terms"] if e["from_audio"]),
+        "audio_only": sum(1 for e in p["terms"] if e["audio_only"]),
         "groups": [{"category": k, "label": CATEGORY_LABELS[k], "terms": by_cat[k]} for k in CATEGORIES if by_cat.get(k)],
         "removed": _overrides(project_id).get("removed", []),
         "sources": dict(Counter(s for e in p["terms"] for s in e["sources"])),

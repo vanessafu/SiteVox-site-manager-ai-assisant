@@ -420,3 +420,178 @@ def test_vision_uses_structured_llm_with_retry(tmp_path, monkeypatch):
     first = calls[0][0]["content"]
     assert first[0]["type"] == "image_url" and first[0]["image_url"]["url"].startswith("data:image/jpeg;base64,")
     assert "Wände EG" in first[1]["text"] and "ungültig" in calls[1][-1]["content"]
+
+
+def test_asr_vocabulary_includes_audio_terms():
+    from sitevox import store
+    from sitevox.understand import vocabulary
+
+    terms = {e["term"]: e for e in vocabulary.collect("BV-RIEM")}
+    audio = [e for e in terms.values() if e["from_audio"]]
+    assert audio and all(any(s.startswith(vocabulary.AUDIO_PREFIX) for s in e["sources"]) for e in audio)
+    # auch in Stammdaten → nicht "nur Audio"
+    assert not terms["Kolonne Müller"]["audio_only"]
+    # neuer Begriff nur aus einem Sprachmemo: nachrangig, nicht als Hotword
+    cap = {"capture_id": "CAP-T-AUDIO", "project_id": "BV-RIEM", "date": "2026-11-20", "kind": "audio",
+           "captured_at": "2026-11-20T16:00:00+01:00", "status": "done", "title": "Sprachmemo Test",
+           "transcript": {"text": "Am Treppenhaus TH2 fehlt noch die Brüstung, Firma Kranbau Sedlmeier GmbH kommt morgen."}}
+    store.save_capture(cap)
+    try:
+        terms = {e["term"]: e for e in vocabulary.collect("BV-RIEM")}
+        assert terms["TH2"]["audio_only"] and terms["Kranbau Sedlmeier GmbH"]["audio_only"]
+        order = [e["term"] for e in vocabulary.collect("BV-RIEM")]
+        assert order.index("TH2") > order.index("Achse C")  # bestätigte Begriffe zuerst
+        assert "Kranbau Sedlmeier GmbH" not in vocabulary.asr_prompt("BV-RIEM")["hotwords"]
+    finally:
+        store.delete("captures", "CAP-T-AUDIO")
+
+
+def test_asr_vocabulary_from_documents_and_overrides():
+    from fastapi.testclient import TestClient
+
+    from backend.main import app
+    from sitevox.understand import vocabulary
+
+    c = TestClient(app)
+    s = c.get("/api/projects/BV-RIEM/asr-vocabulary").json()
+    terms = {t["term"]: t for g in s["groups"] for t in g["terms"]}
+    assert {"Achse C", "Ingenieurbüro Brandl", "C30/37", "B500B", "Bodenplatte"} <= set(terms)
+    assert not any(t.endswith(" AG") for t in terms)  # AG = Auftraggeber, keine Rechtsform
+    p = vocabulary.asr_prompt("BV-RIEM")
+    assert len(p["initial_prompt"]) <= vocabulary.PROMPT_MAX_CHARS + 2  # Whisper-Promptgrenze
+    assert "Ingenieurbüro Brandl" in p["initial_prompt"] and "Achse C" in p["hotwords"]
+    s = c.post("/api/projects/BV-RIEM/asr-vocabulary", json={"term": "Kranbahn Süd"}).json()
+    assert s["groups"][0]["category"] == "manual" and "Kranbahn Süd" in vocabulary.asr_prompt("BV-RIEM")["initial_prompt"]
+    s = c.post("/api/projects/BV-RIEM/asr-vocabulary", json={"term": "Bodenplatte", "action": "remove"}).json()
+    assert "Bodenplatte" in s["removed"] and all(t["term"] != "Bodenplatte" for g in s["groups"] for t in g["terms"])
+    s = c.post("/api/projects/BV-RIEM/asr-vocabulary", json={"term": "Bodenplatte", "action": "restore"}).json()
+    assert "Bodenplatte" not in s["removed"]
+    c.put("/api/projects/BV-RIEM/master", json={"title": "Neubau Wohnanlage Riem, Baufeld 3"})
+    assert "Kranbahn Süd" in vocabulary.asr_prompt("BV-RIEM")["initial_prompt"]  # übersteht Stammdaten-Edit
+    c.post("/api/projects/BV-RIEM/asr-vocabulary", json={"term": "Kranbahn Süd", "action": "remove"})
+
+
+def _fake_faster_whisper(monkeypatch, calls):
+    """faster-whisper-Attrappe: zeichnet die transcribe()-Argumente auf, kein Modell nötig."""
+    import types
+
+    from sitevox.understand import asr
+
+    class Model:
+        def detect_language(self, **kw):
+            return None, None, [("tr", 0.9), ("de", 0.1)]
+
+        def transcribe(self, audio, **kw):
+            calls.append(kw)
+            w = types.SimpleNamespace(word="Achse", start=0.0, end=0.4, probability=0.9)
+            seg = types.SimpleNamespace(start=0.0, end=0.4, text="Achse C", words=[w])
+            return iter([seg]), types.SimpleNamespace(duration=0.4)
+
+    monkeypatch.setitem(sys.modules, "faster_whisper",
+                        types.SimpleNamespace(decode_audio=lambda p: [0.0] * 16000, WhisperModel=None))
+    monkeypatch.setattr(asr, "_fw_model", lambda: Model())
+    monkeypatch.setattr(asr.settings, "is_demo", lambda: False)
+    cfg = {**asr.settings.models()["asr"], "backend": "faster_whisper", "language": "auto"}
+    monkeypatch.setattr(asr, "_asr_cfg", lambda: cfg)
+    return cfg
+
+
+def test_asr_passes_project_vocabulary_to_whisper(monkeypatch, tmp_path):
+    from sitevox.understand import asr
+
+    calls: list[dict] = []
+    _fake_faster_whisper(monkeypatch, calls)
+    wav = tmp_path / "x.wav"
+    wav.write_bytes(b"")
+    res = asr.transcribe(wav, "BV-RIEM")
+    kw = calls[0]
+    assert kw["language"] == "tr"  # automatisch erkannt → türkischer Basis-Prompt …
+    assert kw["initial_prompt"].startswith(asr._prompt_for("tr").split(",")[0].strip())
+    assert "Ingenieurbüro Brandl" in kw["initial_prompt"]  # … plus deutsche Projektbegriffe
+    assert "Achse C" in kw["hotwords"]
+    assert res["vocabulary"]["applied"] and res["vocabulary"]["project_terms"] > 0
+    # Demo/Replay: Vokabular wird nicht angewendet – und das wird ehrlich ausgewiesen
+    monkeypatch.setattr(asr.settings, "is_demo", lambda: True)
+    assert asr.transcribe(wav, "BV-RIEM", hint="Achse C")["vocabulary"]["applied"] is False
+
+
+def test_asr_remote_sends_vocabulary(monkeypatch, tmp_path):
+    import json as _json
+
+    import httpx
+
+    from sitevox.understand import asr
+
+    cfg = _fake_faster_whisper(monkeypatch, [])
+    cfg.update(backend="remote", remote_url="http://gpu:8004")
+    sent = {}
+
+    class R:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"segments": [], "text": "", "backend": "whisperx"}
+
+    monkeypatch.setattr(httpx, "post", lambda url, data, **kw: sent.update(data) or R())
+    wav = tmp_path / "x.wav"
+    wav.write_bytes(b"")
+    asr.transcribe(wav, "BV-RIEM")
+    v = _json.loads(sent["vocab"])
+    assert "Ingenieurbüro Brandl" in v["terms"] and "Achse C" in v["hot"]
+
+
+def test_photo_ocr_feeds_vocabulary_not_evidence(monkeypatch):
+    from sitevox import editing, pipeline, settings, store
+    from sitevox.understand import ocr, vocabulary
+
+    monkeypatch.setattr(ocr, "image_text", lambda p, **kw: "Lieferschein\nBetonwerk Huber GmbH · C25/30")
+    jpg = settings.demo_dir("BV-RIEM") / "inputs" / "2026-11-20" / "IMG_1410.jpg"
+    cap = pipeline.ingest("BV-RIEM", "photo", file=jpg, captured_at="2026-11-20T15:30:00+01:00", title="OCR-Test")
+    try:
+        assert cap["vision"]["ocr_text"].startswith("Lieferschein")
+        evid = " ".join((store.evidence(i) or {}).get("quote") or "" for i in cap["evidence_ids"])
+        assert "Huber" not in evid and "Huber" not in (cap.get("text") or "")  # kein Beleg
+        t = {e["term"]: e for e in vocabulary.collect("BV-RIEM")}
+        assert "Betonwerk Huber GmbH" in t and t["Betonwerk Huber GmbH"]["sources"][0].startswith("Foto-Text")
+    finally:
+        editing.delete_capture(cap["capture_id"], "test")
+
+
+def test_light_document_parser_docx(tmp_path):
+    import docx
+
+    from sitevox.understand import documents
+
+    d = docx.Document()
+    d.add_paragraph("Bewehrungsplan Achse D/7, Lieferung durch Stahlbau Huber GmbH")
+    t = d.add_table(rows=2, cols=2)
+    t.cell(0, 0).text, t.cell(0, 1).text = "Pos.", "Kurztext"
+    t.cell(1, 0).text, t.cell(1, 1).text = "05.010", "Filigrandecke C25/30"
+    f = tmp_path / "Planliste.docx"
+    d.save(f)
+    r = documents._light(f)
+    assert r["backend"] == "light" and "Achse D/7" in r["pages"][0]["text"]
+    assert r["tables"][0]["rows"][0][1] == "Filigrandecke C25/30"
+
+
+def test_ocr_image_text(tmp_path, monkeypatch):
+    pytest.importorskip("rapidocr")
+    from PIL import Image, ImageDraw, ImageFont
+
+    from sitevox.understand import ocr
+
+    monkeypatch.setenv("SITEVOX_OCR", "1")
+    img = Image.new("RGB", (900, 160), "white")
+    d = ImageDraw.Draw(img)
+    f = ImageFont.truetype(str(ROOT / "sitevox" / "export" / "fonts" / "DDINPro-Regular.ttf"), 40)
+    d.text((20, 20), "Lieferschein Betonwerk Müller GmbH", fill="black", font=f)
+    d.text((20, 90), "Achse C/4 Bodenplatte C30/37", fill="black", font=f)
+    p = tmp_path / "schild.png"
+    img.save(p)
+    text = ocr.image_text(p)
+    if not text:
+        pytest.skip("OCR-Modell nicht verfügbar (offline?)")
+    lines = text.splitlines()
+    assert lines[0] == "Lieferschein Betonwerk Müller GmbH"
+    assert "Achse C/4" in lines[1] and "C30/37" in lines[1]
