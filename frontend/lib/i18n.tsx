@@ -402,6 +402,7 @@ const EN: Record<string, string> = {
   "Frühere Tage als komplettes Dashboard ansehen": "View earlier days as the full dashboard",
   "Noch keine Berichtstage vorhanden.": "No report days yet.", "{n} Erfassungen": "{n} captures", "{n} Ereignisse": "{n} events",
   "Projekt bearbeiten": "Edit project", "Kurzname": "Short name",
+  "offen seit {d}": "open since {d}",
   "Kontakte": "Contacts", "Kontakt hinzufügen": "Add contact", "Kontakt bearbeiten": "Edit contact", "Firma": "Company",
   "Telefon": "Phone", "Vollmacht": "Authority", "unbekannt": "unknown", "bevollmächtigt": "authorised",
   "nicht bevollmächtigt": "not authorised", "bevollmächtigt (Anzeigen an diese Person)": "authorised (notices go to this person)",

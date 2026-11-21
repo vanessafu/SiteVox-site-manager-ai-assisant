@@ -371,6 +371,7 @@ export default function DashboardView({ day }: { day?: string }) {
         <div className="grid gap-2">
           {cards.map((e) => (
             <div key={e.event_id} id={`ev-${e.event_id}`} className="scroll-mt-4 rounded-lg target:ring-2">
+              {e.carried_from && <div className="mb-0.5 text-2xs font-medium text-warn-text">{t("offen seit {d}", { d: dLong(e.carried_from) })}</div>}
               <EventCard e={e} pid={pid} onOpen={() => openEvent(e)} onChanged={refresh} />
             </div>
           ))}

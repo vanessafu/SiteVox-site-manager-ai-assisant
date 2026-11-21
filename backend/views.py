@@ -14,12 +14,11 @@ ACTIONABLE = ("open", "draft", "released")
 
 
 def default_day(project_id: str) -> str:
-    caps = store.captures(project_id)
-    today = date.today().isoformat()
-    days = sorted({c["date"] for c in caps})
-    if today in days or not days:
-        return today
-    return days[-1]
+    """Berichtstag des Dashboards = heute (Systemuhr des Servers). Frühere Tage stehen im Verlauf.
+    Für Vorführungen lässt sich der Tag mit SITEVOX_TODAY=JJJJ-MM-TT festhalten (z. B. Demo-Tag 2026-11-20)."""
+    import os
+
+    return os.environ.get("SITEVOX_TODAY") or date.today().isoformat()
 
 
 def pending_letters(project_id: str) -> int:
@@ -94,8 +93,11 @@ def dashboard(project_id: str, day: str) -> dict[str, Any]:
     planned = total["planned"] if total else sum(s["planned"] for s in staff)
     wx = store.weather(project_id, day) or {}
     evs = [e for e in store.events(project_id, day) if e["status"] != "dismissed"]
-    cards = [event_card(e) for e in evs]
-    extra = [c for c in cards if c["type"] in ("additional_work", "leistungsaenderung")]
+    # offene fristgebundene Vorgänge früherer Tage bleiben im Handlungsbedarf, bis sie erledigt sind
+    carried = [e for e in store.events(project_id) if e["date"] < day and e["status"] in ACTIONABLE
+               and e["recommended_document"]["requires_letter"]]
+    cards = [event_card(e) for e in evs] + [{**event_card(e), "carried_from": e["date"]} for e in carried]
+    extra = [c for c in cards if c["type"] in ("additional_work", "leistungsaenderung") and not c.get("carried_from")]
     bullets = []
     for r in a["activities"]:
         if not r["today"]["soll"]:

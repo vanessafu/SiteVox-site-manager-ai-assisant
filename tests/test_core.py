@@ -973,3 +973,21 @@ def test_contract_upload_fills_master_data_and_contacts():
     assert new["id"] not in ids and wagner["id"] not in ids  # erkannte werden ausgeblendet
     c.delete(f"/api/projects/{pid}")
     assert contacts.all_contacts("BV-RIEM")[0]["email"] == "t.wagner@wohnbau-riem.example"
+
+
+def test_dashboard_defaults_to_today_and_carries_open_letters(monkeypatch):
+    """Dashboard = heute; offene fristgebundene Vorgänge früherer Tage bleiben sichtbar (mit „offen seit“)."""
+    from fastapi.testclient import TestClient
+
+    from backend import views
+    from backend.main import app
+
+    monkeypatch.delenv("SITEVOX_TODAY", raising=False)
+    assert views.default_day("BV-RIEM") == date.today().isoformat()
+    monkeypatch.setenv("SITEVOX_TODAY", "2026-11-20")
+    assert views.default_day("BV-RIEM") == "2026-11-20"
+    d = TestClient(app).get("/api/projects/BV-RIEM/dashboard?date=2026-11-23").json()
+    assert d["date"] == "2026-11-23" and d["actions"]["events"]
+    assert all(e["carried_from"] == "2026-11-20" for e in d["actions"]["events"])
+    assert all(e["recommended_document"]["requires_letter"] for e in d["actions"]["events"])
+    assert not d["today"]["extra_work"]

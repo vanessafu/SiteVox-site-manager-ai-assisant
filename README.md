@@ -131,6 +131,7 @@ SITEVOX_MODE=gpu uvicorn backend.main:app --port 8000
 **Dashboard = 当天的 Bautagesbericht**
 - 内容和 PDF/DOCX 一致，都来自 `daily_report.build`（`GET /api/projects/<pid>/report`）。右上角用大字显示日期（星期、日、月、年）和日报编号。
 - 人员、设备的行可以直接修改，修改结果存在 `report_rows` 表，同时作用于 PDF。
+- **默认显示今天**：日期取自后端服务器的系统时钟，不需要外部时间接口。演示时可以用 `SITEVOX_TODAY=2026-11-20` 固定为演示日。前几天还没处理完的、需要发文书的事件，会继续留在今天的 Handlungsbedarf 里，标注“offen seit …”，直到发送或驳回。
 - 独立的 Bauzeitenplan / Schedule 页面已经删除。工序数据仍用于项目概览和预测，通过新建项目时导入 Excel 或接口维护。
 
 **History（左侧栏最下方）**
