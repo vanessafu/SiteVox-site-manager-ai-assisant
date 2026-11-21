@@ -12,7 +12,7 @@
 #SBATCH --partition=gpu
 #SBATCH --gres=gpu:1
 #SBATCH --constraint=gpu
-#SBATCH --time=08:00:00
+#SBATCH --time=04:00:00
 #SBATCH --output=data/serve_slurm_%j.log
 #SBATCH --export=NONE
 set -euo pipefail
@@ -24,7 +24,14 @@ KEY_FILE="${HOME}/.config/sitevox/api_key"
 export SITEVOX_LLM_API_KEY="$(<"${KEY_FILE}")"
 
 MODELS="${MODELS:-${WORK}/mmr/models}"
+# Achtung: --export=NONE verwirft Variablen aus der Shell → Überschreiben nur per
+#   sbatch --export=NONE,EXTRACTOR=/pfad scripts/cluster/serve_models_single.sbatch
 EXTRACTOR="${EXTRACTOR:-${MODELS}/Qwen3-4B-Instruct-2507}"
+if [[ ! -f "${EXTRACTOR}/config.json" ]]; then  # Fallback: vorhandener HF-Cache (MLinHealth-Projekt)
+  for d in "${HOME}"/Abschlussarbeit-multilingual-math-reasoning/MLinHealth-depression-detection/.cache/huggingface/hub/models--Qwen--Qwen3-4B-Instruct-2507/snapshots/*/; do
+    [[ -f "${d}config.json" ]] && EXTRACTOR="${d%/}"
+  done
+fi
 DRAFTER="${DRAFTER:-${MODELS}/Qwen3-8B}"
 VISION="${VISION:-${MODELS}/Qwen3-VL-4B-Instruct}"
 VLLM_PY="${VLLM_VENV:-${HOME}/mmr-env/venv}/bin/python"
@@ -33,6 +40,8 @@ for d in "${EXTRACTOR}" "${DRAFTER}" "${VISION}"; do
   [[ -f "${d}/config.json" ]] || { echo "Modell fehlt: ${d}" >&2; exit 1; }
 done
 
+# Kein nvcc auf den Knoten → FlashInfer-JIT (Sampling) schlägt fehl; PyTorch-Sampler nutzen
+export VLLM_USE_FLASHINFER_SAMPLER=0
 export VLLM_NO_USAGE_STATS=1 DO_NOT_TRACK=1 HF_HUB_DISABLE_TELEMETRY=1 HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1
 export HF_HOME="${HF_HOME:-${WORK}/hf_cache}" TORCH_HOME="${TORCH_HOME:-${WORK}/torch_cache}" TMPDIR="${TMPDIR:-/tmp}"
 
