@@ -56,6 +56,18 @@ cd frontend && npm install && npm run build && npm start    # http://localhost:3
   开发时可用 `npm run dev:https`。手机和电脑需在同一网络；eduroam 等网络常屏蔽设备互访，此时用手机热点。
 - 测试：`.venv/bin/python -m pytest -q tests`
 
+- 日报导出：`/api/projects/<pid>/daily-report?fmt=pdf|docx|json`（PDF 由 reportlab 生成，无需 LibreOffice）
+
+### ASR 测试数据（语音 + 工地噪声）
+
+```bash
+python scripts/data/audio/download_data.py          # Windows 可双击 scripts\data\audio\download_data.bat
+# → data/raw/speech/<语言>/  data/raw/noise/<来源>/  data/raw/speech_noisy/  transcripts.csv  README_SOURCES.md
+python scripts/data/audio/sythesize_noise_data.py --speech data/raw/speech/pl --noise data/raw/noise --out data/asr_eval/noisy_pl
+```
+
+`data/raw/` 不入库（部分数据为 CC BY-NC / 非商用许可）。
+
 Demo 模式下 Whisper/Qwen 的输出来自 `data/demo/BV-RIEM/fixtures/`（Replay）；新的手机文字/语音走关键词启发式，或使用浏览器转写作为 hint。
 
 ## GPU 模式

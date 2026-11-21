@@ -14,8 +14,8 @@ export default function Gantt({ overview, onSelect, dense }: Props) {
   const idxOf: Record<string, number> = Object.fromEntries(w.days.map((d: any) => [d.date, d.idx]));
   const todayX = x(today_idx + 1);
   return (
-    <div className="text-xs">
-      <div className="grid grid-cols-[136px_minmax(0,1fr)_20px] gap-2 px-1.5 text-2xs text-slate-500">
+    <div className="text-sm">
+      <div className="grid grid-cols-[288px_minmax(0,1fr)_20px] gap-2 px-1.5 text-xs text-slate-500">
         <span />
         <div className="relative h-4">
           {w.weeks.map((wk: any) => (
@@ -32,27 +32,29 @@ export default function Gantt({ overview, onSelect, dense }: Props) {
           const istStart = r.actual_start ? idxOf[r.actual_start] ?? r.planned_start_idx : r.planned_start_idx;
           return (
             <div key={r.id} role="button" tabIndex={0} onClick={() => onSelect(r)} onKeyDown={(e) => e.key === "Enter" && onSelect(r)}
-              className={`row-click grid grid-cols-[136px_minmax(0,1fr)_20px] items-center gap-2 px-1.5 ${dense ? "py-1" : "py-1.5"}`}>
-              <span className={`truncate ${r.critical && r.kind !== "milestone" ? "font-medium" : ""}`} title={r.name}>
-                {r.name}{r.critical && r.kind !== "milestone" && <span className="ml-1 text-2xs text-bad-text" title={t("kritischer Pfad")}>●</span>}
+              className={`row-click grid grid-cols-[288px_minmax(0,1fr)_20px] items-center gap-2 px-1.5 ${dense ? "py-1" : "py-1.5"}`}>
+              {/* kein Abschneiden: lange Namen (z. B. Vertragsfristen) brechen um */}
+              <span className={`break-words leading-snug ${r.critical && r.kind !== "milestone" ? "font-medium" : ""}`} title={t(r.name)}>
+                {t(r.name)}{r.critical && r.kind !== "milestone" && <span className="ml-1 text-2xs text-bh-red" title={t("kritischer Pfad")}>●</span>}
               </span>
+              {/* Bauhaus: Soll = Papier mit Kontur, Ist = Blau, Rückstand = Rot, Prognose = schwarz gestrichelt */}
               <div className="relative h-4">
                 {r.kind === "milestone" ? (
                   <>
-                    <span className={`absolute -top-1 -translate-x-1/2 text-base ${r.delay_days > 0 ? "text-bad" : "text-slate-700"}`} style={{ left: `${x(r.planned_finish_idx + 1)}%` }} title={t("Vertragsfrist {d}", { d: dShort(r.planned_finish) })}>◆</span>
+                    <span className="absolute -top-1 -translate-x-1/2 text-base text-bh-black" style={{ left: `${x(r.planned_finish_idx + 1)}%` }} title={t("Vertragsfrist {d}", { d: dShort(r.planned_finish) })}>◆</span>
                     {r.delay_days > 0 && (
-                      <span className="absolute -top-1 -translate-x-1/2 text-base text-bad/60" style={{ left: `${x(r.forecast_finish_idx + 1)}%` }} title={`${t("Prognose")} ${dShort(r.forecast_finish)}`}>◇</span>
+                      <span className="absolute -top-1 -translate-x-1/2 text-base text-bh-red" style={{ left: `${x(r.forecast_finish_idx + 1)}%` }} title={`${t("Prognose")} ${dShort(r.forecast_finish)}`}>◇</span>
                     )}
                   </>
                 ) : (
                   <>
-                    <div className="absolute top-0 h-4 rounded-sm border border-slate-300 bg-slate-100" style={{ left: `${x(r.planned_start_idx)}%`, width: `${(dur / n) * 100}%` }} />
-                    {istW > 0 && <div className="absolute top-0 h-4 rounded-sm bg-ok" style={{ left: `${x(istStart)}%`, width: `${(istW / n) * 100}%` }} />}
+                    <div className="absolute top-0 h-4 border border-bh-black/25 bg-bh-paper" style={{ left: `${x(r.planned_start_idx)}%`, width: `${(dur / n) * 100}%` }} />
+                    {istW > 0 && <div className="absolute top-0 h-4 bg-bh-blue" style={{ left: `${x(istStart)}%`, width: `${(istW / n) * 100}%` }} />}
                     {sollW > istW + 0.05 && (
-                      <div className="absolute top-0 h-4 rounded-sm bg-bad" style={{ left: `${x(istStart) + (istW / n) * 100}%`, width: `${((sollW - istW) / n) * 100}%` }} title={t("Rückstand")} />
+                      <div className="absolute top-0 h-4 bg-bh-red" style={{ left: `${x(istStart) + (istW / n) * 100}%`, width: `${((sollW - istW) / n) * 100}%` }} title={t("Rückstand")} />
                     )}
                     {r.delay_days > 0 && (
-                      <div className="absolute -top-0.5 h-5 rounded-sm border-2 border-dashed border-bad" style={{ left: `${x(r.forecast_start_idx)}%`, width: `${((r.forecast_finish_idx - r.forecast_start_idx + 1) / n) * 100}%` }} title={`${t("Prognose")} ${dShort(r.forecast_start)}–${dShort(r.forecast_finish)}`} />
+                      <div className="absolute -top-0.5 h-5 border-2 border-dashed border-bh-black" style={{ left: `${x(r.forecast_start_idx)}%`, width: `${((r.forecast_finish_idx - r.forecast_start_idx + 1) / n) * 100}%` }} title={`${t("Prognose")} ${dShort(r.forecast_start)}–${dShort(r.forecast_finish)}`} />
                     )}
                   </>
                 )}
@@ -61,9 +63,9 @@ export default function Gantt({ overview, onSelect, dense }: Props) {
             </div>
           );
         })}
-        <div className="pointer-events-none absolute inset-y-0 grid w-full grid-cols-[136px_minmax(0,1fr)_20px] gap-2 px-1.5">
+        <div className="pointer-events-none absolute inset-y-0 grid w-full grid-cols-[288px_minmax(0,1fr)_20px] gap-2 px-1.5">
           <span />
-          <div className="relative"><div className="absolute inset-y-0 border-l-2 border-accent/70" style={{ left: `${todayX}%` }} title={t("Heute")} /></div>
+          <div className="relative"><div className="absolute inset-y-0 border-l-2 border-bh-black" style={{ left: `${todayX}%` }} title={t("Heute")} /></div>
           <span />
         </div>
       </div>

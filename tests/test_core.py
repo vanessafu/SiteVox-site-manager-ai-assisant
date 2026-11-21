@@ -199,3 +199,58 @@ def test_edit_inputs_recompute_and_delete_capture():
     assert r.json()["event_ids"]
     assert c.delete(f"/api/captures/{note['capture_id']}").status_code == 200
     assert any(a["action"] == "delete" for a in c.get("/api/audit").json())
+
+
+def test_accept_all_fields_keeps_decisions_and_gates():
+    from fastapi.testclient import TestClient
+
+    from backend.main import app
+
+    c = TestClient(app)
+    lid = {l["kind"]: l for l in c.get("/api/projects/BV-RIEM/letters").json()}["mehrkostenankuendigung"]["letter_id"]
+    c.post(f"/api/letters/{lid}/fields/delivery_method", json={"action": "reject"})
+    v = c.post(f"/api/letters/{lid}/fields/accept-all").json()
+    status = {f["key"]: f["status"] for f in v["fields"]}
+    assert status.pop("delivery_method") == "rejected"  # bewusste Entscheidung bleibt
+    assert set(status.values()) == {"accepted"}
+    assert v["status"] == "Entwurf" and any(b.startswith("Checkliste") for b in v["blockers"])  # kein Freigabe-Bypass
+    assert c.post(f"/api/letters/{lid}/release").status_code == 409
+
+
+def test_revoke_steps_back_with_reason():
+    """Läuft nach test_release_requires_human_and_never_sends (Behinderungsanzeige ist dann „Geprüft“)."""
+    from fastapi.testclient import TestClient
+
+    from backend.main import app
+
+    c = TestClient(app)
+    lid = {l["kind"]: l for l in c.get("/api/projects/BV-RIEM/letters").json()}["behinderungsanzeige"]["letter_id"]
+    assert c.get(f"/api/letters/{lid}").json()["status"] == "Geprüft"
+    assert c.post(f"/api/letters/{lid}/mark-sent", json={"method": "Einschreiben"}).json()["status"] == "Versendet"
+    assert c.post(f"/api/letters/{lid}/revoke", json={"note": ""}).status_code == 409  # Begründung Pflicht
+    assert c.post(f"/api/letters/{lid}/revoke", json={"note": "falsch markiert"}).json()["status"] == "Geprüft"
+    v = c.post(f"/api/letters/{lid}/revoke", json={"note": "Anlage fehlt"}).json()
+    assert v["status"] == "Entwurf" and v["released_at"] is None
+    assert c.get(f"/api/letters/{lid}/export/docx").status_code == 409  # Downloads wieder gesperrt
+    assert {"revoke_sent", "revoke_release"} <= {a["action"] for a in c.get("/api/audit").json()}
+    assert c.post(f"/api/letters/{lid}/release").json()["status"] == "Geprüft"  # Entscheidungen bleiben erhalten
+    # Verworfen → wiederherstellen → erneut freigeben
+    c.post(f"/api/letters/{lid}/revoke", json={"note": "Korrektur"})
+    assert c.post(f"/api/letters/{lid}/reject", json={"note": ""}).json()["status"] == "Verworfen"
+    assert c.post(f"/api/letters/{lid}/revoke", json={"note": "doch nötig"}).json()["status"] == "Entwurf"
+    assert c.post(f"/api/letters/{lid}/release").json()["status"] == "Geprüft"
+
+
+def test_sphere_reset_returns_to_rule_suggestion():
+    from fastapi.testclient import TestClient
+
+    from backend.main import app
+
+    c = TestClient(app)
+    ev = next(e for e in c.get("/api/projects/BV-RIEM/events").json() if e["type"] == "worker_shortage")
+    assert ev["sphere"] == "AN" and not ev["sphere_confirmed"]
+    r = c.post(f"/api/events/{ev['event_id']}/sphere", json={"sphere": "AG"}).json()
+    assert r["sphere"] == "AG" and r["sphere_confirmed"]
+    r = c.post(f"/api/events/{ev['event_id']}/sphere/reset").json()
+    assert r["sphere"] == "AN" and not r["sphere_confirmed"]  # wieder Regel-Vorschlag
+    assert any(a["action"] == "reset_sphere" for a in c.get("/api/audit").json())
