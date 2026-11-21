@@ -20,3 +20,11 @@ frontend/certs/
 .pytest_tmp/
 # Evaluationsläufe
 outputs/
+# Ende-zu-Ende-Szenarioläufe (isolierte DBs, Captures, Entwürfe, Dienst-Logs)
+data/scenario_runs/
+# lokale Modell-/Laufzeit-Caches, falls im Repo angelegt
+hf_cache/
+tts_cache/
+torch_cache/
+vllm-cache/
+*.wav.tmp

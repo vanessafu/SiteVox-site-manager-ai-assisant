@@ -30,6 +30,19 @@ def models() -> dict[str, Any]:
         cfg["asr"]["backend"] = os.environ["SITEVOX_ASR_BACKEND"]
     if os.environ.get("SITEVOX_VISION_BACKEND"):
         cfg["llm"]["vision"]["backend"] = os.environ["SITEVOX_VISION_BACKEND"]
+    # Zweite Instanz auf demselben Knoten (z. B. E2E-Test neben laufendem Dienst): alle Ports um N verschieben
+    if os.environ.get("SITEVOX_PORT_OFFSET"):
+        from urllib.parse import urlparse
+        off = int(os.environ["SITEVOX_PORT_OFFSET"])
+
+        def _shift(url: str) -> str:
+            u = urlparse(url)
+            return u._replace(netloc=f"{u.hostname}:{(u.port or 80) + off}").geturl()
+        for role_cfg in cfg["llm"].values():
+            if role_cfg.get("base_url"):
+                role_cfg["base_url"] = _shift(role_cfg["base_url"])
+        if cfg["asr"].get("remote_url"):
+            cfg["asr"]["remote_url"] = _shift(cfg["asr"]["remote_url"])
     if os.environ.get("SITEVOX_RAG_BACKEND"):  # z. B. bm25 in einer Umgebung ohne chromadb/sentence-transformers
         cfg["rag"]["backend"] = os.environ["SITEVOX_RAG_BACKEND"]
     # API-Key der (getunnelten) vLLM-Server – nie in die Config/Git schreiben

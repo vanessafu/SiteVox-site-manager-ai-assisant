@@ -25,6 +25,8 @@ VLLM_BIN="${VLLM_VENV:-${HOME}/mmr-env/venv}/bin"   # nur das vllm-CLI
 MODELS="${WORK}/mmr/models"
 export HF_HOME="${WORK}/hf_cache" TORCH_HOME="${WORK}/torch_cache" TTS_HOME="${WORK}/tts_cache"
 export HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 HF_HUB_DISABLE_TELEMETRY=1 VLLM_NO_USAGE_STATS=1 DO_NOT_TRACK=1
+export SITEVOX_PORT_OFFSET="${PORT_OFFSET:-10000}"   # 18001–18004: kein Konflikt mit serve_models*.sbatch (8001–8004)
+export VLLM_USE_FLASHINFER_SAMPLER=0   # sonst JIT-Build mit nvcc (nicht auf den Knoten) → Engine-Start bricht ab
 export COQUI_TOS_AGREED=1 TMPDIR="${TMPDIR:-/tmp}"
 # Laufzeit-Caches (vLLM/torch.compile, Triton) nicht ins volle $HOME, sondern knotenlokal
 export VLLM_CACHE_ROOT="${TMPDIR}/vllm-cache" TRITON_CACHE_DIR="${TMPDIR}/triton-cache"
@@ -52,16 +54,19 @@ wait_up() {  # $1 URL, $2 Name
   echo "✗ $2 nicht gestartet – siehe ${LOGDIR}/serve_*.log und data/serve_*.log"; exit 1
 }
 declare -A MODEL=([drafter]="${MODELS}/Qwen3-8B" [vision]="${MODELS}/Qwen3-VL-4B-Instruct")
-for spec in extractor:0.20:8001 drafter:0.30:8002 vision:0.25:8003; do
+export SITEVOX_SERVE_LOG_DIR="${LOGDIR}"
+for spec in extractor:0.20:$((8001+SITEVOX_PORT_OFFSET)) drafter:0.30:$((8002+SITEVOX_PORT_OFFSET)) vision:0.25:$((8003+SITEVOX_PORT_OFFSET)); do
   IFS=: read -r role util port <<< "${spec}"
   OV=(); [[ -n "${MODEL[$role]:-}" ]] && OV=(--model "${role}=${MODEL[$role]}")
   PATH="${VLLM_BIN}:${PATH}" "${SVX}/python" scripts/serve_models.py --run --wait --roles "${role}" \
-      --gpu-util "${role}=${util}" "${OV[@]}" > "${LOGDIR}/serve_${role}.log" 2>&1 & PIDS+=($!)
+      --gpu-util "${role}=${util}" "${OV[@]}" > "${LOGDIR}/launch_${role}.log" 2>&1 & PIDS+=($!)
   wait_up "http://127.0.0.1:${port}/v1/models" "vLLM ${role}"
 done
-PATH="${ASR}:${PATH}" SITEVOX_MODE=gpu SITEVOX_DEVICE=cuda SITEVOX_ASR_BACKEND=whisperx \
-    "${ASR}/python" scripts/cluster/asr_server.py --port 8004 > "${LOGDIR}/serve_asr.log" 2>&1 & PIDS+=($!)
-wait_up "http://127.0.0.1:8004/health" "ASR"
+NV_LIBS="$("${ASR}/python" -c 'import glob, os, nvidia; print(":".join(sorted({os.path.dirname(p) for d in nvidia.__path__ for p in glob.glob(os.path.join(d, "*", "lib", "*.so*"))})))' 2>/dev/null || true)"
+PATH="${ASR}:${PATH}" LD_LIBRARY_PATH="${NV_LIBS}:${LD_LIBRARY_PATH:-}" \
+SITEVOX_MODE=gpu SITEVOX_DEVICE=cuda SITEVOX_ASR_BACKEND="${ASR_BACKEND:-faster_whisper}" \
+    "${ASR}/python" scripts/cluster/asr_server.py --port $((8004+SITEVOX_PORT_OFFSET)) > "${LOGDIR}/serve_asr.log" 2>&1 & PIDS+=($!)
+wait_up "http://127.0.0.1:$((8004+SITEVOX_PORT_OFFSET))/health" "ASR"
 
 # ---------------------------------------------------------------- 4+5) je Szenario: Historie, Pipeline, Auswertung
 export SITEVOX_RAG_BACKEND=bm25   # asr-venv hat kein chromadb/sentence-transformers; betrifft nur Normzitate

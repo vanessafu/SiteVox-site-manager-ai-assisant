@@ -12,7 +12,7 @@
 #SBATCH --partition=gpu
 #SBATCH --gres=gpu:1
 #SBATCH --constraint=gpu
-#SBATCH --time=04:00:00
+#SBATCH --time=18:00:00
 #SBATCH --output=data/serve_slurm_%j.log
 #SBATCH --export=NONE
 set -euo pipefail

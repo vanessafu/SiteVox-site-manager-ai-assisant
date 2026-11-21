@@ -91,7 +91,9 @@ def main() -> None:
         shown = [("***" if api_key and c == api_key else c) for c in cmd]
         print(f"# {role}: {cfg['model']}\n{shlex.join(shown)}\n", flush=True)
         if args.run:
-            log = open(settings.ROOT / f"data/serve_{role}.log", "w")
+            log_dir = Path(os.environ.get("SITEVOX_SERVE_LOG_DIR", settings.ROOT / "data"))  # eigene Logs je Instanz
+            log_dir.mkdir(parents=True, exist_ok=True)
+            log = open(log_dir / f"serve_{role}.log", "w")
             procs.append(subprocess.Popen(cmd, stdout=log, stderr=subprocess.STDOUT))
     print("# ASR (in-process):", m["asr"]["backend"], m["asr"]["model"])
     print("# Embedding/Rerank (in-process):", m["rag"]["embedding_model"], m["rag"]["reranker_model"])
