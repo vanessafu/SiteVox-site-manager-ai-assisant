@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from .. import settings
+from . import ocr
 
 PAGE_RE = re.compile(r"^-{3}\s*Seite\s+(\d+)\s*-{3}\s*$", re.M)
 
@@ -63,6 +64,53 @@ def _docling(path: Path) -> dict[str, Any]:
     return {"pages": pages, "tables": tables, "markdown": doc.export_to_markdown(), "backend": "docling"}
 
 
+def _pdf_light(path: Path) -> tuple[list[dict], list[dict]]:
+    """PDF ohne Docling: Textebene (pypdf); Seiten ohne Text (Scan) → OCR der eingebetteten Bilder."""
+    from pypdf import PdfReader  # type: ignore
+
+    pages = []
+    for i, pg in enumerate(PdfReader(str(path)).pages, start=1):
+        text = (pg.extract_text() or "").strip()
+        if len(text) < 20 and ocr.enabled():
+            try:
+                text = "\n".join(t for t in (ocr.image_text(im.data) for im in pg.images) if t) or text
+            except Exception:  # noqa: BLE001
+                pass
+        pages.append({"page": i, "text": text})
+    return pages, []
+
+
+def _docx_light(path: Path) -> tuple[list[dict], list[dict]]:
+    import docx  # type: ignore
+
+    d = docx.Document(str(path))
+    lines = [p.text for p in d.paragraphs if p.text.strip()]
+    tables = []
+    for t in d.tables:
+        rows = [[c.text.strip() for c in r.cells] for r in t.rows]
+        if rows:
+            tables.append({"page": 1, "header": rows[0], "rows": rows[1:]})
+            lines += [" | ".join(r) for r in rows]
+    return [{"page": 1, "text": "\n".join(lines)}], tables
+
+
+def _light(path: Path) -> dict[str, Any]:
+    """Leichter Parser ohne GPU/Docling: PDF-Textebene, Word, Bilder per OCR (CPU)."""
+    suf = path.suffix.lower()
+    if suf == ".pdf":
+        pages, tables = _pdf_light(path)
+    elif suf == ".docx":
+        pages, tables = _docx_light(path)
+    elif suf in ocr.IMAGE_SUFFIXES:
+        pages, tables = [{"page": 1, "text": ocr.image_text(path)}], []
+    else:
+        raise ValueError(suf)
+    if not any(p["text"].strip() for p in pages):
+        raise ValueError("kein Text erkannt")
+    md = "\n\n".join(f"--- Seite {p['page']} ---\n{p['text']}" for p in pages)
+    return {"pages": pages, "tables": tables, "markdown": md, "backend": "light"}
+
+
 def parse(path: Path) -> dict[str, Any]:
     path = Path(path)
     if path.suffix.lower() in {".txt", ".md"} or settings.models()["documents"]["backend"] == "plain":
@@ -70,6 +118,10 @@ def parse(path: Path) -> dict[str, Any]:
     try:
         return _docling(path)
     except ImportError:
-        # Demo-Rechner ohne Docling: Datei wird abgelegt, Text erst im GPU-Modus extrahiert
-        note = f"[{path.name}: Textextraktion erfordert Docling (requirements-gpu.txt)]"
+        pass
+    # Demo-Rechner ohne Docling: pypdf / python-docx / OCR auf der CPU
+    try:
+        return _light(path)
+    except Exception:  # noqa: BLE001
+        note = f"[{path.name}: kein Text extrahierbar – für Scans/komplexe Layouts Docling installieren (requirements-gpu.txt)]"
         return {"pages": [{"page": 1, "text": note}], "tables": [], "markdown": note, "backend": "none"}

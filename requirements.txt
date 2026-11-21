@@ -15,4 +15,7 @@ numpy>=1.26
 pillow>=10.0            # EXIF, Demo-Fotos
 opencv-python-headless>=4.9,<5   # Gesichter verpixeln (Haar-Kaskaden fehlen in OpenCV 5)
 soundfile>=0.12         # Audio-Augmentierung
+pypdf>=5.0              # PDF-Textebene ohne Docling (Wissensbasis → ASR-Vokabular)
+rapidocr>=3.4           # OCR für Fotos/Scans auf der CPU (PP-OCRv5 latin, Modelle ~15 MB beim ersten Lauf)
+onnxruntime>=1.20       # Laufzeit für RapidOCR (CPU)
 pytest>=8.0
