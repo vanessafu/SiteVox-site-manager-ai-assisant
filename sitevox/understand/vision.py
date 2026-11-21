@@ -87,11 +87,24 @@ def _describe_transformers(path: Path) -> str:
     return processor.batch_decode(gen, skip_special_tokens=True)[0].strip()
 
 
+def _clean_jpeg(path: Path, max_side: int) -> bytes:
+    """Neu kodiertes JPEG ohne EXIF (GPS, Geräte-ID) und verkleinert – weniger Daten über den Tunnel."""
+    import io
+
+    from PIL import Image, ImageOps
+
+    img = ImageOps.exif_transpose(Image.open(path)).convert("RGB")
+    img.thumbnail((max_side, max_side))
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG", quality=90)  # ohne exif= → keine Metadaten
+    return buf.getvalue()
+
+
 def _describe_openai(path: Path) -> str:
     from openai import OpenAI
 
     cfg = settings.models()["llm"]["vision"]
-    b64 = base64.b64encode(Path(path).read_bytes()).decode()
+    b64 = base64.b64encode(_clean_jpeg(Path(path), cfg.get("max_image_side", 1536))).decode()
     client = OpenAI(base_url=cfg["base_url"], api_key=cfg.get("api_key", "local"))
     r = client.chat.completions.create(
         model=cfg.get("served_name", cfg["model"]), temperature=cfg.get("temperature", 0.1),

@@ -95,6 +95,7 @@ async def upload_capture(pid: str, background: BackgroundTasks, kind: str = Form
                          text: Optional[str] = Form(None), captured_at: Optional[str] = Form(None),
                          transcript_hint: Optional[str] = Form(None), lat: Optional[float] = Form(None),
                          lon: Optional[float] = Form(None), language: Optional[str] = Form(None),
+                         asr_language: Optional[str] = Form(None),
                          doc_type: Optional[str] = Form(None), doc_title: Optional[str] = Form(None),
                          file: Optional[UploadFile] = File(None)) -> dict:
     """Mobile Erfassung: Audio (MediaRecorder), Foto, Notiz, .eml oder Dokument. Verarbeitung im Hintergrund."""
@@ -115,8 +116,10 @@ async def upload_capture(pid: str, background: BackgroundTasks, kind: str = Form
         meta["doc_type"] = doc_type
     if doc_title:
         meta["doc_title"] = doc_title
-    if language in ("de", "en"):
-        meta["language"] = language  # Whisper-Sprache; Schreiben an den AG bleiben deutsch
+    # `language` ist die UI-Sprache und erzwingt KEINE Whisper-Sprache mehr (türkisch sprechender Polier
+    # mit deutscher UI). Standard: automatische Erkennung unter de/en/tr/pl; explizit nur via asr_language.
+    if asr_language in ("de", "en", "tr", "pl", "auto"):
+        meta["language"] = asr_language  # Schreiben an den AG bleiben deutsch
     if lat is not None and lon is not None:
         meta["gps"] = {"lat": lat, "lon": lon}
     background.add_task(_run_ingest, pid, kind, path, text, ts, meta)

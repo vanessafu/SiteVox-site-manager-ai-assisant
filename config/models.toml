@@ -23,20 +23,37 @@ timezone = "Europe/Berlin"
 # whisperx       – GPU, beste Wort-Zeitstempel (wav2vec2-Alignment). word.score = Alignment-Score
 # faster_whisper – CTranslate2, word.probability = echte ASR-Wortwahrscheinlichkeit
 # mlx_whisper    – Apple Silicon (lokale Entwicklung auf dem Mac)
+# remote         – Audio per HTTP an scripts/cluster/asr_server.py (WhisperX auf dem GPU-Knoten, via SSH-Tunnel)
 backend = "whisperx"
-model = "large-v3-turbo"                              # whisperx / faster-whisper Alias
-hf_repo = "openai/whisper-large-v3-turbo"
-mlx_repo = "mlx-community/whisper-large-v3-turbo"
-language = "de"
+remote_url = "http://localhost:8004"                  # nur backend = "remote"; Key aus SITEVOX_LLM_API_KEY
+# large-v3 statt large-v3-turbo: robuster bei Baustellenlärm, Akzent und Türkisch/Polnisch
+# (turbo hat nur 4 Decoder-Schichten; schneller, aber spürbar schwächer bei seltenen Sprachen/Rauschen)
+model = "large-v3"
+hf_repo = "openai/whisper-large-v3"
+mlx_repo = "mlx-community/whisper-large-v3-mlx"
+# "auto" = Sprache pro Aufnahme erkennen, aber nur unter allowed_languages wählen
+# (verhindert Fehlerkennung z. B. als Niederländisch bei deutschem Akzent im Lärm)
+language = "auto"
+allowed_languages = ["de", "en", "tr", "pl"]
+fallback_language = "de"
 compute_type = "float16"
 batch_size = 16
 beam_size = 5
 vad_filter = true
-# Baustellen-Vokabular als initial_prompt (verbessert Erkennung von Fachbegriffen)
+# Baustellen-Vokabular als initial_prompt je Sprache. Deutsche Fachbegriffe bleiben überall drin,
+# weil Polier/Kolonnen auch auf Türkisch/Polnisch/Englisch oft "Bewehrung", "Schalung" … sagen.
 initial_prompt = """Baustelle, Bautagebuch, Polier, Bauleiter, Bewehrung, Bewehrungspläne, Schalung,
 Betonage, Bodenplatte, Achse C, Index b, Betonpumpe, Bagger, Aushub, Kubikmeter, Tonnen,
 Kernbohrung DN150, Behinderung, Nachtrag, Leistungsverzeichnis, LV-Position, Kolonne, Sauberkeitsschicht."""
 hotwords = ["Bewehrung", "Schalung", "Betonage", "Polier", "Kernbohrung", "Achse"]
+
+[asr.initial_prompts]
+en = """Construction site, site diary, foreman, rebar, formwork, concrete pour, excavator, crane, cubic metres.
+German terms: Polier, Bewehrung, Schalung, Betonage, Bodenplatte, Kernbohrung DN150, Achse C, Kolonne."""
+tr = """Şantiye, şantiye defteri, ustabaşı, demir, kalıp, beton dökümü, ekskavatör, vinç, metreküp.
+Almanca terimler: Polier, Bewehrung, Schalung, Betonage, Bodenplatte, Kernbohrung DN150, Achse C, Kolonne."""
+pl = """Budowa, dziennik budowy, brygadzista, zbrojenie, szalunek, betonowanie, koparka, dźwig, metry sześcienne.
+Niemieckie terminy: Polier, Bewehrung, Schalung, Betonage, Bodenplatte, Kernbohrung DN150, Achse C, Kolonne."""
 
 # ---------------------------------------------------------------------------
 # 2) LLMs – alle über OpenAI-kompatible Endpunkte (vLLM bevorzugt, llama.cpp als Alternative)
@@ -83,7 +100,9 @@ enable_thinking = false             # Qwen3-8B: chat_template_kwargs.enable_thin
 role = "vision"
 model = "Qwen/Qwen3-VL-4B-Instruct"
 served_name = "qwen3-vl-4b"
-backend = "transformers"            # transformers (lazy in-process) | openai (eigener vLLM-Server)
+backend = "transformers"            # transformers (lazy in-process) | openai (vLLM-Server, z. B. Cluster :8003)
+max_model_len = 16384
+max_image_side = 1536               # backend=openai: vor dem Senden verkleinern + EXIF/GPS entfernen
 base_url = "http://localhost:8003/v1"
 api_key = "local"
 lazy_load = true
@@ -123,4 +142,4 @@ ocr_lang = ["de"]
 engine = "vllm"                     # vllm | llama_cpp
 gpu_memory_utilization_extractor = 0.25
 gpu_memory_utilization_drafter = 0.45
-gpu_memory_utilization_vision = 0.20
+gpu_memory_utilization_vision = 0.20   # eigene GPU (Cluster-sbatch): --gpu-util vision=0.55

@@ -23,6 +23,17 @@ def models() -> dict[str, Any]:
     cfg = _load_toml("models.toml")
     if os.environ.get("SITEVOX_MODE"):
         cfg["runtime"]["mode"] = os.environ["SITEVOX_MODE"]
+    # Lokal (Mac) vs. Cluster ohne Config-Änderung umschalten
+    if os.environ.get("SITEVOX_DEVICE"):
+        cfg["runtime"]["device"] = os.environ["SITEVOX_DEVICE"]
+    if os.environ.get("SITEVOX_ASR_BACKEND"):
+        cfg["asr"]["backend"] = os.environ["SITEVOX_ASR_BACKEND"]
+    if os.environ.get("SITEVOX_VISION_BACKEND"):
+        cfg["llm"]["vision"]["backend"] = os.environ["SITEVOX_VISION_BACKEND"]
+    # API-Key der (getunnelten) vLLM-Server – nie in die Config/Git schreiben
+    if os.environ.get("SITEVOX_LLM_API_KEY"):
+        for role_cfg in cfg["llm"].values():
+            role_cfg["api_key"] = os.environ["SITEVOX_LLM_API_KEY"]
     return cfg
 
 

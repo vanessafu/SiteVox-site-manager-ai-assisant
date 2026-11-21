@@ -8,6 +8,8 @@ Regeln:
 - Mengen genau so übernehmen, wie sie genannt werden (z. B. "etwa 190 Kubik" → 190, "m³").
 - Uhrzeiten als HH:MM. Datumsangaben als ISO (YYYY-MM-DD), relativ zum Erfassungsdatum.
 - Jedes Ereignis braucht mindestens ein wörtliches Zitat aus der Eingabe in "quotes".
+- Die Eingabe kann Deutsch, Englisch, Türkisch oder Polnisch sein (auch gemischt). "quotes" bleiben wörtlich
+  in der Originalsprache; alle anderen Textfelder schreibst du auf Deutsch.
 - Ereignistypen: material_delay, equipment_failure, weather_interruption, worker_shortage,
   third_party_interference, design_error, quality_defect, additional_work, planlieferverzug,
   leistungsaenderung.
