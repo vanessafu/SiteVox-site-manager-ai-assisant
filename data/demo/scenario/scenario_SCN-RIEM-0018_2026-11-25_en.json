@@ -1,0 +1,697 @@
+{
+  "schema_version": "gold-scenario/0.5-photo-first-project-grounded",
+  "scenario_id": "SCN-RIEM-0018",
+  "title": "Bewehrungsabnahme, Baubesprechung Nr. 8, Aushub fertig – Wandpläne verspätet",
+  "language": "en",
+  "meta": {
+    "project_id": "BV-RIEM",
+    "project_name": "Neubau Wohnanlage Riem, Baufeld 3",
+    "contract_id": "RI-2026-014",
+    "contract_type": "VOB_B",
+    "date": "2026-11-25",
+    "weekday": "Mittwoch",
+    "report_no": 18,
+    "working_hours": "07:00-17:00",
+    "report_language": "de-DE"
+  },
+  "persona": {
+    "id": "P-HOFMANN",
+    "name": "J. Hofmann",
+    "role": "Bauleitung Hofbau Rohbau GmbH",
+    "note": "einzige Person mit Eingaben"
+  },
+  "interaction_model": {
+    "capture": "Aufnahme = 0–2 Fotos + 1–2 Notizen (Text oder Sprache), umgangssprachlich; Aufnahmen ohne Foto sind erlaubt",
+    "escalation": "Fehler/fehlendes Material → Sprachnotiz → Nachricht/E-Mail (mit Fotos, falls vorhanden) an Zuständigen; Versand nach Freigabe",
+    "email_language": "de"
+  },
+  "sources": [
+    "docs/Bauvertrag_RI-2026-014.md",
+    "docs/LV_Rohbau.md",
+    "docs/Planlieferliste.md",
+    "docs/Protokoll_BB07_2026-11-18.md",
+    "plan/Bauzeitenplan.xlsx",
+    "history/leistung.csv",
+    "Bautagesbericht Nr. 15 (20.11.)"
+  ],
+  "registry": {
+    "comment": "Empfänger/Sphäre folgen aus contracted_by + Bauvertrag §5. Nur Wagner nimmt vertragliche Erklärungen/Anzeigen entgegen.",
+    "parties": [
+      {
+        "id": "AG",
+        "name": "Wohnbau Riem GmbH & Co. KG",
+        "role": "Auftraggeber",
+        "contracted_by": null,
+        "source": "Bauvertrag S.1"
+      },
+      {
+        "id": "AG-VERTRETER",
+        "name": "Dipl.-Ing. Thomas Wagner",
+        "role": "Projektsteuerung, bevollmächtigter Vertreter des AG",
+        "contracted_by": "AG",
+        "email": "t.wagner@wohnbau-riem.example",
+        "authorized": true,
+        "source": "Bauvertrag §5"
+      },
+      {
+        "id": "LECHNER",
+        "name": "Architekturbüro Lechner",
+        "role": "Objektplanung",
+        "contracted_by": "AG",
+        "authorized": false,
+        "email": "info@lechner-architektur.example",
+        "source": "Bauvertrag §5, Protokoll BB07"
+      },
+      {
+        "id": "BRANDL",
+        "name": "Ingenieurbüro Brandl",
+        "role": "Tragwerksplanung",
+        "contracted_by": "AG",
+        "authorized": false,
+        "email": "info@ib-brandl.example",
+        "source": "Bauvertrag §5, Planlieferliste"
+      },
+      {
+        "id": "AN",
+        "name": "Hofbau Rohbau GmbH",
+        "role": "Auftragnehmer (wir)",
+        "contracted_by": null,
+        "source": "Bauvertrag S.1"
+      },
+      {
+        "id": "K-MUELLER",
+        "name": "Kolonne Müller (Vorarbeiter)",
+        "role": "eigene Kolonne Bewehrung",
+        "contracted_by": "AN",
+        "email": "kolonne.mueller@hofbau.example",
+        "source": "Bericht Nr. 15"
+      },
+      {
+        "id": "K-SCHALUNG",
+        "name": "Kolonne Schalung (Vorarbeiter)",
+        "role": "eigene Kolonne Schalung",
+        "contracted_by": "AN",
+        "email": "kolonne.schalung@hofbau.example",
+        "source": "Bericht Nr. 15"
+      },
+      {
+        "id": "K-ERDBAU",
+        "name": "Erdbau (Polier)",
+        "role": "eigene Kolonne Erdbau",
+        "contracted_by": "AN",
+        "email": "erdbau@hofbau.example",
+        "source": "Bericht Nr. 15"
+      },
+      {
+        "id": "WERKSTATT",
+        "name": "Werkstatt Hofbau",
+        "role": "eigene Gerätewerkstatt",
+        "contracted_by": "AN",
+        "email": "werkstatt@hofbau.example",
+        "assumption": true
+      },
+      {
+        "id": "STAHL",
+        "name": "Stahlhandel Süd GmbH",
+        "role": "Lieferant Betonstahl (LV 03.030 'liefern' = AN)",
+        "contracted_by": "AN",
+        "email": "dispo@stahlhandel-sued.example",
+        "assumption": true
+      },
+      {
+        "id": "BAUSTOFF",
+        "name": "Baustoffhandel Riem",
+        "role": "Lieferant Schalungskörper/Zubehör",
+        "contracted_by": "AN",
+        "email": "verkauf@baustoffe-riem.example",
+        "assumption": true
+      },
+      {
+        "id": "BETONWERK",
+        "name": "Transportbeton München-Ost",
+        "role": "Lieferant Beton + Pumpe (Pumpe lt. BB07 TOP 4 durch AN bestellt)",
+        "contracted_by": "AN",
+        "email": "dispo@tb-muenchen-ost.example",
+        "assumption": true
+      }
+    ]
+  },
+  "plan": {
+    "source": "Bauzeitenplan.xlsx + Fortschreibung lt. Bericht Nr. 15",
+    "activities": [
+      {
+        "id": "A20",
+        "name": "Aushub BA1",
+        "lv": "02.010",
+        "lv_qty": 4480,
+        "unit": "m³",
+        "plan_end": "2026-11-23",
+        "forecast_end": "2026-11-25"
+      },
+      {
+        "id": "A40",
+        "name": "Bewehrung BP",
+        "lv": "03.030",
+        "lv_qty": 64,
+        "unit": "t",
+        "plan_end": "2026-11-20",
+        "forecast_end": "2026-11-24",
+        "critical_path": true
+      },
+      {
+        "id": "A50",
+        "name": "Betonage BP",
+        "lv": "03.040",
+        "lv_qty": 255,
+        "unit": "m³",
+        "plan_end": "2026-11-24",
+        "forecast_end": "2026-11-30",
+        "critical_path": true,
+        "note": "Betonage in 3 Abschnitten: A–B 26.11., C 27.11., D 30.11."
+      },
+      {
+        "id": "A60",
+        "name": "Wände EG",
+        "lv": "04.010",
+        "lv_qty": 820,
+        "unit": "m²",
+        "plan_start": "2026-11-30",
+        "critical_path": true
+      },
+      {
+        "id": "M1",
+        "name": "Vertragsfrist Rohbau EG",
+        "date": "2026-12-16",
+        "source": "Bauvertrag §6"
+      }
+    ],
+    "crews": [
+      {
+        "id": "K-MUELLER",
+        "planned": 8
+      },
+      {
+        "id": "K-SCHALUNG",
+        "planned": 4
+      },
+      {
+        "id": "K-ERDBAU",
+        "planned": 4
+      }
+    ],
+    "daily_targets": {
+      "A20": 165,
+      "A40": 0,
+      "A50": 0
+    },
+    "deliveries_expected": [],
+    "state_before_day": {
+      "A20": 4315,
+      "A40": 64.0,
+      "A50": 0
+    }
+  },
+  "weather_ground_truth": {
+    "temp_min_c": 3.0,
+    "temp_max_c": 7.2,
+    "precip_mm": 0.4,
+    "gust_kmh": 45,
+    "assumption": "Werte angenommen – durch DWD-Fixture ersetzen",
+    "assessment": "übliche Witterung – keine Behinderung"
+  },
+  "captures": [
+    {
+      "id": "C01",
+      "time": "07:00",
+      "purpose": "progress",
+      "photos": [
+        {
+          "id": "C01-P1",
+          "scene_en": "Fully reinforced base slab in morning light, axes A–D",
+          "usable": true
+        }
+      ],
+      "notes": [
+        {
+          "kind": "text",
+          "language": "en",
+          "text": "Morning, all 16 here. Brandl's coming at 8 for the inspection."
+        }
+      ],
+      "gold": {
+        "report": [
+          "2_personal",
+          "7_foto"
+        ],
+        "facts": {
+          "personnel_total": 16
+        }
+      }
+    },
+    {
+      "id": "C02",
+      "time": "08:40",
+      "purpose": "defect",
+      "audio": {
+        "noise": "clean",
+        "snr_db": null
+      },
+      "photos": [
+        {
+          "id": "C02-P1",
+          "scene_en": "Slab edge axis B, top layer sagging where spacers are missing",
+          "usable": true
+        }
+      ],
+      "notes": [
+        {
+          "kind": "voice",
+          "language": "en",
+          "text": "Brandl was here, base slab rebar is approved. One small thing: in axis B 6 spacers are missing at the edge, Müller's doing that right away."
+        }
+      ],
+      "gold": {
+        "report": [
+          "5_tagesleistung",
+          "6_vorkommnisse",
+          "7_foto"
+        ],
+        "event": {
+          "id": "EVT-18-01",
+          "type": "quality_defect",
+          "cause": "own_quality_defect",
+          "actor": "AN",
+          "sphere": "AN",
+          "start": "08:40",
+          "document": null,
+          "note": "Mangel bei Bewehrungsabnahme, sofort behoben"
+        },
+        "action": {
+          "type": "internal_message",
+          "to": "K-MUELLER",
+          "attach": [
+            "C02-P1"
+          ],
+          "must_include": [
+            "Achse B Rand",
+            "6 Abstandhalter nachrüsten"
+          ],
+          "must_not": [
+            "E-Mail an AG"
+          ]
+        }
+      }
+    },
+    {
+      "id": "C03",
+      "time": "11:40",
+      "purpose": "progress",
+      "audio": {
+        "noise": "clean",
+        "snr_db": null
+      },
+      "photos": [],
+      "notes": [
+        {
+          "kind": "voice",
+          "language": "en",
+          "text": "Meeting's done. Wagner decided: instead of core drilling later we set 4 box-outs DN150 before pouring. With the others that's 10 pieces. Lechner sends the positions by 14:00. Pour stays tomorrow 07:00."
+        }
+      ],
+      "gold": {
+        "report": [
+          "6_vorkommnisse"
+        ],
+        "event": {
+          "id": "EVT-18-02",
+          "kind": "follow_up",
+          "continues": [
+            "EVT-2026-11-20-004",
+            "EVT-17-03"
+          ],
+          "type": "additional_work",
+          "sphere": "AG",
+          "document": null,
+          "reasoning": "DN150 (Ø 15 cm) fällt unter LV 03.050 'Aussparungen bis 20 x 20 cm'; 10 Stk ≤ 12 Stk LV-Menge → keine Mehrkosten. Mehrkostenankündigung DOC-002 (Kernbohrungen) erledigt, nicht versenden. Vorsorgliche Behinderung EVT-17-03 entfällt (Entscheidung fristgerecht).",
+          "contrastive_pair": {
+            "with": "EVT-2026-11-20-004",
+            "differs_in": "nachträgliche Kernbohrung (nicht im LV → Mehrkosten) vs. Aussparung vor Betonage (LV 03.050 → keine Mehrkosten)"
+          }
+        },
+        "action": null,
+        "must_not": [
+          "Mehrkostenanzeige"
+        ],
+        "source_refs": [
+          "LV 03.050",
+          "Protokoll BB07 TOP 5",
+          "Bauvertrag §5"
+        ]
+      }
+    },
+    {
+      "id": "C04",
+      "time": "11:45",
+      "purpose": "defect",
+      "audio": {
+        "noise": "excavator",
+        "snr_db": 5
+      },
+      "photos": [
+        {
+          "id": "C04-P1",
+          "scene_en": "Slab edge with protruding starter bars for ground floor walls, no wall formwork yet",
+          "usable": true
+        }
+      ],
+      "notes": [
+        {
+          "kind": "voice",
+          "language": "en",
+          "text": "And Brandl says the ground floor wall drawings won't come until Friday. According to the drawing schedule they're due today. Without drawings we can't order the steel for the walls, and the walls are supposed to start on the 30th. That has to go to Wagner."
+        }
+      ],
+      "gold": {
+        "report": [
+          "5_tagesleistung",
+          "6_vorkommnisse",
+          "7_foto"
+        ],
+        "event": {
+          "id": "EVT-18-03",
+          "type": "plan_delivery_delay",
+          "cause": "plan_delivery_late",
+          "actor": "BRANDL",
+          "sphere": "AG",
+          "start": "2026-11-25",
+          "affected_activities": [
+            "A60",
+            "M1"
+          ],
+          "document": {
+            "type": "Behinderungsanzeige (vorsorglich)",
+            "basis": [
+              "§ 6 Abs. 1 VOB/B",
+              "§ 6 Abs. 2 Nr. 1 a VOB/B"
+            ],
+            "deadline": "unverzueglich"
+          },
+          "note": "TWP-EG-01 fällig 25.11. (Planlieferliste), Ankündigung Freitag 27.11.; Bestellvorlauf Betonstahl Wände → Start A60 30.11. gefährdet, Vertragsfrist 16.12."
+        },
+        "action": {
+          "type": "email",
+          "to": "AG-VERTRETER",
+          "attach": [
+            "C04-P1"
+          ],
+          "must_include": [
+            "TWP-EG-01 Schal- und Bewehrungspläne Wände EG",
+            "Liefertermin lt. Planlieferliste 25.11.2026",
+            "angekündigt 27.11.",
+            "Beginn Wände EG 30.11. gefährdet",
+            "Vertragsfrist 16.12.2026"
+          ],
+          "must_not": [
+            "Anzeige nur an Brandl"
+          ]
+        },
+        "source_refs": [
+          "Planlieferliste TWP-EG-01",
+          "Bauvertrag §5, §6, §7"
+        ]
+      }
+    },
+    {
+      "id": "C05",
+      "time": "13:30",
+      "purpose": "progress",
+      "photos": [
+        {
+          "id": "C05-P1",
+          "scene_en": "Excavation BA1 completed to formation level",
+          "usable": true
+        },
+        {
+          "id": "C05-P2",
+          "scene_en": "Same scene, strong motion blur",
+          "usable": false,
+          "reason": "blurry"
+        }
+      ],
+      "notes": [
+        {
+          "kind": "text",
+          "language": "en",
+          "text": "Excavation BA1 finished, 165 cubic today. Excavator leaves tomorrow."
+        }
+      ],
+      "gold": {
+        "report": [
+          "3_geraete",
+          "5_tagesleistung",
+          "7_foto"
+        ],
+        "facts": {
+          "A20": 165,
+          "A20_total": 4480,
+          "lv": 4480
+        }
+      }
+    },
+    {
+      "id": "C06",
+      "time": "14:30",
+      "purpose": "equipment",
+      "audio": {
+        "noise": "wind",
+        "snr_db": 0
+      },
+      "photos": [
+        {
+          "id": "C06-P1",
+          "scene_en": "Crane cab display showing blank wind speed reading",
+          "usable": true
+        },
+        {
+          "id": "C06-P2",
+          "scene_en": "Anemometer on crane jib",
+          "usable": true
+        }
+      ],
+      "notes": [
+        {
+          "kind": "voice",
+          "language": "en",
+          "text": "Crane operator says the anemometer on the crane isn't showing anything. He's not allowed to operate like that. Send it to our workshop, they need to come today."
+        }
+      ],
+      "gold": {
+        "report": [
+          "3_geraete",
+          "6_vorkommnisse"
+        ],
+        "event": {
+          "id": "EVT-18-04",
+          "type": "equipment_failure",
+          "cause": "equipment_failure",
+          "actor": "AN",
+          "sphere": "AN",
+          "start": "14:30",
+          "end": "15:45",
+          "document": null
+        },
+        "action": {
+          "type": "internal_message",
+          "to": "WERKSTATT",
+          "attach": [
+            "C06-P1",
+            "C06-P2"
+          ],
+          "must_include": [
+            "Turmdrehkran",
+            "Windmesser ohne Anzeige",
+            "Kran außer Betrieb",
+            "heute"
+          ],
+          "must_not": [
+            "E-Mail an AG"
+          ]
+        }
+      }
+    },
+    {
+      "id": "C07",
+      "time": "15:50",
+      "purpose": "progress",
+      "photos": [
+        {
+          "id": "C07-P1",
+          "scene_en": "Round box-out formers fixed to rebar in axes A–B",
+          "usable": true
+        }
+      ],
+      "notes": [
+        {
+          "kind": "text",
+          "language": "en",
+          "text": "10 box-out formers set, positions per Lechner."
+        },
+        {
+          "kind": "text",
+          "language": "en",
+          "text": "Anemometer replaced, crane running again since 15:45. A bit windy, but fine."
+        }
+      ],
+      "gold": {
+        "report": [
+          "3_geraete",
+          "5_tagesleistung",
+          "7_foto"
+        ],
+        "closes": "EVT-18-04",
+        "facts": {
+          "LV_03.050": "10 Stk gesetzt (LV 12 Stk)"
+        },
+        "near_miss": "Wind erwähnt, übliche Witterung – kein Wetterereignis"
+      }
+    },
+    {
+      "id": "C08",
+      "time": "16:40",
+      "purpose": "progress",
+      "photos": [],
+      "notes": [
+        {
+          "kind": "text",
+          "language": "en",
+          "text": "Done for today. Excavation 165 cubic, BA1 finished. Box-outs set. Concrete tomorrow 07:00."
+        }
+      ],
+      "gold": {
+        "report": [
+          "5_tagesleistung"
+        ]
+      }
+    }
+  ],
+  "photo_triage_gold": {
+    "total": 8,
+    "usable": 7,
+    "unusable": {
+      "C05-P2": "blurry"
+    }
+  },
+  "expected_report": {
+    "2_personal": [
+      {
+        "crew": "Kolonne Müller",
+        "soll": 8,
+        "ist": 8,
+        "stillstand_mann_h": 0
+      },
+      {
+        "crew": "Kolonne Schalung",
+        "soll": 4,
+        "ist": 4,
+        "stillstand_mann_h": 0
+      },
+      {
+        "crew": "Erdbau",
+        "soll": 4,
+        "ist": 4,
+        "stillstand_mann_h": 0
+      }
+    ],
+    "3_geraete": [
+      {
+        "device": "Bagger",
+        "soll_h": 6.5,
+        "ist_h": 6.5,
+        "ausfall": null,
+        "note": "Aushub fertig 13:30, Abmeldung 26.11."
+      },
+      {
+        "device": "Turmdrehkran",
+        "soll_h": 10,
+        "ist_h": 8.75,
+        "ausfall": "14:30-15:45",
+        "ursache": "Windmesser defekt (eigenes Gerät)"
+      }
+    ],
+    "4_lieferungen": [],
+    "5_tagesleistung": [
+      {
+        "vorgang": "A20",
+        "tagessoll": 165,
+        "ist": 165,
+        "einheit": "m³",
+        "gesamt_nach": 4480,
+        "lv": 4480,
+        "status": "fertig"
+      },
+      {
+        "vorgang": "A40",
+        "tagessoll": 0,
+        "ist": 0,
+        "einheit": "t",
+        "status": "fertig, abgenommen 25.11."
+      },
+      {
+        "vorgang": "A50",
+        "tagessoll": 0,
+        "ist": 0,
+        "einheit": "m³",
+        "note": "Aussparungen 10 Stk gesetzt (LV 03.050)"
+      }
+    ],
+    "5_terminauswirkung": [
+      "A60 Wände EG: Start 30.11. gefährdet wegen TWP-EG-01 (fällig 25.11., angekündigt 27.11.) → Vertragsfrist 16.12. gefährdet"
+    ],
+    "6_vorkommnisse": [
+      "EVT-18-01",
+      "EVT-18-02",
+      "EVT-18-03",
+      "EVT-18-04"
+    ],
+    "documents_to_draft": [
+      {
+        "doc": "Behinderungsanzeige (vorsorglich)",
+        "event": "EVT-18-03",
+        "to": "AG-VERTRETER"
+      }
+    ],
+    "documents_to_close": [
+      {
+        "doc": "Mehrkostenankündigung DOC-002 Kernbohrungen",
+        "reason": "durch Aussparungen LV 03.050 ersetzt"
+      },
+      {
+        "doc": "Behinderungsanzeige (vorsorglich) EVT-17-03",
+        "reason": "Entscheidung am 25.11. getroffen"
+      }
+    ],
+    "messages_expected": [
+      "C02 → K-MUELLER (intern)",
+      "C04 → AG-VERTRETER",
+      "C06 → WERKSTATT (intern)"
+    ],
+    "must_not": [
+      "keine Mehrkostenanzeige zu C03",
+      "keine Anzeige nur an Brandl",
+      "kein Wetterereignis zu C07"
+    ],
+    "1_witterung": {
+      "temp_min_c": 3.0,
+      "temp_max_c": 7.2,
+      "precip_mm": 0.4,
+      "gust_kmh": 45,
+      "assumption": "Werte angenommen – durch DWD-Fixture ersetzen",
+      "assessment": "übliche Witterung – keine Behinderung"
+    }
+  },
+  "generation": {
+    "photo": "Bild aus scene_en; usable=False absichtlich mit genanntem Fehler erzeugen. Dateiname = Foto-id (z. B. C01-P1.jpg).",
+    "voice": "TTS aus notes[].text (kind=voice), danach Rauschen audio.noise/audio.snr_db.",
+    "text": "notes[].text (kind=text) als Nachricht; mehrere Notizen = mehrere Nachrichten kurz hintereinander."
+  }
+}

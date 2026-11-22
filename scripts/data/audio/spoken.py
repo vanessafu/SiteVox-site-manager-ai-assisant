@@ -99,8 +99,12 @@ def spoken_form(text: str, lang: str) -> str:
     s = re.sub(r"\b(\d+)[.,](\d+)\b", lambda m: _decimal(m[1], m[2], lang), s)
     if lang in ("tr", "de", "pl"):  # "4." vor einem Wort = Ordnungszahl
         # nur vor kleingeschriebenem Wort – "statt 16. Bei der …" ist Satzende, keine Ordnungszahl
-        s = re.sub(r"\b(\d{1,2})\.(?=\s+[a-zäöüßçğışąćęłńóśźż])",
-                   lambda m: _ordinal(int(m[1]), lang).rstrip("n") if lang == "de" else _ordinal(int(m[1]), lang), s)
+        def _ord(m):
+            w = _ordinal(int(m[1]), lang)
+            if lang == "de" and not re.search(r"\b(am|zum|vom|bis|ab|den|dem)\s*$", s[:m.start()]):
+                w = w.rstrip("n")   # "der 4. Stock" – nach am/zum/vom … bleibt "-sten"
+            return w
+        s = re.sub(r"\b(\d{1,2})\.(?=\s+[a-zäöüßçğışąćęłńóśźż])", _ord, s)
     s = re.sub(r"\bBA\s?(\d+)\b", lambda m: f"B A {cardinal(int(m[1]), lang)}", s)
     s = re.sub(r"(\d+)\s?[–-]\s?(\d+)", lambda m: f"{m[1]} {'bis' if lang == 'de' else 'to' if lang == 'en' else 'do' if lang == 'pl' else 'ile'} {m[2]}", s)
     s = re.sub(r"\b\d+\b", lambda m: cardinal(int(m[0]), lang), s)  # übrige Ganzzahlen ausschreiben

@@ -6,8 +6,9 @@
 #   3) ASR-Dienst WhisperX large-v3 (wie produktiv, backend=remote) – asr-venv; Pipeline ebenfalls asr-venv
 #   4) Vortag 20.11. per Demo-Replay als Historie, dann Szenario-Tag mit echten Modellen (isolierte DB)
 #   5) Auswertung gegen gold.json (evaluation/eval_scenario.py)
-# Start:  SCENARIOS="data/demo/scenario/scenario_SCN-RIEM-0016_de.json …" sbatch --export=ALL scripts/cluster/scenario_e2e.sbatch
-#         (Standard: alle data/demo/scenario/*.json; Dienste werden einmal gestartet, jedes Szenario mit eigener DB)
+# Start:  sbatch --export=ALL scripts/cluster/scenario_e2e.sbatch            (Serie 23.–26.11., de/en/pl/tr)
+#         SCENARIOS="data/demo/scenario/scenario_SCN-RIEM-0016_de.json …" sbatch --export=ALL …   (einzelne Tage)
+#         Foto-zuerst-Szenarien ("captures"): je Sprache eine DB, Tage nacheinander; alte timeline-Szenarien: eigene DB
 #SBATCH --job-name=sitevox-e2e
 #SBATCH --partition=gpu
 #SBATCH --gres=gpu:1
@@ -17,7 +18,8 @@
 set -euo pipefail
 cd "${SLURM_SUBMIT_DIR}"
 
-SCENARIOS="${SCENARIOS:-${SCENARIO:-$(ls data/demo/scenario/scenario_*.json | tr '\n' ' ')}}"
+# Standard: die Foto-zuerst-Serie 23.–26.11. (scenario_<ID>_<Datum>_<lang>.json) in de/en/pl/tr
+SCENARIOS="${SCENARIOS:-${SCENARIO:-$(ls data/demo/scenario/scenario_SCN-*_2026-*_{de,en,pl,tr}.json 2>/dev/null | sort | tr '\n' ' ')}}"
 LOGDIR="data/scenario_runs/job_${SLURM_JOB_ID}"
 TTS="${WORK}/tts-venv/bin"; ASR="${WORK}/asr-venv/bin"
 SVX="${ASR}"                                        # Pipeline + serve_models.py (Projektabhängigkeiten)
@@ -37,8 +39,10 @@ nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv
 # ---------------------------------------------------------------- 1) Eingaben
 if [[ "${REGEN_INPUTS:-1}" == 1 ]]; then
   for SC in ${SCENARIOS}; do
+    # SNR: Standard je Schema (timeline −5 dB lauter, captures +10 dB = Handy am Mund); SNR_OFFSET überschreibt
     PATH="${TTS}:${PATH}" "${TTS}/python" scripts/data/scenario/make_scenario_inputs.py "${SC}" \
-        --photo-time "${PHOTO_TIME:-exif}" --p-accent "${P_ACCENT:-0.6}" --snr-offset "${SNR_OFFSET:--5}"
+        --photo-time "${PHOTO_TIME:-exif}" --p-accent "${P_ACCENT:-0.6}" ${SNR_OFFSET:+--snr-offset "${SNR_OFFSET}"} \
+      || echo "✗ Eingaben ${SC} übersprungen"
   done
 fi
 
@@ -70,23 +74,34 @@ wait_up "http://127.0.0.1:$((8004+SITEVOX_PORT_OFFSET))/health" "ASR"
 
 # ---------------------------------------------------------------- 4+5) je Szenario: Historie, Pipeline, Auswertung
 export SITEVOX_RAG_BACKEND=bm25   # asr-venv hat kein chromadb/sentence-transformers; betrifft nur Normzitate
+# Foto-zuerst-Serie: je Sprache EINE Datenbank, Tage in Datumsreihenfolge (Fortschreibung/Abschluss über Tage)
+declare -A SERIES_DB
 for SC in ${SCENARIOS}; do
   NAME="$(basename "${SC}" .json)"; NAME="${NAME#scenario_}"
   INP="data/raw/scenario_${NAME}"
-  RUN="data/scenario_runs/${NAME}_${SLURM_JOB_ID}"
+  [[ -f "${INP}/inputs.json" ]] || { echo "✗ ${NAME}: keine Eingaben (${INP}/inputs.json)"; continue; }
   OUT="outputs/eval/scenario_${NAME}_${SLURM_JOB_ID}"
+  if grep -q '"captures"' "${SC}"; then
+    LANG_="${NAME##*_}"; SID="${NAME%%_2026-*}"
+    RUN="data/scenario_runs/${SID}_series_${LANG_}_${SLURM_JOB_ID}"; EVAL=evaluation.eval_capture_scenario
+  else
+    RUN="data/scenario_runs/${NAME}_${SLURM_JOB_ID}"; EVAL=evaluation.eval_scenario; LANG_="${NAME}"
+  fi
   mkdir -p "${RUN}" "${OUT}"
-  echo "=== ${NAME}"
+  echo "=== ${NAME}  (DB ${RUN})"
   (
     export SITEVOX_DATA="${RUN}" SITEVOX_DB="${RUN}/sitevox.db"
-    SITEVOX_MODE=demo "${SVX}/python" scripts/seed_demo.py > "${RUN}/seed_history.log" 2>&1
-    echo "✓ Historie (20.11., Demo-Replay) geladen"
+    if [[ ! -f "${RUN}/sitevox.db" ]]; then
+      SITEVOX_MODE=demo "${SVX}/python" scripts/seed_demo.py > "${RUN}/seed_history.log" 2>&1
+      echo "✓ Historie (20.11., Demo-Replay) geladen"
+    fi
     SITEVOX_MODE=gpu SITEVOX_DEVICE=cuda SITEVOX_ASR_BACKEND=remote SITEVOX_VISION_BACKEND=openai \
         "${SVX}/python" scripts/run_scenario.py "${INP}" --plan "${SC}" \
-        ${OUTPUT_LANGUAGE:+--output-language "${OUTPUT_LANGUAGE}"} > "${RUN}/run.log" 2>&1 \
-      && grep -E "→ CAP|Entwurf|Ereignisse," "${RUN}/run.log" | cut -c1-160
-    "${SVX}/python" -m evaluation.eval_scenario --run "${RUN}/run_output.json" --inputs "${INP}" \
+        ${OUTPUT_LANGUAGE:+--output-language "${OUTPUT_LANGUAGE}"} > "${RUN}/run_${NAME}.log" 2>&1 \
+      && grep -E "→ CAP|serie|Entwurf|Ereignisse," "${RUN}/run_${NAME}.log" | cut -c1-170
+    cp "${RUN}/run_output.json" "${RUN}/run_output_${NAME}.json"
+    "${SVX}/python" -m ${EVAL} --run "${RUN}/run_output_${NAME}.json" --inputs "${INP}" \
         --scenario "${SC}" --out "${OUT}" > /dev/null && echo "✓ Auswertung: ${OUT}/summary.md"
-  ) || echo "✗ ${NAME} fehlgeschlagen – siehe ${RUN}/run.log"
+  ) || echo "✗ ${NAME} fehlgeschlagen – siehe ${RUN}/run_${NAME}.log"
 done
 echo "fertig"

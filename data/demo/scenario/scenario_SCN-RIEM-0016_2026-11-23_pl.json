@@ -1,0 +1,1057 @@
+{
+  "schema_version": "gold-scenario/0.3-photo-first",
+  "scenario_id": "SCN-RIEM-0016P",
+  "title": "Dzień zdjęciowy kierownika budowy J. Hofmanna – BV Riem, poniedziałek 23.11.2026",
+  "interaction_model": {
+    "capture": "Seria zdjęć (1–6 zdjęć) + dokładnie jedna notatka: tekstowa LUB głosowa, w języku potocznym",
+    "photo_purposes": [
+      "progress",
+      "equipment",
+      "material",
+      "defect"
+    ],
+    "escalation": "W przypadku 'defect' lub brakującego materiału: notatka głosowa; system tworzy szkic wiadomości e-mail z wybranymi zdjęciami do osoby odpowiedzialnej (zgodnie z rejestrem). Wysyłka dopiero po zatwierdzeniu przez kierownika budowy.",
+    "email_language": "de (odbiorcami są firmy niemieckie, niezależnie od języka wprowadzania)"
+  },
+  "meta": {
+    "project_id": "BV-RIEM",
+    "project_name": "Budowa osiedla mieszkaniowego Riem, pole budowlane 3",
+    "contract_type": "VOB_B",
+    "report_no": 16,
+    "date": "2026-11-23",
+    "weekday": "Poniedziałek",
+    "working_hours": "07:00-17:00",
+    "report_language": "pl-PL"
+  },
+  "persona": {
+    "id": "P-HOFMANN",
+    "name": "J. Hofmann",
+    "role": "Kierownik budowy Wykonawcy (Hofbau Rohbau GmbH)",
+    "note": "Jedyna osoba wprowadzająca dane."
+  },
+  "registry": {
+    "comment": "Odbiorca i sfera odpowiedzialności wynikają z 'contracted_by' oraz 'role'. Notatki zazwyczaj tego NIE podają.",
+    "parties": [
+      {
+        "id": "AG-VERTRETER",
+        "name": "Dipl.-Ing. Thomas Wagner",
+        "role": "upoważniony przedstawiciel Zamawiającego (AG)",
+        "contracted_by": "AG",
+        "email": "t.wagner@wohnbau-riem.example"
+      },
+      {
+        "id": "AN",
+        "name": "Hofbau Rohbau GmbH",
+        "role": "Wykonawca stanu surowego (my)",
+        "contracted_by": null
+      },
+      {
+        "id": "YILDIZ",
+        "name": "Mehmet Yıldız",
+        "role": "Brygadzista brygady ciesielsko-szalunkowej (personel własny)",
+        "contracted_by": "AN",
+        "email": "m.yildiz@hofbau.example"
+      },
+      {
+        "id": "MAIER",
+        "name": "Spezialtiefbau Maier GmbH",
+        "role": "Obudowa wykopu (poprzedni wykonawca)",
+        "contracted_by": "AG",
+        "email": "bauleitung@maier-tiefbau.example",
+        "note": "Kontrahent Zamawiającego (AG) – Wykonawca (AN) nie może wydawać poleceń; komunikacja przez przedstawiciela AG"
+      },
+      {
+        "id": "NOVAK",
+        "name": "Gerüstbau Novak",
+        "role": "Podwykonawca rusztowań",
+        "contracted_by": "AN",
+        "email": "polier@novak-geruest.example"
+      },
+      {
+        "id": "STAHL-SUED",
+        "name": "Stahlhandel Süd GmbH",
+        "role": "Dostawca stali zbrojeniowej/akcesoriów",
+        "contracted_by": "AN",
+        "email": "dispo@stahlhandel-sued.example"
+      },
+      {
+        "id": "OBERMEIER",
+        "name": "Fertigteile Obermeier",
+        "role": "Dostawca schodów prefabrykowanych, dostarczanych przez Zamawiającego (AG)",
+        "contracted_by": "AG",
+        "email": "versand@obermeier-ft.example"
+      }
+    ]
+  },
+  "plan_of_day": {
+    "activities": [
+      {
+        "id": "A20",
+        "name": "Wykop BA1",
+        "unit": "m³",
+        "daily_target": 320
+      },
+      {
+        "id": "A35",
+        "name": "Szalowanie krawędziowe płyty fundamentowej oś D",
+        "unit": "m",
+        "daily_target": 24
+      },
+      {
+        "id": "A40",
+        "name": "Zbrojenie płyty fundamentowej (BP)",
+        "unit": "t",
+        "daily_target": 8,
+        "critical_path": true
+      },
+      {
+        "id": "A70",
+        "name": "Montaż schodów prefabrykowanych klatka schodowa Północ",
+        "unit": "szt.",
+        "daily_target": 1
+      }
+    ],
+    "crews": [
+      {
+        "id": "K-MUELLER",
+        "name": "Brygada Müllera",
+        "trade": "Zbrojenie",
+        "planned": 8
+      },
+      {
+        "id": "K-SCHALUNG",
+        "name": "Brygada Szalunkowa",
+        "trade": "Szalunki",
+        "planned": 4
+      },
+      {
+        "id": "K-ERDBAU",
+        "name": "Roboty ziemne",
+        "trade": "Wykopy",
+        "planned": 4
+      }
+    ],
+    "equipment": [
+      {
+        "id": "G-BAGGER",
+        "name": "Koparka",
+        "planned_h": 10
+      },
+      {
+        "id": "G-KRAN",
+        "name": "Żuraw wieżowy",
+        "planned_h": 10
+      }
+    ],
+    "deliveries_expected": [
+      {
+        "id": "L-01",
+        "supplier": "STAHL-SUED",
+        "item": "Stal zbrojeniowa oś C",
+        "qty": "2,5 t",
+        "window": "07:00-08:00"
+      },
+      {
+        "id": "L-02",
+        "supplier": "STAHL-SUED",
+        "item": "Kosze wsporcze/dystanse oś C",
+        "qty": "1 paleta",
+        "window": "09:00-10:00"
+      },
+      {
+        "id": "L-03",
+        "supplier": "OBERMEIER",
+        "item": "Schody prefabrykowane klatka schodowa Północ (dostawa AG)",
+        "qty": "1 szt.",
+        "window": "14:00"
+      }
+    ]
+  },
+  "weather_ground_truth": {
+    "source": "DWD via Bright Sky",
+    "temp_min_c": 1.4,
+    "temp_max_c": 5.8,
+    "precip_mm": 1.2,
+    "gust_kmh": 25,
+    "assessment": "typowe warunki pogodowe – brak przeszkód"
+  },
+  "language": "pl",
+  "captures": [
+    {
+      "id": "C01",
+      "time": "07:05",
+      "purpose": "progress",
+      "photos": [
+        {
+          "id": "C01-P1",
+          "scene_en": "Bottom reinforcement mesh laid on ground slab axes A and B, rebar chairs visible, workers in background",
+          "usable": true
+        },
+        {
+          "id": "C01-P2",
+          "scene_en": "Same view as P1, slightly shifted",
+          "usable": false,
+          "reason": "near_duplicate"
+        },
+        {
+          "id": "C01-P3",
+          "scene_en": "Strong motion blur of rebar",
+          "usable": false,
+          "reason": "blurry"
+        },
+        {
+          "id": "C01-P4",
+          "scene_en": "Wide shot of the whole slab area axes A–D, axis C still empty",
+          "usable": true
+        }
+      ],
+      "note": {
+        "kind": "text",
+        "language": "pl",
+        "text": "Cześć, wszyscy 16 chłopa są. Oś A i B, dolna warstwa zrobiona, wszystko gra."
+      },
+      "gold": {
+        "report": [
+          "2_personal",
+          "5_tagesleistung",
+          "7_foto"
+        ],
+        "event": null,
+        "action": null,
+        "facts": {
+          "personnel_total": 16,
+          "progress": "A40 dolna warstwa oś A+B gotowa"
+        }
+      }
+    },
+    {
+      "id": "C02",
+      "time": "07:22",
+      "purpose": "material",
+      "photos": [
+        {
+          "id": "C02-P1",
+          "scene_en": "Truck flatbed with bundled reinforcing steel, crane hook attached",
+          "usable": true
+        },
+        {
+          "id": "C02-P2",
+          "scene_en": "Close-up of a delivery note in a plastic sleeve, header and quantity line readable",
+          "usable": true
+        },
+        {
+          "id": "C02-P3",
+          "scene_en": "Dark image of the inside of a jacket pocket",
+          "usable": false,
+          "reason": "accidental"
+        }
+      ],
+      "note": {
+        "kind": "text",
+        "language": "pl",
+        "text": "Stal dotarła, 2,5 tony na oś C, punktualnie. List przewozowy LS-448213."
+      },
+      "gold": {
+        "report": [
+          "4_lieferungen",
+          "7_foto"
+        ],
+        "event": null,
+        "action": null,
+        "facts": {
+          "delivery": "L-01",
+          "qty": "2,5 t",
+          "time": "07:20",
+          "on_time": true,
+          "delivery_note": "LS-448213"
+        }
+      }
+    },
+    {
+      "id": "C03",
+      "time": "08:40",
+      "purpose": "equipment",
+      "photos": [
+        {
+          "id": "C03-P1",
+          "scene_en": "Excavator boom with a new hydraulic hose, no oil traces",
+          "usable": true
+        },
+        {
+          "id": "C03-P2",
+          "scene_en": "Overexposed shot into the sun",
+          "usable": false,
+          "reason": "overexposed"
+        }
+      ],
+      "note": {
+        "kind": "text",
+        "language": "pl",
+        "text": "Koparka chodzi, nowy wąż trzyma, wszystko szczelne."
+      },
+      "gold": {
+        "report": [
+          "3_geraete"
+        ],
+        "event": null,
+        "action": null,
+        "near_miss": "Wspomniano koparkę/hydraulikę, brak usterki",
+        "facts": {
+          "equipment": "G-BAGGER",
+          "status": "w eksploatacji"
+        }
+      }
+    },
+    {
+      "id": "C04",
+      "time": "09:35",
+      "purpose": "equipment",
+      "audio": {
+        "noise": "excavator",
+        "snr_db": 5
+      },
+      "photos": [
+        {
+          "id": "C04-P1",
+          "scene_en": "Parked excavator with lowered bucket at the pit edge",
+          "usable": true
+        },
+        {
+          "id": "C04-P2",
+          "scene_en": "Soldier-pile wall with two bays without timber lagging, soil exposed",
+          "usable": true
+        },
+        {
+          "id": "C04-P3",
+          "scene_en": "Three workers in hi-vis waiting, faces turned away",
+          "usable": true
+        },
+        {
+          "id": "C04-P4",
+          "scene_en": "Blurred ground",
+          "usable": false,
+          "reason": "blurry"
+        },
+        {
+          "id": "C04-P5",
+          "scene_en": "Same as P2, blurred",
+          "usable": false,
+          "reason": "blurry"
+        }
+      ],
+      "note": {
+        "kind": "voice",
+        "language": "pl",
+        "text": "No więc koparka stoi od 09:30, Maier nie skończył obudowy na osi 4, brakuje tam jeszcze 2 pól. Bez obudowy nie możemy kopać głębiej. 3 ludzi stoi bezczynnie plus operator koparki. Wyślij to do Wagnera, niech wyjaśnią, kiedy przyjdzie Maier."
+      },
+      "gold": {
+        "report": [
+          "3_geraete",
+          "6_vorkommnisse",
+          "7_foto"
+        ],
+        "event": {
+          "id": "EVT-01",
+          "type": "third_party_interference",
+          "cause": "predecessor_not_finished",
+          "actor": "MAIER",
+          "sphere": "AG",
+          "start": "09:30",
+          "end": "14:00",
+          "crew": {
+            "crew_id": "K-ERDBAU",
+            "idle": 4,
+            "note": "3 pracowników + operator koparki"
+          },
+          "document": {
+            "type": "Zgłoszenie przeszkody (Behinderungsanzeige)",
+            "basis": [
+              "§ 6 ust. 1 VOB/B"
+            ],
+            "deadline": "niezwłocznie"
+          },
+          "contrastive_pair": {
+            "with": "C03",
+            "differs_in": "Koparka sprawna vs. koparka zablokowana przez poprzedniego wykonawcę AG"
+          }
+        },
+        "action": {
+          "type": "email",
+          "purpose": "Wyjaśnienie terminu ukończenia obudowy + zgłoszenie przeszkody",
+          "to": "AG-VERTRETER",
+          "cc": [],
+          "attach": [
+            "C04-P1",
+            "C04-P2",
+            "C04-P3"
+          ],
+          "must_include": [
+            "Oś 4",
+            "Obudowa Spezialtiefbau Maier nieukończona",
+            "2 pola",
+            "od 09:30",
+            "Koparka + 4 osoby w przestoju"
+          ],
+          "must_not": [
+            "Polecenia bezpośrednio do firmy Maier"
+          ],
+          "deadline": "Odpowiedź dzisiaj"
+        },
+        "end_from": "C09"
+      }
+    },
+    {
+      "id": "C05",
+      "time": "10:05",
+      "purpose": "material",
+      "audio": {
+        "noise": "wind",
+        "snr_db": 10
+      },
+      "photos": [
+        {
+          "id": "C05-P1",
+          "scene_en": "Empty marked storage area on gravel next to the slab, no pallets",
+          "usable": true
+        },
+        {
+          "id": "C05-P2",
+          "scene_en": "Bottom rebar layer at axis C without support chairs, two workers idle",
+          "usable": true
+        }
+      ],
+      "note": {
+        "kind": "voice",
+        "language": "pl",
+        "text": "Kosze i dystanse na oś C nie dojechały, miały być między 9 a 10. Zadzwoń do Stahlhandel Süd albo wyślij im zdjęcie, chcę wiedzieć, kiedy przyjadą. 2 ludzi już czeka."
+      },
+      "gold": {
+        "report": [
+          "4_lieferungen",
+          "6_vorkommnisse"
+        ],
+        "event": {
+          "id": "EVT-02",
+          "type": "material_delay",
+          "cause": "material_late",
+          "actor": "STAHL-SUED",
+          "sphere": "AN",
+          "start": "10:00",
+          "end": "11:00",
+          "crew": {
+            "crew_id": "K-MUELLER",
+            "idle": 2
+          },
+          "document": null,
+          "contrastive_pair": {
+            "with": "C11",
+            "differs_in": "własny dostawca (AN) vs. dostawa zapewniana przez Zamawiającego (AG)"
+          }
+        },
+        "action": {
+          "type": "email",
+          "purpose": "Zapytanie o dostawę",
+          "to": "STAHL-SUED",
+          "cc": [],
+          "attach": [
+            "C05-P1"
+          ],
+          "must_include": [
+            "Kosze wsporcze/dystanse oś C",
+            "Okno dostawy 9–10",
+            "Prośba o wiążący czas dostawy"
+          ],
+          "must_not": [
+            "Kopia do AG",
+            "Zgłoszenie przeszkody"
+          ],
+          "deadline": "natychmiast"
+        },
+        "end_from": "C07"
+      }
+    },
+    {
+      "id": "C06",
+      "time": "10:50",
+      "purpose": "defect",
+      "audio": {
+        "noise": "vibrator",
+        "snr_db": 10
+      },
+      "photos": [
+        {
+          "id": "C06-P1",
+          "scene_en": "Timber edge formwork with one board visibly out of line, folding rule laid across",
+          "usable": true
+        },
+        {
+          "id": "C06-P2",
+          "scene_en": "Same scene, finger covering half of the lens",
+          "usable": false,
+          "reason": "obstructed"
+        },
+        {
+          "id": "C06-P3",
+          "scene_en": "String line slack along the formwork",
+          "usable": true
+        }
+      ],
+      "note": {
+        "kind": "voice",
+        "language": "pl",
+        "text": "Cholera, na osi D szalunek krawędziowy jest przesunięty o 2 centymetry, sznurek się zsunął, nasz błąd. Mehmet ma rozebrać te 3 metry i ustawić od nowa, wyślij mu zdjęcie."
+      },
+      "gold": {
+        "report": [
+          "6_vorkommnisse"
+        ],
+        "event": {
+          "id": "EVT-03",
+          "type": "quality_defect",
+          "cause": "own_quality_defect",
+          "actor": "AN",
+          "sphere": "AN",
+          "start": "10:50",
+          "rework": {
+            "length_m": 3,
+            "activity": "A35"
+          },
+          "document": null,
+          "contrastive_pair": {
+            "with": "C10",
+            "differs_in": "własny błąd (AN, wewnętrznie) vs. roboty poprzedzające branży AG (AG, zgłoszenie zastrzeżeń)"
+          }
+        },
+        "action": {
+          "type": "internal_message",
+          "purpose": "Zlecenie poprawki",
+          "to": "YILDIZ",
+          "cc": [],
+          "attach": [
+            "C06-P1",
+            "C06-P3"
+          ],
+          "must_include": [
+            "Oś D",
+            "Przesunięcie 2 cm",
+            "Rozebrać 3 m i ustawić ponownie"
+          ],
+          "must_not": [
+            "E-mail do AG"
+          ],
+          "deadline": "dzisiaj"
+        }
+      }
+    },
+    {
+      "id": "C07",
+      "time": "11:05",
+      "purpose": "material",
+      "photos": [
+        {
+          "id": "C07-P1",
+          "scene_en": "Pallet with support chairs and spacers being unloaded by forklift",
+          "usable": true
+        },
+        {
+          "id": "C07-P2",
+          "scene_en": "Same as P1",
+          "usable": false,
+          "reason": "near_duplicate"
+        }
+      ],
+      "note": {
+        "kind": "text",
+        "language": "pl",
+        "text": "Kosze w końcu dotarły, przyjechały o 11:00."
+      },
+      "gold": {
+        "report": [
+          "4_lieferungen"
+        ],
+        "event": null,
+        "action": null,
+        "closes": "EVT-02",
+        "facts": {
+          "delivery": "L-02",
+          "time": "11:00",
+          "on_time": false
+        }
+      }
+    },
+    {
+      "id": "C08",
+      "time": "11:30",
+      "purpose": "defect",
+      "audio": {
+        "noise": "wind",
+        "snr_db": 5
+      },
+      "photos": [
+        {
+          "id": "C08-P1",
+          "scene_en": "Scaffold stair tower, level with missing toe boards at the edge",
+          "usable": true
+        },
+        {
+          "id": "C08-P2",
+          "scene_en": "Loose scaffold deck board lifted at one end",
+          "usable": true
+        },
+        {
+          "id": "C08-P3",
+          "scene_en": "Close-up of P2, out of focus",
+          "usable": false,
+          "reason": "blurry"
+        },
+        {
+          "id": "C08-P4",
+          "scene_en": "Wide shot of the north stair tower",
+          "usable": true
+        }
+      ],
+      "note": {
+        "kind": "voice",
+        "language": "pl",
+        "text": "Na wieży schodowej Północ na poziomie 3 brakuje bortnic, a jeden podest leży luźno. Tak nikt tam nie wejdzie. Wyślij to do Novaka, mają to dzisiaj jeszcze naprawić, do 14:00."
+      },
+      "gold": {
+        "report": [
+          "6_vorkommnisse",
+          "7_foto"
+        ],
+        "event": {
+          "id": "EVT-04",
+          "type": "quality_defect",
+          "cause": "predecessor_defect",
+          "actor": "NOVAK",
+          "sphere": "AN",
+          "start": "11:30",
+          "safety_relevant": true,
+          "document": null,
+          "contrastive_pair": {
+            "with": "C10",
+            "differs_in": "Wada u własnego podwykonawcy → bezpośrednio do podwykonawcy z wyznaczeniem terminu"
+          }
+        },
+        "action": {
+          "type": "email",
+          "purpose": "Zgłoszenie wady do podwykonawcy (BHP)",
+          "to": "NOVAK",
+          "cc": [],
+          "attach": [
+            "C08-P1",
+            "C08-P2",
+            "C08-P4"
+          ],
+          "must_include": [
+            "Wieża schodowa Północ",
+            "Poziom 3",
+            "Brak bortnic",
+            "Luźny podest",
+            "Usunięcie dzisiaj do 14:00",
+            "Rusztowanie do tego czasu wyłączone z użytku"
+          ],
+          "must_not": [
+            "Kopia do AG"
+          ],
+          "deadline": "2026-11-23 14:00"
+        }
+      }
+    },
+    {
+      "id": "C09",
+      "time": "14:10",
+      "purpose": "progress",
+      "photos": [
+        {
+          "id": "C09-P1",
+          "scene_en": "Edge formwork at axis D straight along the string line",
+          "usable": true
+        },
+        {
+          "id": "C09-P2",
+          "scene_en": "Excavator digging again, completed shoring bays visible",
+          "usable": true
+        }
+      ],
+      "note": {
+        "kind": "text",
+        "language": "pl",
+        "text": "Oś D znowu stoi, równo w linii. Koparka też znowu pracuje od 14:00, Maier skończył."
+      },
+      "gold": {
+        "report": [
+          "3_geraete",
+          "5_tagesleistung",
+          "7_foto"
+        ],
+        "event": null,
+        "action": null,
+        "closes": "EVT-01",
+        "facts": {
+          "A35": "Oś D ustawiona na nowo",
+          "equipment_resumed": "14:00"
+        }
+      }
+    },
+    {
+      "id": "C10",
+      "time": "14:20",
+      "purpose": "defect",
+      "audio": {
+        "noise": "wind",
+        "snr_db": 0
+      },
+      "photos": [
+        {
+          "id": "C10-P1",
+          "scene_en": "Steel waler of the soldier-pile wall protruding past the inner face of the edge formwork into the slab area, folding rule measuring the overlap",
+          "usable": true
+        },
+        {
+          "id": "C10-P2",
+          "scene_en": "Wider view of axis D showing the waler along the slab edge",
+          "usable": true
+        },
+        {
+          "id": "C10-P3",
+          "scene_en": "Same as P1",
+          "usable": false,
+          "reason": "near_duplicate"
+        },
+        {
+          "id": "C10-P4",
+          "scene_en": "Underexposed, almost black",
+          "usable": false,
+          "reason": "underexposed"
+        }
+      ],
+      "note": {
+        "kind": "voice",
+        "language": "pl",
+        "text": "Oś D, oczep z obudowy Maiera wystaje jakieś 8 centymetrów w głąb płyty fundamentowej. Tak nie wykonamy tam płyty na pełną grubość. Trzeba to wyjaśnić, wyślij to dalej. Na razie robimy dalej na pozostałych osiach."
+      },
+      "gold": {
+        "report": [
+          "6_vorkommnisse",
+          "7_foto"
+        ],
+        "event": {
+          "id": "EVT-05",
+          "type": "quality_defect",
+          "cause": "predecessor_defect",
+          "actor": "MAIER",
+          "sphere": "AG",
+          "start": "14:20",
+          "work_stopped": false,
+          "document": {
+            "type": "Zgłoszenie zastrzeżeń (Bedenkenanzeige)",
+            "basis": [
+              "§ 4 ust. 3 VOB/B",
+              "§ 13 ust. 3 VOB/B"
+            ],
+            "deadline": "niezwłocznie"
+          },
+          "contrastive_pair": {
+            "with": "C08",
+            "differs_in": "Kontrahent AG → do przedstawiciela AG, nie do Maiera"
+          }
+        },
+        "action": {
+          "type": "email",
+          "purpose": "Zgłoszenie zastrzeżeń/wyjaśnienie kolizji obudowa – płyta fundamentowa",
+          "to": "AG-VERTRETER",
+          "cc": [],
+          "attach": [
+            "C10-P1",
+            "C10-P2"
+          ],
+          "must_include": [
+            "Oś D",
+            "Oczep obudowy Maier",
+            "ok. 8 cm w płycie fundamentowej",
+            "Brak możliwości wykonania płyty w pełnej grubości",
+            "Prośba o decyzję"
+          ],
+          "must_not": [
+            "bezpośrednio do Maiera",
+            "polecenia dla Maiera"
+          ],
+          "deadline": "niezwłocznie"
+        },
+        "routing_note": "Mówiący nie wymienia odbiorcy – system musi ustalić przedstawiciela AG z rejestru"
+      }
+    },
+    {
+      "id": "C11",
+      "time": "14:55",
+      "purpose": "material",
+      "audio": {
+        "noise": "excavator",
+        "snr_db": 10
+      },
+      "photos": [
+        {
+          "id": "C11-P1",
+          "scene_en": "Empty unloading area at the north stair tower, crane hook waiting, lifting gear on the ground",
+          "usable": true
+        },
+        {
+          "id": "C11-P2",
+          "scene_en": "Four workers waiting next to the crane, faces turned away",
+          "usable": true
+        }
+      ],
+      "note": {
+        "kind": "voice",
+        "language": "pl",
+        "text": "Schody prefabrykowane od Obermeiera, które zamówił inwestor, miały przyjechać o 14:00, a nadal ich nie ma. Żuraw i 4 ludzi stoją w gotowości. Wyślij zdjęcie i zapytaj, co się dzieje."
+      },
+      "gold": {
+        "report": [
+          "4_lieferungen",
+          "6_vorkommnisse"
+        ],
+        "event": {
+          "id": "EVT-06",
+          "type": "material_delay",
+          "cause": "material_late",
+          "actor": "OBERMEIER",
+          "sphere": "AG",
+          "start": "14:00",
+          "end": null,
+          "crew": {
+            "crew_id": null,
+            "idle": 4,
+            "note": "4 pracowników + żuraw w gotowości"
+          },
+          "document": {
+            "type": "Zgłoszenie przeszkody (Behinderungsanzeige)",
+            "basis": [
+              "§ 6 ust. 1 VOB/B",
+              "§ 6 ust. 2 nr 1 lit. a VOB/B"
+            ],
+            "deadline": "niezwłocznie"
+          },
+          "contrastive_pair": {
+            "with": "C05",
+            "differs_in": "dostarczane przez AG → sfera odpowiedzialności AG"
+          }
+        },
+        "action": {
+          "type": "email",
+          "purpose": "Zapytanie o dostawę inwestorską + zgłoszenie przeszkody",
+          "to": "AG-VERTRETER",
+          "cc": [],
+          "attach": [
+            "C11-P1",
+            "C11-P2"
+          ],
+          "must_include": [
+            "Schody prefabrykowane klatka schodowa Północ",
+            "dostawa zapewniana przez AG (Obermeier)",
+            "awizowane na 14:00",
+            "Żuraw i 4 osoby w gotowości"
+          ],
+          "must_not": [],
+          "deadline": "niezwłocznie"
+        }
+      }
+    },
+    {
+      "id": "C12",
+      "time": "16:35",
+      "purpose": "progress",
+      "photos": [
+        {
+          "id": "C12-P1",
+          "scene_en": "Axis C with bottom and partly top reinforcement layer placed",
+          "usable": true
+        },
+        {
+          "id": "C12-P2",
+          "scene_en": "Excavation BA1 at end of day, deeper than in the morning",
+          "usable": true
+        },
+        {
+          "id": "C12-P3",
+          "scene_en": "Selfie-angle shot of a helmet",
+          "usable": false,
+          "reason": "accidental"
+        }
+      ],
+      "note": {
+        "kind": "text",
+        "language": "pl",
+        "text": "Fajrant. Dzisiaj 7,2 t zbrojenia, oś C w połowie gotowa. Wykop jakieś 150 kubików. Szalunek krawędziowy oś D 21 m."
+      },
+      "gold": {
+        "report": [
+          "5_tagesleistung",
+          "7_foto"
+        ],
+        "event": null,
+        "action": null,
+        "facts": {
+          "A40_t": 7.2,
+          "A20_m3": 150,
+          "A35_m": 21
+        }
+      }
+    }
+  ],
+  "photo_triage_gold": {
+    "total": 36,
+    "usable": 24,
+    "reasons": [
+      "accidental",
+      "blurry",
+      "near_duplicate",
+      "obstructed",
+      "overexposed",
+      "underexposed"
+    ]
+  },
+  "expected_report": {
+    "comment": "Struktura według nowego szablonu (8 sekcji, bez dowodów/źródeł).",
+    "1_witterung": {
+      "temp_min_c": 1.4,
+      "temp_max_c": 5.8,
+      "precip_mm": 1.2,
+      "gust_kmh": 25,
+      "bewertung": "typowe warunki pogodowe – brak przeszkód"
+    },
+    "2_personal": [
+      {
+        "crew": "Brygada Müllera",
+        "soll": 8,
+        "ist": 8,
+        "stillstand_mann_h": 2
+      },
+      {
+        "crew": "Brygada Szalunkowa",
+        "soll": 4,
+        "ist": 4,
+        "stillstand_mann_h": 0
+      },
+      {
+        "crew": "Roboty ziemne",
+        "soll": 4,
+        "ist": 4,
+        "stillstand_mann_h": 18
+      }
+    ],
+    "3_geraete": [
+      {
+        "device": "Koparka",
+        "soll_h": 10,
+        "ist_h": 5.5,
+        "ausfall": "09:30-14:00",
+        "ursache": "Obudowa oś 4 (Spezialtiefbau Maier) nieukończona"
+      },
+      {
+        "device": "Żuraw wieżowy",
+        "soll_h": 10,
+        "ist_h": 10,
+        "ausfall": null,
+        "ursache": null
+      }
+    ],
+    "4_lieferungen": [
+      {
+        "supplier": "Stahlhandel Süd",
+        "item": "Stal zbrojeniowa oś C",
+        "qty": "2,5 t",
+        "planned": "07:00-08:00",
+        "actual": "07:20",
+        "status": "punktualnie",
+        "delivery_note": "LS-448213"
+      },
+      {
+        "supplier": "Stahlhandel Süd",
+        "item": "Kosze wsporcze/dystanse",
+        "qty": "1 paleta",
+        "planned": "09:00-10:00",
+        "actual": "11:00",
+        "status": "opóźniona"
+      },
+      {
+        "supplier": "Fertigteile Obermeier (dostawa AG)",
+        "item": "Schody prefabrykowane klatka schodowa Północ",
+        "qty": "1 szt.",
+        "planned": "14:00",
+        "actual": null,
+        "status": "niedostarczona"
+      }
+    ],
+    "5_tagesleistung": [
+      {
+        "vorgang": "A20",
+        "tagessoll": 320,
+        "ist": 150,
+        "einheit": "m³"
+      },
+      {
+        "vorgang": "A35",
+        "tagessoll": 24,
+        "ist": 21,
+        "einheit": "m"
+      },
+      {
+        "vorgang": "A40",
+        "tagessoll": 8,
+        "ist": 7.2,
+        "einheit": "t"
+      },
+      {
+        "vorgang": "A70",
+        "tagessoll": 1,
+        "ist": 0,
+        "einheit": "szt."
+      }
+    ],
+    "6_vorkommnisse": [
+      "EVT-01",
+      "EVT-02",
+      "EVT-03",
+      "EVT-04",
+      "EVT-05",
+      "EVT-06"
+    ],
+    "7_foto": {
+      "selected": [
+        "C01-P1",
+        "C01-P4",
+        "C02-P1",
+        "C04-P2",
+        "C08-P1",
+        "C09-P1",
+        "C09-P2",
+        "C10-P1",
+        "C11-P1",
+        "C12-P1",
+        "C12-P2"
+      ],
+      "rule": "maks. 2 najlepsze zdjęcia na wpis, tylko usable=True; preferowane zdjęcia usterek i postępu prac"
+    },
+    "emails_expected": [
+      "C04 → AG-VERTRETER",
+      "C05 → STAHL-SUED",
+      "C06 → YILDIZ (wewnętrznie)",
+      "C08 → NOVAK",
+      "C10 → AG-VERTRETER",
+      "C11 → AG-VERTRETER"
+    ],
+    "emails_must_not": [
+      "brak e-maila do MAIER (kontrahent AG)",
+      "brak e-maila do AG w sprawie C05/C06/C08",
+      "brak e-maila w sprawie C01/C02/C03/C07/C09/C12"
+    ]
+  },
+  "generation": {
+    "photo": "Wygenerować obraz na podstawie 'scene_en' (zdjęcie z telefonu, niemiecka budowa, listopad). Obrazy z usable=False wygenerować celowo z podanym błędem (blurry, overexposed, near_duplicate, obstructed, accidental, underexposed).",
+    "voice": "TTS z note.text w języku note.language, następnie szum audio.noise o poziomie audio.snr_db.",
+    "text": "note.text bez zmian jako podpis pod zdjęciem."
+  }
+}

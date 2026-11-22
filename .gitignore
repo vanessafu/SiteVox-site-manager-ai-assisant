@@ -28,3 +28,4 @@ tts_cache/
 torch_cache/
 vllm-cache/
 *.wav.tmp
+data/hf_release/

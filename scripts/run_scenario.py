@@ -6,6 +6,11 @@
   # 2) Szenario-Tag mit echten Modellen (vLLM + ASR) in dieselbe Datenbank
   SITEVOX_DATA=data/scenario_runs/X SITEVOX_MODE=gpu python scripts/run_scenario.py data/raw/scenario_SCN-RIEM-0016_en
 
+Schema 0.3/0.4 (kind "capture" = Fotoserie + eine Notiz) wird so eingespielt, wie es die App erlaubt (ein Foto +
+eine Beschreibung je Upload): das ERSTE Foto der Serie mit der Notiz (Text bzw. Sprachaufnahme), die übrigen Fotos
+ohne Beschreibung (die Pipeline hängt sie selbst an passende Ereignisse). Folgetage (23.→26.11.) laufen nacheinander
+in dieselbe Datenbank, damit "closes"/"continues" über Tage hinweg geprüft werden können.
+
 Die Pipeline bekommt NUR inputs.json (Audio, Notizen, Fotos mit Zufallsnamen + EXIF-Zeit, Bildunterschrift als Antwort
 auf die Foto-Rückfrage). gold.json wird hier NICHT gelesen. Ausgabe: <SITEVOX_DATA>/run_output.json für
 evaluation/eval_scenario.py.
@@ -29,6 +34,8 @@ TZ = "+01:00"
 EXTRA_ACTIVITIES = {
     "A35": {"name": "Abschalung Bodenplatte Achse D", "aliases": ["Abschalung", "Randschalung Achse D",
                                                                    "Edge formwork", "edge formwork axis D"]},
+    "A70": {"name": "Montage Fertigteiltreppe TH Nord", "aliases": ["Fertigteiltreppe", "Treppe TH Nord",
+                                                                     "precast stair", "prefabricated staircase"]},
 }
 
 
@@ -37,7 +44,7 @@ def ensure_activities(pid: str, day: str, plan: dict | None) -> None:
     for aid, extra in EXTRA_ACTIVITIES.items():
         if aid in have:
             continue
-        unit, target = "m", 24
+        unit, target = {"A70": ("Stk", 1)}.get(aid, ("m", 24))
         for a in (plan or {}).get("activities", []):
             if a["id"] == aid:
                 unit, target = a["unit"], a["daily_target"]
@@ -45,6 +52,37 @@ def ensure_activities(pid: str, day: str, plan: dict | None) -> None:
                                   "unit": unit, "lv_pos": "", "lv_sum": 0.0, "preds": [], "aliases": extra["aliases"],
                                   "kind": "task", "duration": 1})
         print(f"Vorgang {aid} ({extra['name']}) ergänzt")
+
+
+def _replay_capture(pid: str, root: Path, m: dict, ts: str, umeta: dict) -> dict:
+    """Erfassung wie in der App: 1. Foto + 1. Notiz als Beschreibung, weitere Fotos ohne Beschreibung, weitere
+    Notizen als eigene Nachricht (Text/Sprache) kurz danach. Ohne Foto: jede Notiz als eigene Nachricht."""
+    notes = m.get("notes") or [m["note"]]
+    key = notes[0]["file"]   # Erfassungs-Schlüssel für die Auswertung (wird der Pipeline nicht übergeben)
+
+    def desc(n: dict) -> dict:
+        f = root / n["file"]
+        if n["kind"] == "audio":
+            return {"mode": "audio", "file": f, "text": None, "language": None}
+        return {"mode": "note", "text": f.read_text(encoding="utf-8"), "file": None, "language": None}
+
+    def tag(c: dict, file: str, role: str, note_file: str | None) -> dict:
+        c["_file"], c["_role"], c["_note"], c["_key"] = file, role, note_file, key
+        return c
+
+    caps, rest = [], list(notes)
+    for i, ph in enumerate(m["photos"]):
+        d = desc(rest.pop(0)) if i == 0 and rest else {"mode": "none", "text": None, "file": None, "language": None}
+        c = ingest(pid, "photo", file=root / ph, captured_at=ts, meta=dict(umeta), prefer_exif_time=True, description=d)
+        caps.append(tag(c, ph, "photo+note" if i == 0 else "photo", notes[0]["file"] if i == 0 else None))
+    for k, n in enumerate(rest):  # weitere Notizen bzw. Erfassung ohne Foto
+        t = ts[:17] + f"{min(59, 20 + 15 * k):02d}" + ts[19:]
+        if n["kind"] == "audio":
+            c = ingest(pid, "audio", file=root / n["file"], captured_at=t, meta=dict(umeta))
+        else:
+            c = ingest(pid, "note", text=(root / n["file"]).read_text(encoding="utf-8"), captured_at=t, meta=dict(umeta))
+        caps.append(tag(c, n["file"], n["kind"], n["file"]))
+    return {"capture_id": caps[0]["capture_id"], "_all": caps}
 
 
 def main() -> None:
@@ -65,7 +103,7 @@ def main() -> None:
 
     log = []
     for m in man["inputs"]:
-        f = a.inputs_dir / m["file"]
+        f = a.inputs_dir / m.get("file", "")
         ts = f"{day}T{m['time']}:00{TZ}"
         t0 = time.perf_counter()
         umeta = {"source": "mobile", "output_language": out_lang}
@@ -73,6 +111,8 @@ def main() -> None:
             cap = ingest(pid, "note", text=f.read_text(encoding="utf-8"), captured_at=ts, meta=umeta)
         elif m["kind"] == "audio":
             cap = ingest(pid, "audio", file=f, captured_at=ts, meta=umeta)
+        elif m["kind"] == "capture":
+            cap = _replay_capture(pid, a.inputs_dir, m, ts, umeta)
         elif m["kind"] == "photo":
             cap = ingest(pid, "photo", file=f, captured_at=ts, meta=umeta, prefer_exif_time=True)
             q = (cap.get("followup") or {}).get("question")
@@ -82,6 +122,15 @@ def main() -> None:
         else:
             continue
         dt = time.perf_counter() - t0
+        if m["kind"] == "capture":
+            for c in cap["_all"]:
+                log.append({"file": c["_file"], "kind": c["_role"], "time": m["time"], "capture_id": c["capture_id"],
+                            "event_ids": c.get("event_ids", []), "log_ids": c.get("log_ids", []),
+                            "note_file": c["_note"], "capture_key": c["_key"], "seconds": round(dt, 1)})
+            print(f"{m['time']} serie {cap['_all'][0]['_key']:<30} {len(m['photos'])} Fotos → "
+                  f"{[c['capture_id'] for c in cap['_all']]} Ereignisse {sorted({e for c in cap['_all'] for e in c.get('event_ids', [])})}"
+                  f" Tagebuch {sum(len(c.get('log_ids') or []) for c in cap['_all'])}  ({dt:.1f}s)", flush=True)
+            continue
         log.append({"file": m["file"], "kind": m["kind"], "time": m["time"], "capture_id": cap["capture_id"],
                      "event_ids": cap.get("event_ids", []), "seconds": round(dt, 1)})
         print(f"{m['time']} {m['kind']:<5} {m['file']:<26} → {cap['capture_id']} Ereignisse {cap.get('event_ids')}"
@@ -111,17 +160,24 @@ def main() -> None:
                  "output_language": out_lang},
         "inputs": log,
         "captures": [{**{k: c.get(k) for k in ("capture_id", "kind", "captured_at", "file", "event_ids", "summary",
-                                                "asr_score", "text", "meta")},
+                                                "asr_score", "text", "meta", "log_ids", "logs", "hints")},
                       "transcript_text": (c.get("transcript") or {}).get("text"),
                       "language": (c.get("transcript") or {}).get("language"),
                       "vision": (c.get("vision") or {}).get("analysis"), "followup": c.get("followup"),
                       "answer": c.get("answer")} for c in caps.values()],
         "events": list(touched.values()),
         "evidence_capture": {x: (store.evidence(x) or {}).get("capture_id")
-                             for e in touched.values() for x in e["evidence"]},
+                             for x in {x for e in touched.values() for x in e["evidence"]}
+                             | {x for p in store.progress(pid) if p["date"] == day for x in p.get("evidence_ids") or []}
+                             | {s.get("evidence_id") for s in store.staffing(pid, day)} - {None}},
         "letters": [store.get("letters", l["letter_id"]) if isinstance(l, dict) else store.get("letters", l)
                     for l in letters],
         "progress": [p for p in store.progress(pid) if p["date"] == day],
+        "log_entries": store.log_entries(pid, day),
+        "events_all": [{k: e.get(k) for k in ("event_id", "date", "type", "sphere", "status", "start", "end",
+                                              "letter_id", "description")} for e in store.events(pid)],
+        "letters_all": [{k: l.get(k) for k in ("letter_id", "event_id", "kind", "status", "created_at")}
+                        for l in store.query("letters")] if hasattr(store, "query") else [],
         "staffing": store.staffing(pid, day),
     }
     dst = settings.data_dir() / "run_output.json"

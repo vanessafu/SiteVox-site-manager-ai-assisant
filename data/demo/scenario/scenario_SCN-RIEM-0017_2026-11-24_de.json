@@ -1,0 +1,720 @@
+{
+  "schema_version": "gold-scenario/0.5-photo-first-project-grounded",
+  "scenario_id": "SCN-RIEM-0017",
+  "title": "Achse C wird fertig – Durchführungen TGA noch offen",
+  "language": "de",
+  "meta": {
+    "project_id": "BV-RIEM",
+    "project_name": "Neubau Wohnanlage Riem, Baufeld 3",
+    "contract_id": "RI-2026-014",
+    "contract_type": "VOB_B",
+    "date": "2026-11-24",
+    "weekday": "Dienstag",
+    "report_no": 17,
+    "working_hours": "07:00-17:00",
+    "report_language": "de-DE"
+  },
+  "persona": {
+    "id": "P-HOFMANN",
+    "name": "J. Hofmann",
+    "role": "Bauleitung Hofbau Rohbau GmbH",
+    "note": "einzige Person mit Eingaben"
+  },
+  "interaction_model": {
+    "capture": "Aufnahme = 0–2 Fotos + 1–2 Notizen (Text oder Sprache), umgangssprachlich; Aufnahmen ohne Foto sind erlaubt",
+    "escalation": "Fehler/fehlendes Material → Sprachnotiz → Nachricht/E-Mail (mit Fotos, falls vorhanden) an Zuständigen; Versand nach Freigabe",
+    "email_language": "de"
+  },
+  "sources": [
+    "docs/Bauvertrag_RI-2026-014.md",
+    "docs/LV_Rohbau.md",
+    "docs/Planlieferliste.md",
+    "docs/Protokoll_BB07_2026-11-18.md",
+    "plan/Bauzeitenplan.xlsx",
+    "history/leistung.csv",
+    "Bautagesbericht Nr. 15 (20.11.)"
+  ],
+  "registry": {
+    "comment": "Empfänger/Sphäre folgen aus contracted_by + Bauvertrag §5. Nur Wagner nimmt vertragliche Erklärungen/Anzeigen entgegen.",
+    "parties": [
+      {
+        "id": "AG",
+        "name": "Wohnbau Riem GmbH & Co. KG",
+        "role": "Auftraggeber",
+        "contracted_by": null,
+        "source": "Bauvertrag S.1"
+      },
+      {
+        "id": "AG-VERTRETER",
+        "name": "Dipl.-Ing. Thomas Wagner",
+        "role": "Projektsteuerung, bevollmächtigter Vertreter des AG",
+        "contracted_by": "AG",
+        "email": "t.wagner@wohnbau-riem.example",
+        "authorized": true,
+        "source": "Bauvertrag §5"
+      },
+      {
+        "id": "LECHNER",
+        "name": "Architekturbüro Lechner",
+        "role": "Objektplanung",
+        "contracted_by": "AG",
+        "authorized": false,
+        "email": "info@lechner-architektur.example",
+        "source": "Bauvertrag §5, Protokoll BB07"
+      },
+      {
+        "id": "BRANDL",
+        "name": "Ingenieurbüro Brandl",
+        "role": "Tragwerksplanung",
+        "contracted_by": "AG",
+        "authorized": false,
+        "email": "info@ib-brandl.example",
+        "source": "Bauvertrag §5, Planlieferliste"
+      },
+      {
+        "id": "AN",
+        "name": "Hofbau Rohbau GmbH",
+        "role": "Auftragnehmer (wir)",
+        "contracted_by": null,
+        "source": "Bauvertrag S.1"
+      },
+      {
+        "id": "K-MUELLER",
+        "name": "Kolonne Müller (Vorarbeiter)",
+        "role": "eigene Kolonne Bewehrung",
+        "contracted_by": "AN",
+        "email": "kolonne.mueller@hofbau.example",
+        "source": "Bericht Nr. 15"
+      },
+      {
+        "id": "K-SCHALUNG",
+        "name": "Kolonne Schalung (Vorarbeiter)",
+        "role": "eigene Kolonne Schalung",
+        "contracted_by": "AN",
+        "email": "kolonne.schalung@hofbau.example",
+        "source": "Bericht Nr. 15"
+      },
+      {
+        "id": "K-ERDBAU",
+        "name": "Erdbau (Polier)",
+        "role": "eigene Kolonne Erdbau",
+        "contracted_by": "AN",
+        "email": "erdbau@hofbau.example",
+        "source": "Bericht Nr. 15"
+      },
+      {
+        "id": "WERKSTATT",
+        "name": "Werkstatt Hofbau",
+        "role": "eigene Gerätewerkstatt",
+        "contracted_by": "AN",
+        "email": "werkstatt@hofbau.example",
+        "assumption": true
+      },
+      {
+        "id": "STAHL",
+        "name": "Stahlhandel Süd GmbH",
+        "role": "Lieferant Betonstahl (LV 03.030 'liefern' = AN)",
+        "contracted_by": "AN",
+        "email": "dispo@stahlhandel-sued.example",
+        "assumption": true
+      },
+      {
+        "id": "BAUSTOFF",
+        "name": "Baustoffhandel Riem",
+        "role": "Lieferant Schalungskörper/Zubehör",
+        "contracted_by": "AN",
+        "email": "verkauf@baustoffe-riem.example",
+        "assumption": true
+      },
+      {
+        "id": "BETONWERK",
+        "name": "Transportbeton München-Ost",
+        "role": "Lieferant Beton + Pumpe (Pumpe lt. BB07 TOP 4 durch AN bestellt)",
+        "contracted_by": "AN",
+        "email": "dispo@tb-muenchen-ost.example",
+        "assumption": true
+      }
+    ]
+  },
+  "plan": {
+    "source": "Bauzeitenplan.xlsx + Fortschreibung lt. Bericht Nr. 15",
+    "activities": [
+      {
+        "id": "A20",
+        "name": "Aushub BA1",
+        "lv": "02.010",
+        "lv_qty": 4480,
+        "unit": "m³",
+        "plan_end": "2026-11-23",
+        "forecast_end": "2026-11-25"
+      },
+      {
+        "id": "A40",
+        "name": "Bewehrung BP",
+        "lv": "03.030",
+        "lv_qty": 64,
+        "unit": "t",
+        "plan_end": "2026-11-20",
+        "forecast_end": "2026-11-24",
+        "critical_path": true
+      },
+      {
+        "id": "A50",
+        "name": "Betonage BP",
+        "lv": "03.040",
+        "lv_qty": 255,
+        "unit": "m³",
+        "plan_end": "2026-11-24",
+        "forecast_end": "2026-11-30",
+        "critical_path": true,
+        "note": "Betonage in 3 Abschnitten: A–B 26.11., C 27.11., D 30.11."
+      },
+      {
+        "id": "A60",
+        "name": "Wände EG",
+        "lv": "04.010",
+        "lv_qty": 820,
+        "unit": "m²",
+        "plan_start": "2026-11-30",
+        "critical_path": true
+      },
+      {
+        "id": "M1",
+        "name": "Vertragsfrist Rohbau EG",
+        "date": "2026-12-16",
+        "source": "Bauvertrag §6"
+      }
+    ],
+    "crews": [
+      {
+        "id": "K-MUELLER",
+        "planned": 8
+      },
+      {
+        "id": "K-SCHALUNG",
+        "planned": 4
+      },
+      {
+        "id": "K-ERDBAU",
+        "planned": 4
+      }
+    ],
+    "daily_targets": {
+      "A20": 320,
+      "A40": 1.5,
+      "A50": 0
+    },
+    "deliveries_expected": [
+      {
+        "id": "L-01",
+        "supplier": "BAUSTOFF",
+        "item": "Aussparungskörper bis 20x20 cm (LV 03.050)",
+        "qty": "12 Stk",
+        "window": "07:30"
+      },
+      {
+        "id": "L-02",
+        "supplier": "STAHL",
+        "item": "Betonstahl Rest Achse C",
+        "qty": "1,5 t",
+        "window": "10:00"
+      }
+    ],
+    "state_before_day": {
+      "A20": 4005,
+      "A40": 62.5,
+      "A50": 0,
+      "assumption_23_11": "23.11.: A20 150 m³, A40 2,5 t (Achse C ab 08:30 nach Planeingang). Hinweis: Szenario SCN-RIEM-0016P nannte 7,2 t – mit LV 64 t nicht vereinbar, dort anpassen."
+    }
+  },
+  "weather_ground_truth": {
+    "temp_min_c": 2.1,
+    "temp_max_c": 6.4,
+    "precip_mm": 0.0,
+    "gust_kmh": 20,
+    "assumption": "Werte angenommen – durch DWD-Fixture ersetzen",
+    "assessment": "übliche Witterung – keine Behinderung"
+  },
+  "captures": [
+    {
+      "id": "C01",
+      "time": "07:00",
+      "purpose": "progress",
+      "photos": [],
+      "notes": [
+        {
+          "kind": "text",
+          "language": "de",
+          "text": "Morgen, alle 16 da. Müller macht heute Achse C fertig."
+        }
+      ],
+      "gold": {
+        "report": [
+          "2_personal"
+        ],
+        "facts": {
+          "personnel_total": 16
+        }
+      }
+    },
+    {
+      "id": "C02",
+      "time": "07:35",
+      "purpose": "material",
+      "photos": [
+        {
+          "id": "C02-P1",
+          "scene_en": "Pallet with 12 grey box-out formers being unloaded, delivery note on top",
+          "usable": true
+        }
+      ],
+      "notes": [
+        {
+          "kind": "text",
+          "language": "de",
+          "text": "Aussparungskörper sind da, 12 Stück, pünktlich um 07:30."
+        }
+      ],
+      "gold": {
+        "report": [
+          "4_lieferungen",
+          "7_foto"
+        ],
+        "facts": {
+          "delivery": "L-01",
+          "qty": "12 Stk",
+          "time": "07:30",
+          "on_time": true
+        },
+        "source_refs": [
+          "LV 03.050"
+        ]
+      }
+    },
+    {
+      "id": "C03",
+      "time": "08:30",
+      "purpose": "defect",
+      "audio": {
+        "noise": "wind",
+        "snr_db": 10
+      },
+      "photos": [
+        {
+          "id": "C03-P1",
+          "scene_en": "North edge of the excavation pit, about 15 m without guardrail, warning tape only",
+          "usable": true
+        },
+        {
+          "id": "C03-P2",
+          "scene_en": "Same as P1",
+          "usable": false,
+          "reason": "near_duplicate"
+        }
+      ],
+      "notes": [
+        {
+          "kind": "voice",
+          "language": "de",
+          "text": "Mist, an der Nordkante von der Baugrube fehlt immer noch das Geländer, so 15 Meter. Das hätten wir laut Besprechung bis 20.11. machen müssen. Erdbau soll das heute Vormittag noch zumachen, schick denen das Foto."
+        }
+      ],
+      "gold": {
+        "report": [
+          "6_vorkommnisse",
+          "7_foto"
+        ],
+        "event": {
+          "id": "EVT-17-01",
+          "type": "quality_defect",
+          "cause": "own_quality_defect",
+          "actor": "AN",
+          "sphere": "AN",
+          "start": "08:30",
+          "safety_relevant": true,
+          "document": null,
+          "note": "Eigene Pflicht lt. Protokoll BB07 TOP 2 (bis 20.11.) – überfällig"
+        },
+        "action": {
+          "type": "internal_message",
+          "to": "K-ERDBAU",
+          "attach": [
+            "C03-P1"
+          ],
+          "must_include": [
+            "Nordkante Baugrube",
+            "ca. 15 m Geländer fehlt",
+            "Frist heute Vormittag",
+            "Absturzgefahr"
+          ],
+          "must_not": [
+            "E-Mail an AG"
+          ]
+        },
+        "source_refs": [
+          "Protokoll BB07 TOP 2"
+        ]
+      }
+    },
+    {
+      "id": "C04",
+      "time": "10:30",
+      "purpose": "material",
+      "audio": {
+        "noise": "excavator",
+        "snr_db": 10
+      },
+      "photos": [],
+      "notes": [
+        {
+          "kind": "voice",
+          "language": "de",
+          "text": "Der Reststahl für Achse C, die 1,5 Tonnen, ist nicht gekommen, sollte um 10 da sein. 2 Mann von Müller stehen. Schreib dem Stahlhändler, ich will wissen, wann der Lkw kommt."
+        }
+      ],
+      "gold": {
+        "report": [
+          "4_lieferungen",
+          "6_vorkommnisse"
+        ],
+        "event": {
+          "id": "EVT-17-02",
+          "type": "material_delay",
+          "cause": "material_late",
+          "actor": "STAHL",
+          "sphere": "AN",
+          "start": "10:00",
+          "end": "11:30",
+          "crew": {
+            "crew_id": "K-MUELLER",
+            "idle": 2
+          },
+          "document": null
+        },
+        "action": {
+          "type": "email",
+          "to": "STAHL",
+          "attach": [],
+          "must_include": [
+            "Betonstahl Rest Achse C 1,5 t",
+            "Liefertermin 10:00",
+            "verbindliche Ankunftszeit"
+          ],
+          "must_not": [
+            "Kopie an AG",
+            "Behinderungsanzeige"
+          ],
+          "note": "nur Sprachnotiz, kein Foto – E-Mail ohne Anhang"
+        },
+        "source_refs": [
+          "LV 03.030 (liefern durch AN)"
+        ]
+      }
+    },
+    {
+      "id": "C05",
+      "time": "11:35",
+      "purpose": "material",
+      "photos": [],
+      "notes": [
+        {
+          "kind": "text",
+          "language": "de",
+          "text": "Stahl ist da, 11:30."
+        }
+      ],
+      "gold": {
+        "report": [
+          "4_lieferungen"
+        ],
+        "closes": "EVT-17-02"
+      }
+    },
+    {
+      "id": "C06",
+      "time": "13:20",
+      "purpose": "progress",
+      "photos": [
+        {
+          "id": "C06-P1",
+          "scene_en": "Axis C fully reinforced, top layer complete",
+          "usable": true
+        },
+        {
+          "id": "C06-P2",
+          "scene_en": "Wide shot whole slab reinforced axes A–D",
+          "usable": true
+        }
+      ],
+      "notes": [
+        {
+          "kind": "text",
+          "language": "de",
+          "text": "Achse C fertig, Bewehrung Bodenplatte komplett."
+        },
+        {
+          "kind": "text",
+          "language": "de",
+          "text": "Frag Brandl, ob er morgen um 08:00 zur Abnahme kommt."
+        }
+      ],
+      "gold": {
+        "report": [
+          "5_tagesleistung",
+          "7_foto"
+        ],
+        "action": {
+          "type": "email",
+          "to": "BRANDL",
+          "cc": [
+            "AG-VERTRETER"
+          ],
+          "attach": [
+            "C06-P1",
+            "C06-P2"
+          ],
+          "must_include": [
+            "Bewehrung Bodenplatte fertig",
+            "Terminvorschlag Bewehrungsabnahme 25.11. 08:00"
+          ],
+          "must_not": [
+            "vertragliche Erklärung an Brandl"
+          ],
+          "note": "Technische Terminabstimmung darf an Brandl; Wagner in Kopie (Bauvertrag §5)"
+        }
+      }
+    },
+    {
+      "id": "C07",
+      "time": "15:10",
+      "purpose": "defect",
+      "audio": {
+        "noise": "wind",
+        "snr_db": 5
+      },
+      "photos": [
+        {
+          "id": "C07-P1",
+          "scene_en": "Axes A–B reinforced, box-out formers stacked unused next to it",
+          "usable": true
+        }
+      ],
+      "notes": [
+        {
+          "kind": "voice",
+          "language": "de",
+          "text": "Lechner hat angerufen, die Durchführungen für die Haustechnik in Achse A und B sind immer noch nicht festgelegt, das soll erst morgen in der Besprechung kommen. Ohne Lage können wir die Aussparungskörper nicht setzen, und dann ist die Betonage am 26. weg. Schick das raus."
+        }
+      ],
+      "gold": {
+        "report": [
+          "6_vorkommnisse",
+          "7_foto"
+        ],
+        "event": {
+          "id": "EVT-17-03",
+          "type": "plan_delivery_delay",
+          "cause": "ag_decision_pending",
+          "actor": "LECHNER",
+          "sphere": "AG",
+          "start": "15:10",
+          "affected_activities": [
+            "A50"
+          ],
+          "document": {
+            "type": "Behinderungsanzeige (vorsorglich)",
+            "basis": [
+              "§ 6 Abs. 1 VOB/B",
+              "§ 6 Abs. 2 Nr. 1 a VOB/B"
+            ],
+            "deadline": "unverzueglich"
+          },
+          "note": "Entscheidung lt. Protokoll BB07 TOP 5 bis 25.11.; Betonage 26.11. gefährdet"
+        },
+        "action": {
+          "type": "email",
+          "to": "AG-VERTRETER",
+          "attach": [
+            "C07-P1"
+          ],
+          "must_include": [
+            "Lage TGA-Durchführungen Achse A–B fehlt",
+            "Frist lt. BB07 TOP 5: 25.11.",
+            "Betonage 26.11. gefährdet"
+          ],
+          "must_not": [
+            "Anzeige nur an Lechner"
+          ],
+          "routing_note": "Sprecher nennt keinen Empfänger; Lechner nicht bevollmächtigt (Bauvertrag §5) → Wagner"
+        },
+        "source_refs": [
+          "Bauvertrag §5",
+          "Protokoll BB07 TOP 5"
+        ]
+      }
+    },
+    {
+      "id": "C08",
+      "time": "16:30",
+      "purpose": "progress",
+      "photos": [
+        {
+          "id": "C08-P1",
+          "scene_en": "Excavation BA1 at end of day, excavator parked",
+          "usable": true
+        },
+        {
+          "id": "C08-P2",
+          "scene_en": "Helmet selfie",
+          "usable": false,
+          "reason": "accidental"
+        }
+      ],
+      "notes": [
+        {
+          "kind": "text",
+          "language": "de",
+          "text": "Feierabend. Aushub 310 Kubik, Bewehrung 1,5 t, Achse C fertig."
+        }
+      ],
+      "gold": {
+        "report": [
+          "3_geraete",
+          "5_tagesleistung",
+          "7_foto"
+        ],
+        "facts": {
+          "A20": 310,
+          "A40": 1.5
+        }
+      }
+    }
+  ],
+  "photo_triage_gold": {
+    "total": 8,
+    "usable": 6,
+    "unusable": {
+      "C03-P2": "near_duplicate",
+      "C08-P2": "accidental"
+    }
+  },
+  "expected_report": {
+    "2_personal": [
+      {
+        "crew": "Kolonne Müller",
+        "soll": 8,
+        "ist": 8,
+        "stillstand_mann_h": 3.0
+      },
+      {
+        "crew": "Kolonne Schalung",
+        "soll": 4,
+        "ist": 4,
+        "stillstand_mann_h": 0
+      },
+      {
+        "crew": "Erdbau",
+        "soll": 4,
+        "ist": 4,
+        "stillstand_mann_h": 0
+      }
+    ],
+    "3_geraete": [
+      {
+        "device": "Bagger",
+        "soll_h": 10,
+        "ist_h": 10,
+        "ausfall": null
+      },
+      {
+        "device": "Turmdrehkran",
+        "soll_h": 10,
+        "ist_h": 10,
+        "ausfall": null
+      }
+    ],
+    "4_lieferungen": [
+      {
+        "supplier": "Baustoffhandel Riem",
+        "item": "Aussparungskörper",
+        "qty": "12 Stk",
+        "planned": "07:30",
+        "actual": "07:30",
+        "status": "pünktlich"
+      },
+      {
+        "supplier": "Stahlhandel Süd",
+        "item": "Betonstahl Rest Achse C",
+        "qty": "1,5 t",
+        "planned": "10:00",
+        "actual": "11:30",
+        "status": "verspätet"
+      }
+    ],
+    "5_tagesleistung": [
+      {
+        "vorgang": "A20",
+        "tagessoll": 320,
+        "ist": 310,
+        "einheit": "m³",
+        "gesamt_nach": 4315,
+        "lv": 4480
+      },
+      {
+        "vorgang": "A40",
+        "tagessoll": 1.5,
+        "ist": 1.5,
+        "einheit": "t",
+        "gesamt_nach": 64.0,
+        "lv": 64,
+        "status": "fertig"
+      },
+      {
+        "vorgang": "A50",
+        "tagessoll": 0,
+        "ist": 0,
+        "einheit": "m³",
+        "note": "Start 26.11."
+      }
+    ],
+    "5_terminauswirkung": [
+      "A50 Betonage BP: Start 26.11. gefährdet, falls Lage TGA-Durchführungen nicht bis 25.11. (EVT-17-03)"
+    ],
+    "6_vorkommnisse": [
+      "EVT-17-01",
+      "EVT-17-02",
+      "EVT-17-03"
+    ],
+    "documents_to_draft": [
+      {
+        "doc": "Behinderungsanzeige (vorsorglich)",
+        "event": "EVT-17-03",
+        "to": "AG-VERTRETER"
+      }
+    ],
+    "messages_expected": [
+      "C03 → K-ERDBAU (intern)",
+      "C04 → STAHL (ohne Anhang)",
+      "C06 → BRANDL cc AG-VERTRETER",
+      "C07 → AG-VERTRETER"
+    ],
+    "must_not": [
+      "keine Mail an AG zu C03/C04",
+      "keine Anzeige an Lechner"
+    ],
+    "note_stillstand": "Kolonne Müller 2 Mann 10:00–11:30 = 3,0 Mann-h",
+    "1_witterung": {
+      "temp_min_c": 2.1,
+      "temp_max_c": 6.4,
+      "precip_mm": 0.0,
+      "gust_kmh": 20,
+      "assumption": "Werte angenommen – durch DWD-Fixture ersetzen",
+      "assessment": "übliche Witterung – keine Behinderung"
+    }
+  },
+  "generation": {
+    "photo": "Bild aus scene_en; usable=False absichtlich mit genanntem Fehler erzeugen. Dateiname = Foto-id (z. B. C01-P1.jpg).",
+    "voice": "TTS aus notes[].text (kind=voice), danach Rauschen audio.noise/audio.snr_db.",
+    "text": "notes[].text (kind=text) als Nachricht; mehrere Notizen = mehrere Nachrichten kurz hintereinander."
+  }
+}

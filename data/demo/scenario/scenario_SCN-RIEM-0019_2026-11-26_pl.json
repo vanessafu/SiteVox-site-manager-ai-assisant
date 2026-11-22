@@ -1,0 +1,667 @@
+{
+  "schema_version": "gold-scenario/0.5-photo-first-project-grounded",
+  "scenario_id": "SCN-RIEM-0019",
+  "title": "Betonage Abschnitt A–B – Betonlieferung stockt, Änderung der Oberfläche durch AG",
+  "language": "pl",
+  "meta": {
+    "project_id": "BV-RIEM",
+    "project_name": "Neubau Wohnanlage Riem, Baufeld 3",
+    "contract_id": "RI-2026-014",
+    "contract_type": "VOB_B",
+    "date": "2026-11-26",
+    "weekday": "Donnerstag",
+    "report_no": 19,
+    "working_hours": "07:00-17:00",
+    "report_language": "de-DE"
+  },
+  "persona": {
+    "id": "P-HOFMANN",
+    "name": "J. Hofmann",
+    "role": "Bauleitung Hofbau Rohbau GmbH",
+    "note": "einzige Person mit Eingaben"
+  },
+  "interaction_model": {
+    "capture": "Aufnahme = 0–2 Fotos + 1–2 Notizen (Text oder Sprache), umgangssprachlich; Aufnahmen ohne Foto sind erlaubt",
+    "escalation": "Fehler/fehlendes Material → Sprachnotiz → Nachricht/E-Mail (mit Fotos, falls vorhanden) an Zuständigen; Versand nach Freigabe",
+    "email_language": "de"
+  },
+  "sources": [
+    "docs/Bauvertrag_RI-2026-014.md",
+    "docs/LV_Rohbau.md",
+    "docs/Planlieferliste.md",
+    "docs/Protokoll_BB07_2026-11-18.md",
+    "plan/Bauzeitenplan.xlsx",
+    "history/leistung.csv",
+    "Bautagesbericht Nr. 15 (20.11.)"
+  ],
+  "registry": {
+    "comment": "Empfänger/Sphäre folgen aus contracted_by + Bauvertrag §5. Nur Wagner nimmt vertragliche Erklärungen/Anzeigen entgegen.",
+    "parties": [
+      {
+        "id": "AG",
+        "name": "Wohnbau Riem GmbH & Co. KG",
+        "role": "Auftraggeber",
+        "contracted_by": null,
+        "source": "Bauvertrag S.1"
+      },
+      {
+        "id": "AG-VERTRETER",
+        "name": "Dipl.-Ing. Thomas Wagner",
+        "role": "Projektsteuerung, bevollmächtigter Vertreter des AG",
+        "contracted_by": "AG",
+        "email": "t.wagner@wohnbau-riem.example",
+        "authorized": true,
+        "source": "Bauvertrag §5"
+      },
+      {
+        "id": "LECHNER",
+        "name": "Architekturbüro Lechner",
+        "role": "Objektplanung",
+        "contracted_by": "AG",
+        "authorized": false,
+        "email": "info@lechner-architektur.example",
+        "source": "Bauvertrag §5, Protokoll BB07"
+      },
+      {
+        "id": "BRANDL",
+        "name": "Ingenieurbüro Brandl",
+        "role": "Tragwerksplanung",
+        "contracted_by": "AG",
+        "authorized": false,
+        "email": "info@ib-brandl.example",
+        "source": "Bauvertrag §5, Planlieferliste"
+      },
+      {
+        "id": "AN",
+        "name": "Hofbau Rohbau GmbH",
+        "role": "Auftragnehmer (wir)",
+        "contracted_by": null,
+        "source": "Bauvertrag S.1"
+      },
+      {
+        "id": "K-MUELLER",
+        "name": "Kolonne Müller (Vorarbeiter)",
+        "role": "eigene Kolonne Bewehrung",
+        "contracted_by": "AN",
+        "email": "kolonne.mueller@hofbau.example",
+        "source": "Bericht Nr. 15"
+      },
+      {
+        "id": "K-SCHALUNG",
+        "name": "Kolonne Schalung (Vorarbeiter)",
+        "role": "eigene Kolonne Schalung",
+        "contracted_by": "AN",
+        "email": "kolonne.schalung@hofbau.example",
+        "source": "Bericht Nr. 15"
+      },
+      {
+        "id": "K-ERDBAU",
+        "name": "Erdbau (Polier)",
+        "role": "eigene Kolonne Erdbau",
+        "contracted_by": "AN",
+        "email": "erdbau@hofbau.example",
+        "source": "Bericht Nr. 15"
+      },
+      {
+        "id": "WERKSTATT",
+        "name": "Werkstatt Hofbau",
+        "role": "eigene Gerätewerkstatt",
+        "contracted_by": "AN",
+        "email": "werkstatt@hofbau.example",
+        "assumption": true
+      },
+      {
+        "id": "STAHL",
+        "name": "Stahlhandel Süd GmbH",
+        "role": "Lieferant Betonstahl (LV 03.030 'liefern' = AN)",
+        "contracted_by": "AN",
+        "email": "dispo@stahlhandel-sued.example",
+        "assumption": true
+      },
+      {
+        "id": "BAUSTOFF",
+        "name": "Baustoffhandel Riem",
+        "role": "Lieferant Schalungskörper/Zubehör",
+        "contracted_by": "AN",
+        "email": "verkauf@baustoffe-riem.example",
+        "assumption": true
+      },
+      {
+        "id": "BETONWERK",
+        "name": "Transportbeton München-Ost",
+        "role": "Lieferant Beton + Pumpe (Pumpe lt. BB07 TOP 4 durch AN bestellt)",
+        "contracted_by": "AN",
+        "email": "dispo@tb-muenchen-ost.example",
+        "assumption": true
+      }
+    ]
+  },
+  "plan": {
+    "source": "Bauzeitenplan.xlsx + Fortschreibung lt. Bericht Nr. 15",
+    "activities": [
+      {
+        "id": "A20",
+        "name": "Aushub BA1",
+        "lv": "02.010",
+        "lv_qty": 4480,
+        "unit": "m³",
+        "plan_end": "2026-11-23",
+        "forecast_end": "2026-11-25"
+      },
+      {
+        "id": "A40",
+        "name": "Bewehrung BP",
+        "lv": "03.030",
+        "lv_qty": 64,
+        "unit": "t",
+        "plan_end": "2026-11-20",
+        "forecast_end": "2026-11-24",
+        "critical_path": true
+      },
+      {
+        "id": "A50",
+        "name": "Betonage BP",
+        "lv": "03.040",
+        "lv_qty": 255,
+        "unit": "m³",
+        "plan_end": "2026-11-24",
+        "forecast_end": "2026-11-30",
+        "critical_path": true,
+        "note": "Betonage in 3 Abschnitten: A–B 26.11., C 27.11., D 30.11."
+      },
+      {
+        "id": "A60",
+        "name": "Wände EG",
+        "lv": "04.010",
+        "lv_qty": 820,
+        "unit": "m²",
+        "plan_start": "2026-11-30",
+        "critical_path": true
+      },
+      {
+        "id": "M1",
+        "name": "Vertragsfrist Rohbau EG",
+        "date": "2026-12-16",
+        "source": "Bauvertrag §6"
+      }
+    ],
+    "crews": [
+      {
+        "id": "K-MUELLER",
+        "planned": 8
+      },
+      {
+        "id": "K-SCHALUNG",
+        "planned": 4
+      },
+      {
+        "id": "K-ERDBAU",
+        "planned": 4
+      }
+    ],
+    "daily_targets": {
+      "A50": 85
+    },
+    "deliveries_expected": [
+      {
+        "id": "L-01",
+        "supplier": "BETONWERK",
+        "item": "Transportbeton C30/37 WU (LV 03.040) + Pumpe",
+        "qty": "ca. 90 m³",
+        "window": "07:00-15:00, Takt 20 min"
+      }
+    ],
+    "state_before_day": {
+      "A20": 4480,
+      "A40": 64.0,
+      "A50": 0
+    }
+  },
+  "weather_ground_truth": {
+    "temp_min_c": 4.2,
+    "temp_max_c": 8.1,
+    "precip_mm": 1.8,
+    "gust_kmh": 20,
+    "assumption": "Werte angenommen – durch DWD-Fixture ersetzen",
+    "assessment": "übliche Witterung – keine Behinderung"
+  },
+  "captures": [
+    {
+      "id": "C01",
+      "time": "06:50",
+      "purpose": "equipment",
+      "photos": [
+        {
+          "id": "C01-P1",
+          "scene_en": "Truck-mounted concrete pump with boom unfolded over the slab, crew gathering, faces turned away",
+          "usable": true
+        }
+      ],
+      "notes": [
+        {
+          "kind": "text",
+          "language": "pl",
+          "text": "Dzień dobry, wszystkich 16 jest plus 2 ludzi z budowy Pasing do betonowania."
+        },
+        {
+          "kind": "text",
+          "language": "pl",
+          "text": "Pompa stoi, o 07:00 startujemy."
+        }
+      ],
+      "gold": {
+        "report": [
+          "2_personal",
+          "3_geraete",
+          "7_foto"
+        ],
+        "facts": {
+          "personnel_total": 18,
+          "note": "2 Mann eigenes Personal von BV Pasing"
+        }
+      }
+    },
+    {
+      "id": "C02",
+      "time": "07:10",
+      "purpose": "progress",
+      "photos": [
+        {
+          "id": "C02-P1",
+          "scene_en": "First concrete being placed at axis A, workers with vibrators",
+          "usable": true
+        },
+        {
+          "id": "C02-P2",
+          "scene_en": "Blurred",
+          "usable": false,
+          "reason": "blurry"
+        }
+      ],
+      "notes": [
+        {
+          "kind": "text",
+          "language": "pl",
+          "text": "Pierwsza gruszka w środku, betonowanie osi A idzie."
+        }
+      ],
+      "gold": {
+        "report": [
+          "5_tagesleistung",
+          "7_foto"
+        ]
+      }
+    },
+    {
+      "id": "C03",
+      "time": "10:35",
+      "purpose": "material",
+      "audio": {
+        "noise": "vibrator",
+        "snr_db": 0
+      },
+      "photos": [
+        {
+          "id": "C03-P1",
+          "scene_en": "Concrete pump idle, hopper empty, workers waiting with vibrators on partly poured slab",
+          "usable": true
+        }
+      ],
+      "notes": [
+        {
+          "kind": "voice",
+          "language": "pl",
+          "text": "Beton się zatrzymał, następna gruszka dopiero za 50 minut. Jak tak zostanie, będziemy mieć przerwę roboczą. 8 ludzi stoi przy pompie. Wyślij to od razu do betoniarni, niech się pospieszą."
+        }
+      ],
+      "gold": {
+        "report": [
+          "3_geraete",
+          "4_lieferungen",
+          "6_vorkommnisse",
+          "7_foto"
+        ],
+        "event": {
+          "id": "EVT-19-01",
+          "type": "material_delay",
+          "cause": "material_late",
+          "actor": "BETONWERK",
+          "sphere": "AN",
+          "start": "10:30",
+          "end": "11:25",
+          "crew": {
+            "crew_id": "K-MUELLER",
+            "idle": 8
+          },
+          "document": null,
+          "risk": "Arbeitsfuge (Qualität WU-Beton)"
+        },
+        "action": {
+          "type": "email",
+          "to": "BETONWERK",
+          "attach": [
+            "C03-P1"
+          ],
+          "priority": "sofort",
+          "must_include": [
+            "Unterbrechung Betonlieferung seit 10:30",
+            "Gefahr Arbeitsfuge WU-Bodenplatte",
+            "Takt 20 min einhalten",
+            "sofortige Rückmeldung"
+          ],
+          "must_not": [
+            "Kopie an AG",
+            "Behinderungsanzeige"
+          ]
+        },
+        "source_refs": [
+          "LV 03.040 (Ortbeton durch AN)",
+          "Protokoll BB07 TOP 4 (Pumpe durch AN)"
+        ]
+      }
+    },
+    {
+      "id": "C04",
+      "time": "11:30",
+      "purpose": "material",
+      "photos": [],
+      "notes": [
+        {
+          "kind": "text",
+          "language": "pl",
+          "text": "Gruszka znowu jest, leci dalej, bez przerwy."
+        }
+      ],
+      "gold": {
+        "report": [
+          "4_lieferungen"
+        ],
+        "closes": "EVT-19-01"
+      }
+    },
+    {
+      "id": "C05",
+      "time": "12:30",
+      "purpose": "defect",
+      "audio": {
+        "noise": "vibrator",
+        "snr_db": 10
+      },
+      "photos": [
+        {
+          "id": "C05-P1",
+          "scene_en": "Freshly poured slab area axes A–B, screeded surface",
+          "usable": true
+        },
+        {
+          "id": "C05-P2",
+          "scene_en": "Power trowel standing on the side",
+          "usable": true
+        }
+      ],
+      "notes": [
+        {
+          "kind": "voice",
+          "language": "pl",
+          "text": "Wagner właśnie był i chce, żebyśmy powierzchnię w osi A do B zatarli mechanicznie zamiast tylko ściągnąć, przez centralę techniczną. Tego nie ma tak w przedmiarze. Robimy to dziś po południu, więc wyślij wcześniej, z kosztami."
+        }
+      ],
+      "gold": {
+        "report": [
+          "6_vorkommnisse",
+          "7_foto"
+        ],
+        "event": {
+          "id": "EVT-19-02",
+          "type": "change_order",
+          "cause": "change_order",
+          "actor": "AG-VERTRETER",
+          "sphere": "AG",
+          "start": "12:30",
+          "document": {
+            "type": "Mehrkostenanzeige (Nachtragsankündigung)",
+            "basis": [
+              "§ 2 Abs. 5 VOB/B",
+              "§ 1 Abs. 3 VOB/B"
+            ],
+            "deadline": "vor_ausfuehrung",
+            "deadline_time": "2026-11-26 ca. 13:30"
+          },
+          "note": "Anordnung durch bevollmächtigten Vertreter (Bauvertrag §5) → wirksam; LV 03.040 ohne Oberflächenbehandlung",
+          "contrastive_pair": {
+            "with": "EVT-18-02",
+            "differs_in": "Leistung nicht im LV → Mehrkosten vs. Aussparungen im LV → keine Mehrkosten"
+          }
+        },
+        "action": {
+          "type": "email",
+          "to": "AG-VERTRETER",
+          "attach": [
+            "C05-P1",
+            "C05-P2"
+          ],
+          "must_include": [
+            "Anordnung vom 26.11. 12:30",
+            "Flügelglätten Oberfläche Achse A–B statt Abziehen",
+            "nicht in LV 03.040 enthalten",
+            "Mehrkosten werden angemeldet",
+            "Ausführung heute Nachmittag"
+          ],
+          "must_not": []
+        },
+        "source_refs": [
+          "LV 03.040",
+          "Bauvertrag §5"
+        ]
+      }
+    },
+    {
+      "id": "C06",
+      "time": "15:25",
+      "purpose": "progress",
+      "photos": [],
+      "notes": [
+        {
+          "kind": "text",
+          "language": "pl",
+          "text": "Zaczyna lekko padać, folia gotowa, nie ma problemu."
+        }
+      ],
+      "gold": {
+        "report": [
+          "1_witterung"
+        ],
+        "near_miss": "Regen ohne Auswirkung – kein Wetterereignis"
+      }
+    },
+    {
+      "id": "C07",
+      "time": "16:50",
+      "purpose": "progress",
+      "photos": [
+        {
+          "id": "C07-P1",
+          "scene_en": "Finished power-floated slab surface axes A–B, partly covered with sheeting",
+          "usable": true
+        },
+        {
+          "id": "C07-P2",
+          "scene_en": "Helmet selfie",
+          "usable": false,
+          "reason": "accidental"
+        }
+      ],
+      "notes": [
+        {
+          "kind": "text",
+          "language": "pl",
+          "text": "Fajrant. Oś A do B zabetonowana, 90 kubików, powierzchnia zatarta. Jutro oś C."
+        }
+      ],
+      "gold": {
+        "report": [
+          "5_tagesleistung",
+          "7_foto"
+        ],
+        "facts": {
+          "A50": 90
+        }
+      }
+    },
+    {
+      "id": "C08",
+      "time": "16:55",
+      "purpose": "defect",
+      "audio": {
+        "noise": "clean",
+        "snr_db": null
+      },
+      "photos": [],
+      "notes": [
+        {
+          "kind": "voice",
+          "language": "pl",
+          "text": "Rysunki ścian parteru dalej nie przyszły. Brandl dalej mówi piątek."
+        }
+      ],
+      "gold": {
+        "report": [
+          "6_vorkommnisse"
+        ],
+        "event": {
+          "id": "EVT-19-03",
+          "kind": "follow_up",
+          "continues": "EVT-18-03",
+          "type": "plan_delivery_delay",
+          "sphere": "AG",
+          "document": null,
+          "note": "Behinderung dauert an; Anzeige vom 25.11. besteht – nur Fortschreibung im Bericht, keine neue Anzeige"
+        },
+        "action": null,
+        "must_not": [
+          "zweite Behinderungsanzeige"
+        ]
+      }
+    }
+  ],
+  "photo_triage_gold": {
+    "total": 8,
+    "usable": 6,
+    "unusable": {
+      "C02-P2": "blurry",
+      "C07-P2": "accidental"
+    }
+  },
+  "expected_report": {
+    "2_personal": [
+      {
+        "crew": "Kolonne Müller",
+        "soll": 8,
+        "ist": 8,
+        "stillstand_mann_h": 7.3
+      },
+      {
+        "crew": "Kolonne Schalung",
+        "soll": 4,
+        "ist": 4,
+        "stillstand_mann_h": 0
+      },
+      {
+        "crew": "Erdbau",
+        "soll": 4,
+        "ist": 4,
+        "stillstand_mann_h": 0
+      },
+      {
+        "crew": "Aushilfe BV Pasing (eigen)",
+        "soll": 0,
+        "ist": 2,
+        "stillstand_mann_h": 0
+      }
+    ],
+    "2_personal_summe": {
+      "soll": 16,
+      "ist": 18
+    },
+    "3_geraete": [
+      {
+        "device": "Betonpumpe",
+        "soll_h": 10,
+        "ist_h": 9.1,
+        "ausfall": "10:30-11:25",
+        "ursache": "Wartezeit Beton (Lieferant AN)"
+      },
+      {
+        "device": "Turmdrehkran",
+        "soll_h": 10,
+        "ist_h": 10,
+        "ausfall": null
+      },
+      {
+        "device": "Bagger",
+        "soll_h": 0,
+        "ist_h": 0,
+        "note": "abgemeldet nach Aushub"
+      }
+    ],
+    "4_lieferungen": [
+      {
+        "supplier": "Transportbeton München-Ost",
+        "item": "Beton C30/37 WU",
+        "qty": "90 m³",
+        "planned": "07:00-15:00",
+        "status": "Unterbrechung 10:30–11:25"
+      }
+    ],
+    "5_tagesleistung": [
+      {
+        "vorgang": "A50",
+        "tagessoll": 85,
+        "ist": 90,
+        "einheit": "m³",
+        "gesamt_nach": 90,
+        "lv": 255,
+        "note": "Abschnitt A–B"
+      }
+    ],
+    "5_terminauswirkung": [
+      "A60 Wände EG: Start 30.11. weiter gefährdet (TWP-EG-01 ausstehend, EVT-18-03)"
+    ],
+    "6_vorkommnisse": [
+      "EVT-19-01",
+      "EVT-19-02",
+      "EVT-19-03"
+    ],
+    "documents_to_draft": [
+      {
+        "doc": "Mehrkostenanzeige § 2 Abs. 5",
+        "event": "EVT-19-02",
+        "to": "AG-VERTRETER",
+        "deadline": "vor Ausführung heute"
+      }
+    ],
+    "messages_expected": [
+      "C03 → BETONWERK",
+      "C05 → AG-VERTRETER"
+    ],
+    "must_not": [
+      "keine Mail an AG zu C03",
+      "keine zweite Behinderungsanzeige zu C08",
+      "kein Wetterereignis zu C06"
+    ],
+    "note_stillstand": "8 Mann 10:30–11:25 = 7,3 Mann-h (Kolonne Müller)",
+    "1_witterung": {
+      "temp_min_c": 4.2,
+      "temp_max_c": 8.1,
+      "precip_mm": 1.8,
+      "gust_kmh": 20,
+      "assumption": "Werte angenommen – durch DWD-Fixture ersetzen",
+      "assessment": "übliche Witterung – keine Behinderung"
+    }
+  },
+  "generation": {
+    "photo": "Bild aus scene_en; usable=False absichtlich mit genanntem Fehler erzeugen. Dateiname = Foto-id (z. B. C01-P1.jpg).",
+    "voice": "TTS aus notes[].text (kind=voice), danach Rauschen audio.noise/audio.snr_db.",
+    "text": "notes[].text (kind=text) als Nachricht; mehrere Notizen = mehrere Nachrichten kurz hintereinander."
+  }
+}

@@ -1,0 +1,1057 @@
+{
+ "schema_version": "gold-scenario/0.3-photo-first",
+ "scenario_id": "SCN-RIEM-0016P",
+ "title": "Foto-Tag von Bauleiter J. Hofmann – BV Riem, Montag 23.11.2026",
+ "interaction_model": {
+  "capture": "Fotoserie (1–6 Bilder) + genau eine Notiz: Text ODER Sprachnotiz, umgangssprachlich",
+  "photo_purposes": [
+   "progress",
+   "equipment",
+   "material",
+   "defect"
+  ],
+  "escalation": "Bei 'defect' oder fehlendem Material: Sprachnotiz; System entwirft E-Mail mit ausgewählten Fotos an den Zuständigen (laut Register). Versand erst nach Freigabe durch den Bauleiter.",
+  "email_language": "de (Empfänger sind deutsche Firmen, unabhängig von der Eingabesprache)"
+ },
+ "meta": {
+  "project_id": "BV-RIEM",
+  "project_name": "Neubau Wohnanlage Riem, Baufeld 3",
+  "contract_type": "VOB_B",
+  "report_no": 16,
+  "date": "2026-11-23",
+  "weekday": "Montag",
+  "working_hours": "07:00-17:00",
+  "report_language": "de-DE"
+ },
+ "persona": {
+  "id": "P-HOFMANN",
+  "name": "J. Hofmann",
+  "role": "Bauleiter AN (Hofbau Rohbau GmbH)",
+  "note": "Einzige Person, die Eingaben macht."
+ },
+ "registry": {
+  "comment": "Empfänger und Sphäre folgen aus 'contracted_by' und 'role'. Die Notizen nennen das meist NICHT.",
+  "parties": [
+   {
+    "id": "AG-VERTRETER",
+    "name": "Dipl.-Ing. Thomas Wagner",
+    "role": "bevollmächtigter Vertreter des AG",
+    "contracted_by": "AG",
+    "email": "t.wagner@wohnbau-riem.example"
+   },
+   {
+    "id": "AN",
+    "name": "Hofbau Rohbau GmbH",
+    "role": "Auftragnehmer Rohbau (wir)",
+    "contracted_by": null
+   },
+   {
+    "id": "YILDIZ",
+    "name": "Mehmet Yıldız",
+    "role": "Vorarbeiter Kolonne Schalung (eigenes Personal)",
+    "contracted_by": "AN",
+    "email": "m.yildiz@hofbau.example"
+   },
+   {
+    "id": "MAIER",
+    "name": "Spezialtiefbau Maier GmbH",
+    "role": "Verbau Baugrube (Vorunternehmer)",
+    "contracted_by": "AG",
+    "email": "bauleitung@maier-tiefbau.example",
+    "note": "Vertragspartner des AG – AN darf keine Weisungen erteilen; Kommunikation über AG-Vertreter"
+   },
+   {
+    "id": "NOVAK",
+    "name": "Gerüstbau Novak",
+    "role": "Nachunternehmer Gerüst",
+    "contracted_by": "AN",
+    "email": "polier@novak-geruest.example"
+   },
+   {
+    "id": "STAHL-SUED",
+    "name": "Stahlhandel Süd GmbH",
+    "role": "Lieferant Betonstahl/Zubehör",
+    "contracted_by": "AN",
+    "email": "dispo@stahlhandel-sued.example"
+   },
+   {
+    "id": "OBERMEIER",
+    "name": "Fertigteile Obermeier",
+    "role": "Lieferant Fertigteiltreppen, vom AG beigestellt",
+    "contracted_by": "AG",
+    "email": "versand@obermeier-ft.example"
+   }
+  ]
+ },
+ "plan_of_day": {
+  "activities": [
+   {
+    "id": "A20",
+    "name": "Aushub BA1",
+    "unit": "m³",
+    "daily_target": 320
+   },
+   {
+    "id": "A35",
+    "name": "Abschalung Bodenplatte Achse D",
+    "unit": "m",
+    "daily_target": 24
+   },
+   {
+    "id": "A40",
+    "name": "Bewehrung BP",
+    "unit": "t",
+    "daily_target": 8,
+    "critical_path": true
+   },
+   {
+    "id": "A70",
+    "name": "Montage Fertigteiltreppe TH Nord",
+    "unit": "Stk",
+    "daily_target": 1
+   }
+  ],
+  "crews": [
+   {
+    "id": "K-MUELLER",
+    "name": "Kolonne Müller",
+    "trade": "Bewehrung",
+    "planned": 8
+   },
+   {
+    "id": "K-SCHALUNG",
+    "name": "Kolonne Schalung",
+    "trade": "Schalung",
+    "planned": 4
+   },
+   {
+    "id": "K-ERDBAU",
+    "name": "Erdbau",
+    "trade": "Aushub",
+    "planned": 4
+   }
+  ],
+  "equipment": [
+   {
+    "id": "G-BAGGER",
+    "name": "Bagger",
+    "planned_h": 10
+   },
+   {
+    "id": "G-KRAN",
+    "name": "Turmdrehkran",
+    "planned_h": 10
+   }
+  ],
+  "deliveries_expected": [
+   {
+    "id": "L-01",
+    "supplier": "STAHL-SUED",
+    "item": "Betonstahl Achse C",
+    "qty": "2,5 t",
+    "window": "07:00-08:00"
+   },
+   {
+    "id": "L-02",
+    "supplier": "STAHL-SUED",
+    "item": "Unterstützungskörbe/Abstandhalter Achse C",
+    "qty": "1 Palette",
+    "window": "09:00-10:00"
+   },
+   {
+    "id": "L-03",
+    "supplier": "OBERMEIER",
+    "item": "Fertigteiltreppe TH Nord (AG-beigestellt)",
+    "qty": "1 Stk",
+    "window": "14:00"
+   }
+  ]
+ },
+ "weather_ground_truth": {
+  "source": "DWD via Bright Sky",
+  "temp_min_c": 1.4,
+  "temp_max_c": 5.8,
+  "precip_mm": 1.2,
+  "gust_kmh": 25,
+  "assessment": "übliche Witterung – keine Behinderung"
+ },
+ "language": "tr",
+ "captures": [
+  {
+   "id": "C01",
+   "time": "07:05",
+   "purpose": "progress",
+   "photos": [
+    {
+     "id": "C01-P1",
+     "scene_en": "Bottom reinforcement mesh laid on ground slab axes A and B, rebar chairs visible, workers in background",
+     "usable": true
+    },
+    {
+     "id": "C01-P2",
+     "scene_en": "Same view as P1, slightly shifted",
+     "usable": false,
+     "reason": "near_duplicate"
+    },
+    {
+     "id": "C01-P3",
+     "scene_en": "Strong motion blur of rebar",
+     "usable": false,
+     "reason": "blurry"
+    },
+    {
+     "id": "C01-P4",
+     "scene_en": "Wide shot of the whole slab area axes A–D, axis C still empty",
+     "usable": true
+    }
+   ],
+   "note": {
+    "kind": "text",
+    "language": "tr",
+    "text": "Günaydın, 16 kişi tam. A ve B aksı, alt sıra bitti, tamam."
+   },
+   "gold": {
+    "report": [
+     "2_personal",
+     "5_tagesleistung",
+     "7_foto"
+    ],
+    "event": null,
+    "action": null,
+    "facts": {
+     "personnel_total": 16,
+     "progress": "A40 untere Lage Achse A+B fertig"
+    }
+   }
+  },
+  {
+   "id": "C02",
+   "time": "07:22",
+   "purpose": "material",
+   "photos": [
+    {
+     "id": "C02-P1",
+     "scene_en": "Truck flatbed with bundled reinforcing steel, crane hook attached",
+     "usable": true
+    },
+    {
+     "id": "C02-P2",
+     "scene_en": "Close-up of a delivery note in a plastic sleeve, header and quantity line readable",
+     "usable": true
+    },
+    {
+     "id": "C02-P3",
+     "scene_en": "Dark image of the inside of a jacket pocket",
+     "usable": false,
+     "reason": "accidental"
+    }
+   ],
+   "note": {
+    "kind": "text",
+    "language": "tr",
+    "text": "Demir geldi, C aksı için 2,5 ton, zamanında. İrsaliye LS-448213."
+   },
+   "gold": {
+    "report": [
+     "4_lieferungen",
+     "7_foto"
+    ],
+    "event": null,
+    "action": null,
+    "facts": {
+     "delivery": "L-01",
+     "qty": "2,5 t",
+     "time": "07:20",
+     "on_time": true,
+     "delivery_note": "LS-448213"
+    }
+   }
+  },
+  {
+   "id": "C03",
+   "time": "08:40",
+   "purpose": "equipment",
+   "photos": [
+    {
+     "id": "C03-P1",
+     "scene_en": "Excavator boom with a new hydraulic hose, no oil traces",
+     "usable": true
+    },
+    {
+     "id": "C03-P2",
+     "scene_en": "Overexposed shot into the sun",
+     "usable": false,
+     "reason": "overexposed"
+    }
+   ],
+   "note": {
+    "kind": "text",
+    "language": "tr",
+    "text": "Ekskavatör çalışıyor, yeni hortum tutuyor, sızıntı yok."
+   },
+   "gold": {
+    "report": [
+     "3_geraete"
+    ],
+    "event": null,
+    "action": null,
+    "near_miss": "Bagger/Hydraulik erwähnt, kein Defekt",
+    "facts": {
+     "equipment": "G-BAGGER",
+     "status": "in Betrieb"
+    }
+   }
+  },
+  {
+   "id": "C04",
+   "time": "09:35",
+   "purpose": "equipment",
+   "audio": {
+    "noise": "excavator",
+    "snr_db": 5
+   },
+   "photos": [
+    {
+     "id": "C04-P1",
+     "scene_en": "Parked excavator with lowered bucket at the pit edge",
+     "usable": true
+    },
+    {
+     "id": "C04-P2",
+     "scene_en": "Soldier-pile wall with two bays without timber lagging, soil exposed",
+     "usable": true
+    },
+    {
+     "id": "C04-P3",
+     "scene_en": "Three workers in hi-vis waiting, faces turned away",
+     "usable": true
+    },
+    {
+     "id": "C04-P4",
+     "scene_en": "Blurred ground",
+     "usable": false,
+     "reason": "blurry"
+    },
+    {
+     "id": "C04-P5",
+     "scene_en": "Same as P2, blurred",
+     "usable": false,
+     "reason": "blurry"
+    }
+   ],
+   "note": {
+    "kind": "voice",
+    "language": "tr",
+    "text": "Şimdi, ekskavatör 09:30'dan beri duruyor, Maier 4. akstaki iksayı bitirmedi, daha 2 bölme eksik. İksa olmadan daha derine inemeyiz. 3 kişi boş bekliyor, artı ekskavatör operatörü. Bunu Wagner'e gönder, Maier'in ne zaman geleceğini netleştirsinler."
+   },
+   "gold": {
+    "report": [
+     "3_geraete",
+     "6_vorkommnisse",
+     "7_foto"
+    ],
+    "event": {
+     "id": "EVT-01",
+     "type": "third_party_interference",
+     "cause": "predecessor_not_finished",
+     "actor": "MAIER",
+     "sphere": "AG",
+     "start": "09:30",
+     "end": "14:00",
+     "crew": {
+      "crew_id": "K-ERDBAU",
+      "idle": 4,
+      "note": "3 Mann + Baggerfahrer"
+     },
+     "document": {
+      "type": "Behinderungsanzeige",
+      "basis": [
+       "§ 6 Abs. 1 VOB/B"
+      ],
+      "deadline": "unverzueglich"
+     },
+     "contrastive_pair": {
+      "with": "C03",
+      "differs_in": "Bagger in Ordnung vs. Bagger blockiert durch AG-Vorunternehmer"
+     }
+    },
+    "action": {
+     "type": "email",
+     "purpose": "Klärung Fertigstellung Verbau + Hinweis auf Behinderung",
+     "to": "AG-VERTRETER",
+     "cc": [],
+     "attach": [
+      "C04-P1",
+      "C04-P2",
+      "C04-P3"
+     ],
+     "must_include": [
+      "Achse 4",
+      "Verbau Spezialtiefbau Maier nicht fertig",
+      "2 Felder",
+      "seit 09:30",
+      "Bagger + 4 Personen im Stillstand"
+     ],
+     "must_not": [
+      "Weisung an Maier"
+     ],
+     "deadline": "Rückmeldung heute"
+    },
+    "end_from": "C09"
+   }
+  },
+  {
+   "id": "C05",
+   "time": "10:05",
+   "purpose": "material",
+   "audio": {
+    "noise": "wind",
+    "snr_db": 10
+   },
+   "photos": [
+    {
+     "id": "C05-P1",
+     "scene_en": "Empty marked storage area on gravel next to the slab, no pallets",
+     "usable": true
+    },
+    {
+     "id": "C05-P2",
+     "scene_en": "Bottom rebar layer at axis C without support chairs, two workers idle",
+     "usable": true
+    }
+   ],
+   "note": {
+    "kind": "voice",
+    "language": "tr",
+    "text": "C aksının sepetleri ve mesafe takozları gelmedi, 9 ile 10 arası burada olmaları lazımdı. Stahlhandel Süd'ü ara ya da fotoğrafı onlara gönder, ne zaman geleceklerini bilmek istiyorum. 2 kişi şimdiden bekliyor."
+   },
+   "gold": {
+    "report": [
+     "4_lieferungen",
+     "6_vorkommnisse"
+    ],
+    "event": {
+     "id": "EVT-02",
+     "type": "material_delay",
+     "cause": "material_late",
+     "actor": "STAHL-SUED",
+     "sphere": "AN",
+     "start": "10:00",
+     "end": "11:00",
+     "crew": {
+      "crew_id": "K-MUELLER",
+      "idle": 2
+     },
+     "document": null,
+     "contrastive_pair": {
+      "with": "C11",
+      "differs_in": "eigener Lieferant (AN) vs. vom AG beigestellt (AG)"
+     }
+    },
+    "action": {
+     "type": "email",
+     "purpose": "Liefernachfrage",
+     "to": "STAHL-SUED",
+     "cc": [],
+     "attach": [
+      "C05-P1"
+     ],
+     "must_include": [
+      "Unterstützungskörbe/Abstandhalter Achse C",
+      "Lieferfenster 9–10 Uhr",
+      "Bitte um verbindliche Lieferzeit"
+     ],
+     "must_not": [
+      "Kopie an AG",
+      "Behinderungsanzeige"
+     ],
+     "deadline": "sofort"
+    },
+    "end_from": "C07"
+   }
+  },
+  {
+   "id": "C06",
+   "time": "10:50",
+   "purpose": "defect",
+   "audio": {
+    "noise": "vibrator",
+    "snr_db": 10
+   },
+   "photos": [
+    {
+     "id": "C06-P1",
+     "scene_en": "Timber edge formwork with one board visibly out of line, folding rule laid across",
+     "usable": true
+    },
+    {
+     "id": "C06-P2",
+     "scene_en": "Same scene, finger covering half of the lens",
+     "usable": false,
+     "reason": "obstructed"
+    },
+    {
+     "id": "C06-P3",
+     "scene_en": "String line slack along the formwork",
+     "usable": true
+    }
+   ],
+   "note": {
+    "kind": "voice",
+    "language": "tr",
+    "text": "Hay aksi, D aksında kenar kalıbı 2 santim kaymış, ip kaymış, bizim hatamız. Mehmet o 3 metreyi söküp yeniden kursun, resmi ona gönder."
+   },
+   "gold": {
+    "report": [
+     "6_vorkommnisse"
+    ],
+    "event": {
+     "id": "EVT-03",
+     "type": "quality_defect",
+     "cause": "own_quality_defect",
+     "actor": "AN",
+     "sphere": "AN",
+     "start": "10:50",
+     "rework": {
+      "length_m": 3,
+      "activity": "A35"
+     },
+     "document": null,
+     "contrastive_pair": {
+      "with": "C10",
+      "differs_in": "eigener Fehler (AN, intern) vs. Vorleistung AG-Gewerk (AG, Bedenken)"
+     }
+    },
+    "action": {
+     "type": "internal_message",
+     "purpose": "Nacharbeit anordnen",
+     "to": "YILDIZ",
+     "cc": [],
+     "attach": [
+      "C06-P1",
+      "C06-P3"
+     ],
+     "must_include": [
+      "Achse D",
+      "2 cm Versatz",
+      "3 m zurückbauen und neu stellen"
+     ],
+     "must_not": [
+      "E-Mail an AG"
+     ],
+     "deadline": "heute"
+    }
+   }
+  },
+  {
+   "id": "C07",
+   "time": "11:05",
+   "purpose": "material",
+   "photos": [
+    {
+     "id": "C07-P1",
+     "scene_en": "Pallet with support chairs and spacers being unloaded by forklift",
+     "usable": true
+    },
+    {
+     "id": "C07-P2",
+     "scene_en": "Same as P1",
+     "usable": false,
+     "reason": "near_duplicate"
+    }
+   ],
+   "note": {
+    "kind": "text",
+    "language": "tr",
+    "text": "Sepetler nihayet geldi, saat 11:00'de geldiler."
+   },
+   "gold": {
+    "report": [
+     "4_lieferungen"
+    ],
+    "event": null,
+    "action": null,
+    "closes": "EVT-02",
+    "facts": {
+     "delivery": "L-02",
+     "time": "11:00",
+     "on_time": false
+    }
+   }
+  },
+  {
+   "id": "C08",
+   "time": "11:30",
+   "purpose": "defect",
+   "audio": {
+    "noise": "wind",
+    "snr_db": 5
+   },
+   "photos": [
+    {
+     "id": "C08-P1",
+     "scene_en": "Scaffold stair tower, level with missing toe boards at the edge",
+     "usable": true
+    },
+    {
+     "id": "C08-P2",
+     "scene_en": "Loose scaffold deck board lifted at one end",
+     "usable": true
+    },
+    {
+     "id": "C08-P3",
+     "scene_en": "Close-up of P2, out of focus",
+     "usable": false,
+     "reason": "blurry"
+    },
+    {
+     "id": "C08-P4",
+     "scene_en": "Wide shot of the north stair tower",
+     "usable": true
+    }
+   ],
+   "note": {
+    "kind": "voice",
+    "language": "tr",
+    "text": "Kuzey merdiven kulesinde 3. katta topuk tahtaları eksik ve bir döşeme tahtası gevşek. Böyle kimse yukarı çıkamaz. Bunu Novak'a gönder, bugün saat 14:00'e kadar düzeltsinler."
+   },
+   "gold": {
+    "report": [
+     "6_vorkommnisse",
+     "7_foto"
+    ],
+    "event": {
+     "id": "EVT-04",
+     "type": "quality_defect",
+     "cause": "predecessor_defect",
+     "actor": "NOVAK",
+     "sphere": "AN",
+     "start": "11:30",
+     "safety_relevant": true,
+     "document": null,
+     "contrastive_pair": {
+      "with": "C10",
+      "differs_in": "Mangel beim eigenen NU → direkt an NU mit Frist"
+     }
+    },
+    "action": {
+     "type": "email",
+     "purpose": "Mängelanzeige an Nachunternehmer (Arbeitssicherheit)",
+     "to": "NOVAK",
+     "cc": [],
+     "attach": [
+      "C08-P1",
+      "C08-P2",
+      "C08-P4"
+     ],
+     "must_include": [
+      "Treppenturm Nord",
+      "Lage 3",
+      "Bordbretter fehlen",
+      "Belag lose",
+      "Beseitigung bis heute 14:00",
+      "Gerüst bis dahin gesperrt"
+     ],
+     "must_not": [
+      "Kopie an AG"
+     ],
+     "deadline": "2026-11-23 14:00"
+    }
+   }
+  },
+  {
+   "id": "C09",
+   "time": "14:10",
+   "purpose": "progress",
+   "photos": [
+    {
+     "id": "C09-P1",
+     "scene_en": "Edge formwork at axis D straight along the string line",
+     "usable": true
+    },
+    {
+     "id": "C09-P2",
+     "scene_en": "Excavator digging again, completed shoring bays visible",
+     "usable": true
+    }
+   ],
+   "note": {
+    "kind": "text",
+    "language": "tr",
+    "text": "D aksı yeniden kuruldu, hizası düzgün. Ekskavatör de saat 14:00'ten beri yine çalışıyor, Maier bitirdi."
+   },
+   "gold": {
+    "report": [
+     "3_geraete",
+     "5_tagesleistung",
+     "7_foto"
+    ],
+    "event": null,
+    "action": null,
+    "closes": "EVT-01",
+    "facts": {
+     "A35": "Achse D neu gestellt",
+     "equipment_resumed": "14:00"
+    }
+   }
+  },
+  {
+   "id": "C10",
+   "time": "14:20",
+   "purpose": "defect",
+   "audio": {
+    "noise": "wind",
+    "snr_db": 0
+   },
+   "photos": [
+    {
+     "id": "C10-P1",
+     "scene_en": "Steel waler of the soldier-pile wall protruding past the inner face of the edge formwork into the slab area, folding rule measuring the overlap",
+     "usable": true
+    },
+    {
+     "id": "C10-P2",
+     "scene_en": "Wider view of axis D showing the waler along the slab edge",
+     "usable": true
+    },
+    {
+     "id": "C10-P3",
+     "scene_en": "Same as P1",
+     "usable": false,
+     "reason": "near_duplicate"
+    },
+    {
+     "id": "C10-P4",
+     "scene_en": "Underexposed, almost black",
+     "usable": false,
+     "reason": "underexposed"
+    }
+   ],
+   "note": {
+    "kind": "voice",
+    "language": "tr",
+    "text": "D aksı, Maier'in iksasının kuşağı radye temele yaklaşık 8 santim giriyor. Böyle radyeyi orada tam kalınlıkta yapamayız. Bunun netleşmesi lazım, gönder bunu. Şimdilik diğer akslarda devam ediyoruz."
+   },
+   "gold": {
+    "report": [
+     "6_vorkommnisse",
+     "7_foto"
+    ],
+    "event": {
+     "id": "EVT-05",
+     "type": "quality_defect",
+     "cause": "predecessor_defect",
+     "actor": "MAIER",
+     "sphere": "AG",
+     "start": "14:20",
+     "work_stopped": false,
+     "document": {
+      "type": "Bedenkenanzeige",
+      "basis": [
+       "§ 4 Abs. 3 VOB/B",
+       "§ 13 Abs. 3 VOB/B"
+      ],
+      "deadline": "unverzueglich"
+     },
+     "contrastive_pair": {
+      "with": "C08",
+      "differs_in": "Vertragspartner des AG → an AG-Vertreter, nicht an Maier"
+     }
+    },
+    "action": {
+     "type": "email",
+     "purpose": "Bedenken/Klärung Kollision Verbau – Bodenplatte",
+     "to": "AG-VERTRETER",
+     "cc": [],
+     "attach": [
+      "C10-P1",
+      "C10-P2"
+     ],
+     "must_include": [
+      "Achse D",
+      "Gurtung Verbau Maier",
+      "ca. 8 cm in Bodenplatte",
+      "Bodenplatte nicht in voller Dicke herstellbar",
+      "Bitte um Entscheidung"
+     ],
+     "must_not": [
+      "direkt an Maier",
+      "Weisung an Maier"
+     ],
+     "deadline": "unverzüglich"
+    },
+    "routing_note": "Sprecher nennt keinen Empfänger – System muss AG-Vertreter aus dem Register ableiten"
+   }
+  },
+  {
+   "id": "C11",
+   "time": "14:55",
+   "purpose": "material",
+   "audio": {
+    "noise": "excavator",
+    "snr_db": 10
+   },
+   "photos": [
+    {
+     "id": "C11-P1",
+     "scene_en": "Empty unloading area at the north stair tower, crane hook waiting, lifting gear on the ground",
+     "usable": true
+    },
+    {
+     "id": "C11-P2",
+     "scene_en": "Four workers waiting next to the crane, faces turned away",
+     "usable": true
+    }
+   ],
+   "note": {
+    "kind": "voice",
+    "language": "tr",
+    "text": "Obermeier'in prefabrik merdiveni, işverenin sipariş ettiği, saat 14:00'te gelecekti, hâlâ yok. Vinç ve 4 kişi hazır bekliyor. Fotoğrafı gönder, ne olduğunu sor."
+   },
+   "gold": {
+    "report": [
+     "4_lieferungen",
+     "6_vorkommnisse"
+    ],
+    "event": {
+     "id": "EVT-06",
+     "type": "material_delay",
+     "cause": "material_late",
+     "actor": "OBERMEIER",
+     "sphere": "AG",
+     "start": "14:00",
+     "end": null,
+     "crew": {
+      "crew_id": null,
+      "idle": 4,
+      "note": "4 Mann + Kran bereit"
+     },
+     "document": {
+      "type": "Behinderungsanzeige",
+      "basis": [
+       "§ 6 Abs. 1 VOB/B",
+       "§ 6 Abs. 2 Nr. 1 a VOB/B"
+      ],
+      "deadline": "unverzueglich"
+     },
+     "contrastive_pair": {
+      "with": "C05",
+      "differs_in": "vom AG beigestellt → AG-Sphäre"
+     }
+    },
+    "action": {
+     "type": "email",
+     "purpose": "Nachfrage beigestellte Lieferung + Hinweis auf Behinderung",
+     "to": "AG-VERTRETER",
+     "cc": [],
+     "attach": [
+      "C11-P1",
+      "C11-P2"
+     ],
+     "must_include": [
+      "Fertigteiltreppe TH Nord",
+      "vom AG beigestellt (Obermeier)",
+      "angekündigt 14:00",
+      "Kran und 4 Personen bereit"
+     ],
+     "must_not": [],
+     "deadline": "unverzüglich"
+    }
+   }
+  },
+  {
+   "id": "C12",
+   "time": "16:35",
+   "purpose": "progress",
+   "photos": [
+    {
+     "id": "C12-P1",
+     "scene_en": "Axis C with bottom and partly top reinforcement layer placed",
+     "usable": true
+    },
+    {
+     "id": "C12-P2",
+     "scene_en": "Excavation BA1 at end of day, deeper than in the morning",
+     "usable": true
+    },
+    {
+     "id": "C12-P3",
+     "scene_en": "Selfie-angle shot of a helmet",
+     "usable": false,
+     "reason": "accidental"
+    }
+   ],
+   "note": {
+    "kind": "text",
+    "language": "tr",
+    "text": "Paydos. Bugün 7,2 ton donatı, C aksı yarı bitti. Kazı yaklaşık 150 metreküp. D aksı kenar kalıbı 21 metre."
+   },
+   "gold": {
+    "report": [
+     "5_tagesleistung",
+     "7_foto"
+    ],
+    "event": null,
+    "action": null,
+    "facts": {
+     "A40_t": 7.2,
+     "A20_m3": 150,
+     "A35_m": 21
+    }
+   }
+  }
+ ],
+ "photo_triage_gold": {
+  "total": 36,
+  "usable": 24,
+  "reasons": [
+   "accidental",
+   "blurry",
+   "near_duplicate",
+   "obstructed",
+   "overexposed",
+   "underexposed"
+  ]
+ },
+ "expected_report": {
+  "comment": "Struktur nach neuem Template (8 Abschnitte, ohne Belege/Quellen).",
+  "1_witterung": {
+   "temp_min_c": 1.4,
+   "temp_max_c": 5.8,
+   "precip_mm": 1.2,
+   "gust_kmh": 25,
+   "bewertung": "übliche Witterung – keine Behinderung"
+  },
+  "2_personal": [
+   {
+    "crew": "Kolonne Müller",
+    "soll": 8,
+    "ist": 8,
+    "stillstand_mann_h": 2
+   },
+   {
+    "crew": "Kolonne Schalung",
+    "soll": 4,
+    "ist": 4,
+    "stillstand_mann_h": 0
+   },
+   {
+    "crew": "Erdbau",
+    "soll": 4,
+    "ist": 4,
+    "stillstand_mann_h": 18
+   }
+  ],
+  "3_geraete": [
+   {
+    "device": "Bagger",
+    "soll_h": 10,
+    "ist_h": 5.5,
+    "ausfall": "09:30-14:00",
+    "ursache": "Verbau Achse 4 (Spezialtiefbau Maier) nicht fertig"
+   },
+   {
+    "device": "Turmdrehkran",
+    "soll_h": 10,
+    "ist_h": 10,
+    "ausfall": null,
+    "ursache": null
+   }
+  ],
+  "4_lieferungen": [
+   {
+    "supplier": "Stahlhandel Süd",
+    "item": "Betonstahl Achse C",
+    "qty": "2,5 t",
+    "planned": "07:00-08:00",
+    "actual": "07:20",
+    "status": "pünktlich",
+    "delivery_note": "LS-448213"
+   },
+   {
+    "supplier": "Stahlhandel Süd",
+    "item": "Unterstützungskörbe/Abstandhalter",
+    "qty": "1 Palette",
+    "planned": "09:00-10:00",
+    "actual": "11:00",
+    "status": "verspätet"
+   },
+   {
+    "supplier": "Fertigteile Obermeier (AG-beigestellt)",
+    "item": "Fertigteiltreppe TH Nord",
+    "qty": "1 Stk",
+    "planned": "14:00",
+    "actual": null,
+    "status": "nicht geliefert"
+   }
+  ],
+  "5_tagesleistung": [
+   {
+    "vorgang": "A20",
+    "tagessoll": 320,
+    "ist": 150,
+    "einheit": "m³"
+   },
+   {
+    "vorgang": "A35",
+    "tagessoll": 24,
+    "ist": 21,
+    "einheit": "m"
+   },
+   {
+    "vorgang": "A40",
+    "tagessoll": 8,
+    "ist": 7.2,
+    "einheit": "t"
+   },
+   {
+    "vorgang": "A70",
+    "tagessoll": 1,
+    "ist": 0,
+    "einheit": "Stk"
+   }
+  ],
+  "6_vorkommnisse": [
+   "EVT-01",
+   "EVT-02",
+   "EVT-03",
+   "EVT-04",
+   "EVT-05",
+   "EVT-06"
+  ],
+  "7_foto": {
+   "selected": [
+    "C01-P1",
+    "C01-P4",
+    "C02-P1",
+    "C04-P2",
+    "C08-P1",
+    "C09-P1",
+    "C09-P2",
+    "C10-P1",
+    "C11-P1",
+    "C12-P1",
+    "C12-P2"
+   ],
+   "rule": "pro Erfassung max. 2 beste Bilder, nur usable=True; Mängelfotos und Fortschrittsfotos bevorzugt"
+  },
+  "emails_expected": [
+   "C04 → AG-VERTRETER",
+   "C05 → STAHL-SUED",
+   "C06 → YILDIZ (intern)",
+   "C08 → NOVAK",
+   "C10 → AG-VERTRETER",
+   "C11 → AG-VERTRETER"
+  ],
+  "emails_must_not": [
+   "keine Mail an MAIER (Vertragspartner des AG)",
+   "keine Mail an AG zu C05/C06/C08",
+   "keine Mail zu C01/C02/C03/C07/C09/C12"
+  ]
+ },
+ "generation": {
+  "photo": "Bild aus 'scene_en' erzeugen (Handyfoto, deutsche Baustelle, November). usable=False-Bilder absichtlich mit dem genannten Fehler erzeugen (blurry, overexposed, near_duplicate, obstructed, accidental, underexposed).",
+  "voice": "TTS aus note.text in note.language, danach Rauschen audio.noise mit audio.snr_db.",
+  "text": "note.text unverändert als Bildunterschrift."
+ }
+}
