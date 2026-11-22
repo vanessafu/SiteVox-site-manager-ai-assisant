@@ -12,7 +12,7 @@ import { useT } from "@/lib/i18n";
 export type Col = {
   key: string;
   label: string;
-  type: "text" | "int" | "num" | "spans" | "select";
+  type: "text" | "int" | "num" | "spans" | "select" | "date" | "time";
   options?: string[];
   right?: boolean;
   show?: (r: any) => ReactNode; // Anzeige (Standard: Wert)
@@ -35,9 +35,11 @@ function fromForm(c: Col, v: string) {
   return v.trim() === "" ? null : v;
 }
 
-export default function ReportTable({ pid, date, section, keyField, keyLabel, cols, rows, footer, actions, onSaved, addLabel }: {
-  pid: string; date: string; section: "workforce" | "equipment"; keyField: string; keyLabel: string; cols: Col[];
+export default function ReportTable({ pid, date, section, keyField, keyLabel, cols, rows, footer, actions, onSaved, addLabel, keyShow, onRowClick, hideKey }: {
+  pid: string; date: string; section: "workforce" | "equipment" | "work" | "deliveries" | "site_log"; keyField: string; keyLabel: string; cols: Col[];
   rows: any[]; footer?: ReactNode; actions: (r: any) => ReactNode; onSaved: () => void; addLabel: string;
+  keyShow?: (r: any) => ReactNode; onRowClick?: (r: any) => void;
+  hideKey?: boolean; // ohne Namensspalte; neue Zeilen bekommen einen automatischen Schlüssel
 }) {
   const { t } = useT();
   const [edit, setEdit] = useState<string | null>(null); // key der Zeile im Bearbeitungsmodus ("" = neue Zeile)
@@ -64,7 +66,7 @@ export default function ReportTable({ pid, date, section, keyField, keyLabel, co
     }
   };
   const save = (orig: any | null) => {
-    const key = (orig ? orig[keyField] : form[keyField] || "").trim();
+    const key = (orig ? orig[keyField] : hideKey ? `M-${Date.now()}` : form[keyField] || "").trim();
     if (!key) return setErr(t("Name fehlt"));
     // nur geänderte Felder senden → übrige bleiben berechnet
     const data: Record<string, any> = {};
@@ -81,7 +83,7 @@ export default function ReportTable({ pid, date, section, keyField, keyLabel, co
   const td = "px-2 py-1.5 align-top";
   const editor = (orig: any | null) => (
     <tr className="border-t border-slate-100 bg-accent-soft/40">
-      <td className={td}>
+      <td className={td} hidden={hideKey}>
         {orig ? <span className="font-medium">{t(orig[keyField])}</span>
           : <input autoFocus className={inp} placeholder={t(keyLabel)} value={form[keyField] || ""} onChange={(e) => setForm({ ...form, [keyField]: e.target.value })} />}
       </td>
@@ -89,10 +91,11 @@ export default function ReportTable({ pid, date, section, keyField, keyLabel, co
         <td key={c.key} className={td}>
           {c.type === "select" ? (
             <select className={inp} value={form[c.key] || ""} onChange={(e) => setForm({ ...form, [c.key]: e.target.value })}>
+              {!form[c.key] && <option value="">–</option>}
               {c.options!.map((o) => <option key={o} value={o}>{t(o)}</option>)}
             </select>
           ) : (
-            <input className={`${inp} ${c.right ? "text-right" : ""}`} inputMode={c.type === "int" || c.type === "num" ? "decimal" : undefined}
+            <input type={c.type === "date" ? "date" : c.type === "time" ? "time" : "text"} className={`${inp} ${c.right ? "text-right" : ""}`} inputMode={c.type === "int" || c.type === "num" ? "decimal" : undefined}
               placeholder={c.type === "spans" ? "10:00–13:30" : ""} value={form[c.key] || ""}
               onChange={(e) => setForm({ ...form, [c.key]: e.target.value })}
               onKeyDown={(e) => { if (e.key === "Enter") save(orig); if (e.key === "Escape") { e.stopPropagation(); setEdit(null); } }} />
@@ -112,15 +115,16 @@ export default function ReportTable({ pid, date, section, keyField, keyLabel, co
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead className="text-left text-xs text-slate-600"><tr>
-          <th className={th}>{t(keyLabel)}</th>
+          {!hideKey && <th className={th}>{t(keyLabel)}</th>}
           {cols.map((c) => <th key={c.key} className={`${th} ${c.right ? "text-right" : ""}`}>{t(c.label)}</th>)}
           <th className={`${th} text-right`}>{t("Belege")}</th>
         </tr></thead>
         <tbody>
           {rows.map((r) => edit === r[keyField] ? <Fragment key={r[keyField]}>{editor(r)}</Fragment> : (
-            <tr key={r[keyField]} className="group border-t border-slate-100 hover:bg-slate-50" onDoubleClick={() => start(r)}>
-              <td className={td}>
-                {t(r[keyField])}
+            <tr key={r[keyField]} className={`group border-t border-slate-100 hover:bg-slate-50 ${onRowClick ? "cursor-pointer" : ""}`}
+              onClick={onRowClick ? () => onRowClick(r) : undefined} onDoubleClick={() => start(r)}>
+              <td className={td} hidden={hideKey}>
+                {keyShow ? keyShow(r) : t(r[keyField])}
                 {r.added && <span className="pill ml-1 bg-slate-100 text-slate-600">{t("manuell")}</span>}
                 {r.company && <div className="text-2xs text-slate-600">{r.company}</div>}
               </td>
@@ -135,7 +139,7 @@ export default function ReportTable({ pid, date, section, keyField, keyLabel, co
                   </td>
                 );
               })}
-              <td className={`${td} whitespace-nowrap text-right`}>
+              <td className={`${td} whitespace-nowrap text-right`} onClick={(e) => e.stopPropagation()}>
                 <button className="btn-xs mr-1" onClick={() => start(r)} title={t("Bearbeiten")}><Pencil className="h-3.5 w-3.5" /></button>
                 {r.manual?.length > 0 && !r.added && (
                   <button className="btn-xs mr-1" disabled={busy} onClick={() => send(r[keyField], "reset")} title={t("Manuelle Änderung verwerfen")}><RotateCcw className="h-3.5 w-3.5" /></button>

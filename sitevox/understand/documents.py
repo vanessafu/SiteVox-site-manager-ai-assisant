@@ -65,12 +65,18 @@ def _docling(path: Path) -> dict[str, Any]:
 
 
 def _pdf_light(path: Path) -> tuple[list[dict], list[dict]]:
-    """PDF ohne Docling: Textebene (pypdf); Seiten ohne Text (Scan) → OCR der eingebetteten Bilder."""
+    """PDF ohne Docling: Textebene mit Spalten (pdfplumber, sonst pypdf); Seiten ohne Text (Scan) → OCR."""
     from pypdf import PdfReader  # type: ignore
 
+    from . import pdf_layout
+
+    try:
+        cols = pdf_layout.pages(path)
+    except Exception:  # noqa: BLE001 – beschädigte PDFs: pypdf versuchen
+        cols = None
     pages = []
     for i, pg in enumerate(PdfReader(str(path)).pages, start=1):
-        text = (pg.extract_text() or "").strip()
+        text = (cols[i - 1]["text"] if cols and i <= len(cols) else "") or (pg.extract_text() or "").strip()
         if len(text) < 20 and ocr.enabled():
             try:
                 text = "\n".join(t for t in (ocr.image_text(im.data) for im in pg.images) if t) or text

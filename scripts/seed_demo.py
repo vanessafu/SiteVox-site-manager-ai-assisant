@@ -34,14 +34,17 @@ def load_knowledge() -> None:
                              "kind": "rechtsgrundlage", "collection": "legal", "pages": parsed["pages"], "tables": []})
     demo = settings.demo_dir(PID) / "docs"
     kinds = {"Bauvertrag": "vertrag", "LV": "lv", "Planlieferliste": "planlieferliste"}
-    for f in sorted(demo.glob("*.md")):
+    files = sorted(demo.glob("*.md")) + sorted(demo.glob("*.pdf"))
+    for f in files:
         if f.name.startswith("Protokoll"):
+            continue
+        if f.suffix == ".md" and f.with_suffix(".pdf").exists():  # Original-PDF hat Vorrang
             continue
         parsed = documents.parse(f)
         kind = next((v for k, v in kinds.items() if f.stem.startswith(k)), "dokument")
         title = {"vertrag": "Bauvertrag RI-2026-014", "lv": "Leistungsverzeichnis Rohbau (LV)",
                  "planlieferliste": "Planlieferliste (Anlage 4)"}.get(kind, f.stem)
-        store.save_document({"doc_id": f"DOC-{f.stem}", "project_id": PID, "title": title,
+        store.save_document({"doc_id": f"DOC-{f.stem}", "project_id": PID, "title": title,  # gleiche ID für MD/PDF
                              "file": str(f.relative_to(settings.ROOT)), "kind": kind, "collection": "project",
                              "pages": parsed["pages"], "tables": parsed["tables"]})
     rag.index(rebuild=True)

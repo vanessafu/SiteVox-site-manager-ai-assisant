@@ -1,5 +1,7 @@
 "use client";
 import { useT } from "@/lib/i18n";
+import Markdown from "@/components/Markdown";
+import DocInfo, { DocOriginal } from "@/components/DocInfo";
 import { useParams } from "next/navigation";
 import { useState } from "react";
 import { api, useApi } from "@/lib/api";
@@ -107,7 +109,7 @@ export default function Knowledge() {
         <div className="card space-y-3 p-4">
           <div className="text-sm font-medium">{t("Dokument hochladen")}</div>
           <select className="w-full rounded-md border px-3 py-2 text-sm" value={docType} onChange={(e) => setDocType(e.target.value)}>
-            {[["lv", "Leistungsverzeichnis (LV)"], ["vertrag", "Vertrag"], ["planlieferliste", "Planlieferliste"], ["protokoll", "Protokoll"], ["dokument", "Sonstiges"]].map(([v, l]) => <option key={v} value={v}>{t(l)}</option>)}
+            {[["lv", "Leistungsverzeichnis (LV)"], ["vertrag", "Vertrag"], ["bautagesbericht", "Bautagesbericht"], ["planlieferliste", "Planlieferliste"], ["protokoll", "Protokoll"], ["dokument", "Sonstiges"]].map(([v, l]) => <option key={v} value={v}>{t(l)}</option>)}
           </select>
           <label className="btn w-full cursor-pointer justify-center py-2"><Upload className="h-4 w-4" /> {t("PDF / DOCX / GAEB / Bild wählen")}
             <input type="file" className="hidden" accept={`.pdf,.docx,.doc,.md,.txt,image/*,${GAEB_ACCEPT}`} onChange={(e) => { const f = e.target.files?.[0]; if (f) upload(f); e.target.value = ""; }} /></label>
@@ -145,7 +147,14 @@ export default function Knowledge() {
               )}
             </div>
             {doc.gaeb && <p className="text-xs text-slate-600">{t("GAEB {v} · Phase {p} · {n} Positionen", { v: doc.gaeb.format, p: doc.gaeb.phase || "–", n: doc.gaeb.positions })}</p>}
-            {doc.pages.map((p: any) => <div key={p.page}><div className="mb-1 text-2xs text-slate-500">{t("Seite {n}", { n: p.page })}</div><pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed">{p.text}</pre></div>)}
+            <DocOriginal doc={doc} />
+            <DocInfo doc={doc} />
+            <details className="group" open={!doc.has_file && !doc.info}>
+              <summary className="cursor-pointer text-2xs font-medium uppercase tracking-wide text-slate-500 hover:text-slate-800">{t("Erkannter Volltext ({n} S.)", { n: doc.pages.length })}</summary>
+              <div className="mt-2 space-y-4">
+                {doc.pages.map((p: any) => <div key={p.page}><div className="mb-1 text-2xs text-slate-500">{t("Seite {n}", { n: p.page })}</div><Markdown text={p.text} /></div>)}
+              </div>
+            </details>
           </div>
         )}
         {!doc && !hits && (

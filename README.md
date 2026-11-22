@@ -97,13 +97,25 @@ SITEVOX_MODE=gpu uvicorn backend.main:app --port 8000
 | --- | --- | --- |
 | 07:00 | 语音：14/16 人，Kolonne Müller 2 人病假 | Personalmangel → **AN**，只做内部预警，不发函 |
 | 07:30 | 语音 + 照片：Achse C 配筋图（Index b）未到 | Planlieferverzug → **AG** → Behinderungsanzeige § 6 Abs. 1，计时开始 |
+| 07:45 | 语音：Betonstahl 8 t 到货（Lieferschein 48213）；业主供货的 Fertigteiltreppen 预告 15:00 | 只进 Lieferungen：两条到货 / 一条 **ausstehend**（业主供货，§ 9 合同） |
+| 09:15 | 语音：Prüfingenieur 验收 A/B 轴钢筋无异议；塔吊检查正常 | 只进 Tagesbuch（Prüfung、Geräteeinsatz），不触发事件 |
 | 10:02 | 语音：挖掘机液压管爆裂 | Geräteausfall → **AN** → 只记 Bautagebuch（不会误起草 Behinderungsanzeige） |
+| 11:30 | 语音：建筑师现场巡查；Abstandhalter 2 托到货 | Tagesbuch（Besuch）+ Lieferungen |
 | 11:02 | 邮件（建筑师）：追加 4 个 Kernbohrung DN150 | LV 中无此项 → Mehrkostenankündigung § 2 Abs. 6，**须执行前**；提示建筑师无授权 |
 | 12:15 | 邮件（结构工程师）：图纸"voraussichtlich Montag" | 合并到 Planlieferverzug；引擎推算 Bewehrung +2 AT → Betonage → Wände EG 18.12. 代替 16.12.，**超出合同工期 2 AT**；影响天数置信度仅 0.59（"voraussichtlich"） |
 | 13:00 | 语音：混凝土泵取消 | 时间轴上 Betonpumpe "geplant, nicht begonnen" |
 | 16:30 | 语音：当日产量 | 子弹图：Aushub 59 %（红）、Bewehrung 81 %（黄）、Schalung 105 %（绿） |
 
+- 07:31 和 14:10 两张照片为真实感的生成图片（`data/demo/BV-RIEM/inputs/2026-11-20/IMG_0731.jpg`、`IMG_1410.jpg`，EXIF 含拍摄时间和 GPS）；`make_demo_data.py` 不会再用占位图覆盖已有照片。识别结果（演示模式回放）按画面标注了局部框。
+- 新增的 3 段语音（07:45、09:15、11:30）目前是无人声的占位音频（演示模式用预置转写）；要播放时可用 `scripts/data/audio/tts_synthesize.py --demo` 生成。
+- **Bauvertrag 原件为 PDF**（`data/demo/BV-RIEM/docs/Bauvertrag_RI-2026-014.pdf`，seed 时优先于同名 `.md`）。PDF 的硬换行在合同提取和联系人识别前会接回成整句（`contract_info._unwrap`），断行的邮箱如 `wohnbau-|riem.example` 也能识别；PDF 与 Markdown 的提取结果一致。
+
 审核编辑器中，起草的 Behinderungsanzeige 有一句"已于 16.11.2026 电话催告"——证据里找不到这个日期，被标红并阻止放行，直到 Bauleiter 填写依据并确认（写入 Audit-Log）。
+
+## Schreiben 审核页
+
+- **Basisangaben**（Empfänger 到 Zustellweg）：不再每一项都有 Übernehmen / Bearbeiten / Verwerfen，整块右上角只有一个 **Bearbeiten**：所有字段同时变成输入框，一次保存，只提交改过的字段。旁边保留 **Alle übernehmen**（字段全部确认后才能 Freigeben）。置信度颜色、备注、“bearbeitet”标记保留。
+- **Faktenprüfung**：手动确认过的值不再列出（仍计入“n Zahlen/Daten/Namen geprüft”，确认记录在 Audit-Log 里），列表只显示还要处理的项。
 
 ## 编辑与删除
 
@@ -130,7 +142,13 @@ SITEVOX_MODE=gpu uvicorn backend.main:app --port 8000
 
 **Dashboard = 当天的 Bautagesbericht**
 - 内容和 PDF/DOCX 一致，都来自 `daily_report.build`（`GET /api/projects/<pid>/report`）。右上角用大字显示日期（星期、日、月、年）和日报编号。
-- 人员、设备的行可以直接修改，修改结果存在 `report_rows` 表，同时作用于 PDF。
+- 以下表格都可以直接修改、添加、删除（铅笔或双击；蓝底 = 手动修改，可撤销）。修改结果存在 `report_rows` 表（`PUT /api/projects/<pid>/report-rows`，`section` 见括号），同时作用于 PDF/DOCX：
+  - **Projektübersicht**（`work`）：完成 %、计划完工、预测完工、延误天数
+  - **Tagesfortschritt**（`work`）：右上角“Bearbeiten”切换为表格，修改当天计划量 / 实际量 / 单位，完成比例自动重算
+  - **Personaleinsatz**（`workforce`）、**Geräteeinsatz**（`equipment`）
+  - **Lieferungen**（`deliveries`，键 = 材料）：供应商、数量、计划 / 实际时间、延误、状态、送货单号
+  - **Tagesbuch – Prüfungen, Besuche und weitere Feststellungen**（`site_log`）：一直显示（当天没有记录时也显示），可以新增记录（时间、类型、内容、相关方 / 结果），新记录的键自动生成（`M-…`）
+- **Verzugskette**：Projektübersicht 右上角按钮，在侧边栏逐步显示延误推导：起点工序（+n AT，是否关键路径）→ 原因事件（可点击跳转）→ 被推迟的后续工序（新日期 / 原计划）→ 合同节点超出天数，并说明推导规则（剩余量 ÷ 实际日产量 + 事件停工天数，经 FS/SS 关系传递）。数据来自 `daily_report.build` 的 `impact_details`。表格下方不再重复输出推导文字。
 - **默认显示今天**：日期取自后端服务器的系统时钟，不需要外部时间接口。演示时可以用 `SITEVOX_TODAY=2026-11-20` 固定为演示日。前几天还没处理完的、需要发文书的事件，会继续留在今天的 Handlungsbedarf 里，标注“offen seit …”，直到发送或驳回。
 - 独立的 Bauzeitenplan / Schedule 页面已经删除。工序数据仍用于项目概览和预测，通过新建项目时导入 Excel 或接口维护。
 
@@ -144,7 +162,14 @@ SITEVOX_MODE=gpu uvicorn backend.main:app --port 8000
 
 **Wissensbasis（`/p/<pid>/vertrag`，原 "Vertrag / LV"）**
 - 法律依据 + 项目文档（合同、LV、Planlieferliste、Protokoll…），全文检索（BM25；GPU 模式加 BGE-M3 + Rerank）。
-- 上传 PDF / DOCX / 图片 / GAEB。没有 Docling（Demo 模式）时走轻量解析 `documents._light`：PDF 文字层用 `pypdf`，Word 用 `python-docx`，图片和扫描页用 RapidOCR（CPU，PP-OCRv5 latin，支持德语变音；首次运行从 modelscope.cn 下载约 15 MB 模型；`SITEVOX_OCR=0` 可关闭）。
+- 上传 PDF / DOCX / 图片 / GAEB。没有 Docling（Demo 模式）时走轻量解析 `documents._light`：PDF 文字层用 **`pdfplumber` 按单词坐标还原表格列**（`sitevox/understand/pdf_layout.py`：单元格之间用制表符分隔，单元格内换行合并回同一格；失败时退回 `pypdf`），Word 用 `python-docx`，图片和扫描页用 RapidOCR（CPU，PP-OCRv5 latin，支持德语变音；首次运行从 modelscope.cn 下载约 15 MB 模型；`SITEVOX_OCR=0` 可关闭）。
+
+**打开文档：先原件，再提取的信息，最后全文**
+- **Original**：PDF 用浏览器自带的查看器嵌入，图片直接显示，可在新标签打开或下载（`GET /api/documents/<id>/file`，inline）。
+- **提取的有效信息**（`GET /api/documents/<id>` 返回 `info`，规则提取，请对照原件核对）：
+  - **Bautagesbericht**（`sitevox/understand/report_info.py`，按文档开头自动识别，也可在上传时选类型“Bautagesbericht”）：日期和编号、天气、人员实到 / 计划和工时、故障设备、交付数量、延误工序和有风险的节点、特殊事件（风险方、建议措施、状态）、表头信息，各章节表格可展开。
+  - **Vertrag**：识别到的字段，附原文引用和页码。
+- **识别出的全文**：默认折叠，用 Markdown 格式显示（`frontend/components/Markdown.tsx`：标题、列表、`|` 表格和制表符表格、引用、代码、加粗等，没有新依赖）。
 
 **合同关键信息提取（`sitevox/understand/contract_info.py`，规则提取，不需要 GPU）**
 - 上传类型为“Vertrag”的文档后，自动识别以下信息，每一项都记录出处（原句和页码）：
@@ -323,6 +348,7 @@ SiteVox 用**同一个绑定的邮箱**做两件事：
     - `lat` / `lon`
     - `mail_accounts[].smtp_*`
   - 文档新增字段：`version`、`superseded_by`；`collection = "legal_archive"` 表示已归档的法律条文。
+  - `report_rows.section` 新增 `work`、`deliveries`、`site_log`（不改表结构）。日报 JSON 新增 `impact_details`。
 - **新的环境变量**：
   - `SITEVOX_MAIL_SYNC_MIN`：邮件自动拉取间隔，默认 5 分钟，设为 0 关闭。
   - `SITEVOX_WEATHER_ONLINE=0`：不访问天气接口，测试时使用。
@@ -332,12 +358,12 @@ SiteVox 用**同一个绑定的邮箱**做两件事：
 
   `TestClient` 不以 context manager 方式使用时不会触发这些线程。
 
-- **依赖**：`pip install -r requirements.txt`（新增 `pypdf`、`rapidocr`、`onnxruntime`、`gaeb`，在 "Dateiverarbeitung" 一组）。合并后前端请删除 `frontend/.next` 再 `npm run build`。
+- **依赖**：`pip install -r requirements.txt`（新增 `pypdf`、**`pdfplumber`**、`rapidocr`、`onnxruntime`、`gaeb`，在 "Dateiverarbeitung" 一组；`pdfplumber` 只用 CPU）。合并后前端请删除 `frontend/.next` 再 `npm run build`。
 - **ASR**：试验过的"项目词表喂给 Whisper"已整体移除（识别本身还不准，从识别结果里加关键词没有意义）。`asr.py` 回到按语言的固定 `initial_prompt` + 配置里的 `hotwords`。同时修复了 main 合并（`41fa4c8`）遗留的两个崩溃：faster-whisper 路径的 `NameError: vocab`、mlx 路径参数个数不对（有回归测试）。`asr_server.py` 接口与 main 相同。
 - **Next.js 15.5 的一个 bug**：客户端页面模块若被分到确定性模块 ID `0`，会从 React Client Manifest 中漏掉（`flight-manifest-plugin` 里 `if (concatenatedModId)`），页面 500：*Could not find the module … in the React Client Manifest*。`frontend/next.config.mjs` 里对浏览器构建改用 `moduleIds = "named"`，升级 Next 修复后可去掉。
 - **容易冲突的文件**：`sitevox/understand/asr.py`、`sitevox/pipeline.py`、`backend/main.py`、`backend/views.py`、`frontend/lib/i18n.tsx`、`frontend/components/EvidenceViewer.tsx`、`tests/test_core.py`。i18n 冲突一般只是两边都加了词条，保留双方即可（注意不能有重复键，`npx tsc --noEmit` 会报）。
 - `data/demo/` 下的 `.eml` 和 `Bauzeitenplan.xlsx` 每次跑测试都会被 `make_demo_data.py` 重写，无实际变化，不要提交。
-- 测试：54 个，全部通过（`pytest tests --basetemp=.pytest_tmp -p no:cacheprovider`）。
+- 测试：58 个，全部通过（`pytest tests --basetemp=.pytest_tmp -p no:cacheprovider`）。
 
 ## 合规要点
 

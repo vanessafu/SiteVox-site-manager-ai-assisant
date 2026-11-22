@@ -982,8 +982,10 @@ def test_dashboard_defaults_to_today_and_carries_open_letters(monkeypatch):
     from backend import views
     from backend.main import app
 
+    from sitevox import settings as _s
+
     monkeypatch.delenv("SITEVOX_TODAY", raising=False)
-    assert views.default_day("BV-RIEM") == date.today().isoformat()
+    assert views.default_day("BV-RIEM") == (_s.models()["runtime"].get("today") or date.today().isoformat())
     monkeypatch.setenv("SITEVOX_TODAY", "2026-11-20")
     assert views.default_day("BV-RIEM") == "2026-11-20"
     d = TestClient(app).get("/api/projects/BV-RIEM/dashboard?date=2026-11-23").json()
@@ -1034,3 +1036,36 @@ def test_delivery_matched_to_announcement_unplanned_equipment_and_summed_progres
     editing.delete_capture(c1["capture_id"], "test")
     pr = [p for p in store.progress(P) if p["date"] == "2026-11-25" and p["activity_id"] == "A40"][0]
     assert pr["qty"] == 3 and pr["n_reports"] == 1
+
+
+def test_daily_report_pdf_columns_and_info():
+    """Bautagesbericht-PDF: Spalten bleiben erhalten (pdfplumber), Angaben werden gelesen; Tagesbuch editierbar."""
+    import pytest
+    from fastapi.testclient import TestClient
+
+    from backend.main import app
+    from sitevox.understand import pdf_layout, report_info
+
+    if not pdf_layout.available():
+        pytest.skip("pdfplumber fehlt")
+    c = TestClient(app)
+    d = "2026-11-20"
+    r = c.get(f"/api/projects/BV-RIEM/daily-report?date={d}")
+    if r.status_code != 200 or not r.content.startswith(b"%PDF"):
+        pytest.skip("PDF-Export nicht verfügbar")
+    import tempfile
+    from pathlib import Path
+
+    p = Path(tempfile.mkdtemp()) / "btb.pdf"
+    p.write_bytes(r.content)
+    pages = pdf_layout.pages(p)
+    assert any("\t" in l for l in pages[0]["text"].splitlines())
+    info = report_info.extract({"pages": pages})
+    assert info["date"] == d and info["report_no"]
+    assert info["summary"]["staff"]["actual"] is not None and info["summary"]["events"]
+
+    assert c.put("/api/projects/BV-RIEM/report-rows", json={"date": d, "section": "site_log", "key": "M-T",
+                                                          "data": {"time": "06:30", "label": "Besuch", "text": "Test"}}).status_code == 200
+    log = c.get(f"/api/projects/BV-RIEM/report?date={d}").json()["site_log"]
+    assert log[0]["text"] == "Test" and log[0]["added"]
+    c.put("/api/projects/BV-RIEM/report-rows", json={"date": d, "section": "site_log", "key": "M-T", "action": "reset"})

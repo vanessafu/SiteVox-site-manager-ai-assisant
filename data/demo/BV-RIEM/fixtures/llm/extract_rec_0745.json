@@ -1,0 +1,46 @@
+{
+ "base": {
+  "summary": "Lieferung Betonstahl 8 t (Stahlhandel Huber); Fertigteiltreppen Haus A (AG) für 15 Uhr angekündigt.",
+  "events": [],
+  "progress": [],
+  "staffing": [],
+  "open_items": [],
+  "log_entries": [
+   {
+    "kind": "delivery",
+    "text": "Betonstahl B500B, 8 t, von Stahlhandel Huber geliefert und am Lagerplatz Nord abgeladen.",
+    "time": "07:40",
+    "quote": "Lieferung Betonstahl B500B von Stahlhandel Huber, acht Tonnen, Lieferschein 48213",
+    "material": "Betonstahl B500B",
+    "quantity": 8,
+    "unit": "t",
+    "supplier": "Stahlhandel Huber",
+    "supplied_by": "AN",
+    "delivery_note_no": "48213",
+    "arrived": true,
+    "activity": "Bewehrung BP"
+   },
+   {
+    "kind": "delivery",
+    "text": "Fertigteiltreppen Haus A (Beistellung AG) für 15:00 Uhr angekündigt.",
+    "time": "07:45",
+    "quote": "Die Fertigteiltreppen für Haus A vom Bauherrn sind für heute 15 Uhr angekündigt",
+    "material": "Fertigteiltreppen Haus A",
+    "quantity": 4,
+    "unit": "St",
+    "supplier": "Wohnbau Riem (Beistellung)",
+    "supplied_by": "AG",
+    "arrived": false,
+    "expected_date": "2026-11-20",
+    "expected_time": "15:00"
+   }
+  ]
+ },
+ "variants": [
+  {},
+  {},
+  {},
+  {},
+  {}
+ ]
+}

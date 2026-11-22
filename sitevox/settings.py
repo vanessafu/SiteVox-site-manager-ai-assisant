@@ -76,6 +76,11 @@ def mode() -> str:
     return models()["runtime"]["mode"]
 
 
+def today() -> str | None:
+    """Fester Berichtstag („heute“) für Vorführungen: SITEVOX_TODAY, sonst [runtime] today; None = Systemdatum."""
+    return os.environ.get("SITEVOX_TODAY") or models()["runtime"].get("today") or None
+
+
 def is_demo() -> bool:
     return mode() == "demo"
 

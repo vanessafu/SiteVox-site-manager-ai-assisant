@@ -25,6 +25,18 @@
  },
  {
   "kind": "audio",
+  "file": "rec_0745.wav",
+  "time": "07:45",
+  "fixture": "rec_0745"
+ },
+ {
+  "kind": "audio",
+  "file": "rec_0915.wav",
+  "time": "09:15",
+  "fixture": "rec_0915"
+ },
+ {
+  "kind": "audio",
   "file": "rec_1002.wav",
   "time": "10:02",
   "fixture": "rec_1002"
@@ -34,6 +46,12 @@
   "file": "mail_1102.eml",
   "time": "11:02",
   "fixture": "mail_1102"
+ },
+ {
+  "kind": "audio",
+  "file": "rec_1130.wav",
+  "time": "11:30",
+  "fixture": "rec_1130"
  },
  {
   "kind": "email",

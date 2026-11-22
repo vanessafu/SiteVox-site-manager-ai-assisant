@@ -1,0 +1,35 @@
+{
+ "base": {
+  "summary": "Bewehrungsabnahme Achse A/B durch Prüfingenieur ohne Beanstandung; Kran geprüft.",
+  "events": [],
+  "progress": [],
+  "staffing": [],
+  "open_items": [],
+  "log_entries": [
+   {
+    "kind": "inspection",
+    "text": "Abnahme der Bewehrung Bodenplatte, Achsen A und B, durch den Prüfingenieur.",
+    "time": "09:15",
+    "quote": "Prüfingenieur Dr. Hartl hat die Bewehrung der Bodenplatte in Achse A und B abgenommen, ohne Beanstandung",
+    "party": "Prüfingenieur Dr. Hartl",
+    "result": "ohne Beanstandung, Protokoll folgt per E-Mail",
+    "activity": "Bewehrung BP"
+   },
+   {
+    "kind": "equipment_use",
+    "text": "Turmdrehkran vor Arbeitsbeginn geprüft.",
+    "time": "07:00",
+    "quote": "Turmdrehkran heute früh geprüft, in Ordnung",
+    "resource": "Turmdrehkran",
+    "state": "checked_ok"
+   }
+  ]
+ },
+ "variants": [
+  {},
+  {},
+  {},
+  {},
+  {}
+ ]
+}

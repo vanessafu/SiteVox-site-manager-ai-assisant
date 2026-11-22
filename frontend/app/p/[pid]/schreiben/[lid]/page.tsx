@@ -66,18 +66,24 @@ export default function ReviewEditor() {
   const [sentMethod, setSentMethod] = useState("E-Mail vorab + Einschreiben mit Rückschein");
   const [sendOpen, setSendOpen] = useState(false);
   const [origMethod, setOrigMethod] = useState("Einschreiben mit Rückschein");
+  const [editAll, setEditAll] = useState(false);
+  const [form, setForm] = useState<Record<string, string>>({});
   const { t } = useT();
 
-  // Feld speichern: Enter, ✓ oder Klick daneben (vorher ging die Eingabe ohne Enter verloren)
-  const saveField = (f: any) => {
-    if (editing !== `f:${f.key}`) return;
-    setEditing(null);
-    if (draftText === (Array.isArray(f.value) ? f.value.join(", ") : String(f.value ?? ""))) return;
-    const value = f.key === "impact_estimate_days" ? Number(draftText) : f.key === "affected_activities" ? draftText.split(",").map((s) => s.trim()) : draftText;
-    act(() => f.key === "recipient_email" && L.status === "Geprüft"
-      ? put(`/api/letters/${lid}/recipient-email`, { value })
-      : post(`/api/letters/${lid}/fields/${f.key}`, { action: "edit", value }));
-  };
+  const asText = (f: any) => (Array.isArray(f.value) ? f.value.join(", ") : String(f.value ?? ""));
+  const startEditAll = () => { setForm(Object.fromEntries(L.fields.map((f: any) => [f.key, asText(f)]))); setEditAll(true); };
+  // Alle geänderten Felder auf einmal speichern
+  const saveAll = () => act(async () => {
+    let last: any = null;
+    for (const f of L.fields) {
+      const txt = form[f.key] ?? "";
+      if (txt === asText(f)) continue;
+      const value = f.key === "impact_estimate_days" ? Number(txt) : f.key === "affected_activities" ? txt.split(",").map((x) => x.trim()).filter(Boolean) : txt;
+      last = await post(`/api/letters/${lid}/fields/${f.key}`, { action: "edit", value });
+    }
+    setEditAll(false);
+    return last ?? L;
+  });
   const act = async (fn: () => Promise<any>) => {
     setMsg(null);
     try { setData(await fn()); } catch (e: any) { setMsg(e.detail?.blockers ? e.detail.blockers.map((b: string) => t(b)).join(" · ") : e.message); }
@@ -178,45 +184,50 @@ export default function ReviewEditor() {
               </button>
             );
           })()}
-          <div className="card divide-y divide-slate-100">
-            <div className="flex items-center gap-2 px-3 py-2">
-              <span className="text-2xs uppercase tracking-wide text-slate-500">{t("Felder · Farbe = Konfidenz")} · <span className="normal-case">{t("Schreibentext bleibt deutsch (an deutschen AG nach VOB/B).")}</span></span>
-              {!locked && pending > 0 && (
-                <button className="btn-xs ml-auto shrink-0 bg-ok-soft" title={t("Übernimmt alle noch offenen Felder. Bearbeitete und verworfene Felder bleiben unverändert.")}
-                  onClick={() => act(() => post(`/api/letters/${lid}/fields/accept-all`))}>
-                  <CheckCheck className="h-3.5 w-3.5" /> {t("Alle übernehmen ({n})", { n: pending })}
-                </button>
+          <div className="card">
+            <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 px-3 py-2">
+              <span className="text-sm font-medium">{t("Basisangaben")}</span>
+              <span className="text-2xs text-slate-500">{t("Farbe = Konfidenz")} · {t("Schreibentext bleibt deutsch (an deutschen AG nach VOB/B).")}</span>
+              {!locked && (
+                <span className="ml-auto flex shrink-0 gap-1.5">
+                  {editAll ? (<>
+                    <button className="btn-xs bg-ok-soft" onClick={saveAll}><Check className="h-3.5 w-3.5" /> {t("Speichern")}</button>
+                    <button className="btn-xs" onClick={() => setEditAll(false)}><X className="h-3.5 w-3.5" /> {t("Abbrechen")}</button>
+                  </>) : (<>
+                    {pending > 0 && (
+                      <button className="btn-xs" title={t("Übernimmt alle noch offenen Felder. Bearbeitete und verworfene Felder bleiben unverändert.")}
+                        onClick={() => act(() => post(`/api/letters/${lid}/fields/accept-all`))}>
+                        <CheckCheck className="h-3.5 w-3.5" /> {t("Alle übernehmen ({n})", { n: pending })}
+                      </button>
+                    )}
+                    <button className="btn-xs" onClick={startEditAll}><Pencil className="h-3.5 w-3.5" /> {t("Bearbeiten")}</button>
+                  </>)}
+                </span>
               )}
             </div>
-            {L.fields.map((f: any) => {
-              const isSel = sel?.kind === "field" && sel.key === f.key;
-              return (
-                <div key={f.key} onClick={() => setSel({ kind: "field", key: f.key })}
-                  className={`cursor-pointer border-l-4 px-3 py-2 ${BAND_BORDER[f.status === "edited" || f.status === "accepted" ? "green" : f.band]} ${isSel ? "bg-accent-soft/40" : "hover:bg-slate-50"}`}>
-                  <div className="flex items-center gap-2">
-                    <span className="w-44 shrink-0 text-xs text-slate-600">{t(f.label)}</span>
-                    {editing === `f:${f.key}` ? (
-                      <span className="flex flex-1 gap-1" onClick={(e) => e.stopPropagation()}>
-                        <input autoFocus className="flex-1 rounded border px-2 py-0.5 text-sm" value={draftText} onChange={(e) => setDraftText(e.target.value)}
-                          onBlur={() => saveField(f)} onKeyDown={(e) => { if (e.key === "Enter") saveField(f); if (e.key === "Escape") setEditing(null); }} />
-                        <button className="btn-xs" onMouseDown={(e) => e.preventDefault()} onClick={() => saveField(f)} title={t("Speichern")}><Check className="h-3.5 w-3.5" /></button>
-                      </span>
-                    ) : (
-                      <span className={`flex-1 text-sm ${f.status === "rejected" ? "line-through opacity-50" : ""}`}>{f.key === "sphere" ? <SphereChip sphere={f.value} /> : fmtValue(f, t)}</span>
-                    )}
-                    <ConfidencePill value={f.confidence} />
-                  </div>
-                  {f.note && <div className="ml-44 pl-2 text-2xs text-slate-500">{t(f.note)}</div>}
-                  {!locked && (
-                    <div className="ml-44 mt-1 flex gap-1 pl-2" onClick={(e) => e.stopPropagation()}>
-                      <button className={`btn-xs ${f.status === "accepted" ? "bg-ok-soft" : ""}`} onClick={() => act(() => post(`/api/letters/${lid}/fields/${f.key}`, { action: "accept" }))}><Check className="h-3.5 w-3.5" /> {t("Übernehmen")}</button>
-                      <button className={`btn-xs ${f.status === "edited" ? "bg-accent-soft" : ""}`} onClick={() => { setEditing(`f:${f.key}`); setDraftText(Array.isArray(f.value) ? f.value.join(", ") : String(f.value ?? "")); }}><Pencil className="h-3.5 w-3.5" /> {t("Bearbeiten")}</button>
-                      <button className={`btn-xs ${f.status === "rejected" ? "bg-bad-soft" : ""}`} onClick={() => act(() => post(`/api/letters/${lid}/fields/${f.key}`, { action: "reject" }))}><X className="h-3.5 w-3.5" /> {t("Verwerfen")}</button>
+            <div className="divide-y divide-slate-100">
+              {L.fields.map((f: any) => {
+                const isSel = sel?.kind === "field" && sel.key === f.key;
+                return (
+                  <div key={f.key} onClick={() => setSel({ kind: "field", key: f.key })}
+                    className={`cursor-pointer border-l-4 px-3 py-1.5 ${BAND_BORDER[f.status === "edited" || f.status === "accepted" ? "green" : f.band]} ${isSel ? "bg-accent-soft/40" : "hover:bg-slate-50"}`}>
+                    <div className="flex items-center gap-2">
+                      <span className="w-44 shrink-0 text-xs text-slate-600">{t(f.label)}</span>
+                      {editAll ? (
+                        <input className="flex-1 rounded border px-2 py-0.5 text-sm" value={form[f.key] ?? ""} onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
+                          onKeyDown={(e) => { if (e.key === "Enter") saveAll(); if (e.key === "Escape") setEditAll(false); }} />
+                      ) : (
+                        <span className={`flex-1 text-sm ${f.status === "rejected" ? "line-through opacity-50" : ""}`}>{f.key === "sphere" ? <SphereChip sphere={f.value} /> : fmtValue(f, t)}</span>
+                      )}
+                      {f.status === "edited" && !editAll && <span className="text-2xs text-accent-text">{t("bearbeitet")}</span>}
+                      <ConfidencePill value={f.confidence} />
                     </div>
-                  )}
-                </div>
-              );
-            })}
+                    {f.note && !editAll && <div className="ml-44 pl-2 text-2xs text-slate-500">{t(f.note)}</div>}
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
           {/* Brief */}
@@ -271,7 +282,7 @@ export default function ReviewEditor() {
               <span className="text-2xs font-normal text-slate-600">{t("{n} Zahlen/Daten/Namen geprüft", { n: L.issues.length })}</span>
             </div>
             <ul className="space-y-1 text-xs">
-              {L.issues.filter((i: any) => i.status !== "verified" || i.found_in === "andere Quelle").map((i: any) => (
+              {L.issues.filter((i: any) => i.status !== "confirmed" && (i.status !== "verified" || i.found_in === "andere Quelle")).map((i: any) => (
                 <li key={i.issue_id} className="flex items-center gap-2">
                   <BandDot b={i.status === "unverified" ? "red" : i.status === "confirmed" ? "green" : "yellow"} />
                   {i.kind === "ai_only" && <span className="pill bg-warn-soft text-warn-text">{t("KI-Beobachtung")}</span>}
