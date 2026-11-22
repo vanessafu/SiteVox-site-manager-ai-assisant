@@ -10,7 +10,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import {
   AlertCircle, AlertTriangle, ArrowRight, Building2, CalendarDays, Camera, ChevronLeft, ChevronRight, History, CloudRain, FileDown, FolderOpen, HardHat, ListChecks, Mic,
-  NotebookPen, Pencil, TrendingUp, Truck, Users, Wrench,
+  GitBranch, NotebookPen, Pencil, TrendingUp, Truck, Users, Wrench, X,
 } from "lucide-react";
 import { dLong, dShort, num, pct, useApi } from "@/lib/api";
 import { LangToggle, locale, useT } from "@/lib/i18n";
@@ -104,6 +104,45 @@ function CaptureTimeline({ caps }: { caps: any[] }) {
   );
 }
 
+/** Seitenleiste „Verzugskette“: Ursache → verschobene Nachfolger → Vertragstermin, Schritt für Schritt */
+function DelayChains({ chains, events, onEvent }: { chains: any[]; events: Record<string, any>; onEvent: (e: any) => void }) {
+  const { t } = useT();
+  if (!chains.length) return <p className="text-sm text-slate-600">{t("Kein Verzug – keine Auswirkungskette.")}</p>;
+  return (
+    <div className="space-y-5 text-sm">
+      {chains.map((c) => (
+        <div key={c.root} className="rounded-lg border border-slate-200 p-3">
+          <div className="mb-2 flex flex-wrap items-center gap-1.5 font-semibold">
+            {c.root} <span className="pill bg-bad-soft text-bad-text">+{t("{n} AT", { n: c.delay_days })}</span>
+            {c.critical && <span className="pill bg-bad text-white">{t("kritischer Pfad")}</span>}
+          </div>
+          <div className="mb-1 text-2xs font-medium uppercase tracking-wide text-slate-500">{t("Ursache")}</div>
+          {c.events.length ? c.events.map((id: string) => {
+            const e = events[id];
+            return (
+              <button key={id} className="mb-1 block w-full rounded border border-slate-200 px-2 py-1 text-left text-xs hover:bg-slate-50"
+                onClick={() => e && onEvent(e)} disabled={!e}>
+                <b>{e ? t(e.label) : id}</b>{e?.cause ? ` · ${e.cause}` : ""}{e?.date ? ` · ${dShort(e.date)}` : ""}
+              </button>
+            );
+          }) : <p className="mb-1 text-xs text-slate-600">{t("Minderleistung gegenüber dem Tagessoll (kein Ereignis verknüpft).")}</p>}
+          <div className="mb-1 mt-3 text-2xs font-medium uppercase tracking-wide text-slate-500">{t("Herleitung")}</div>
+          <ol className="relative ml-2 border-l-2 border-bad/40">
+            {c.steps.map((st: string, i: number) => (
+              <li key={i} className="relative pb-3 pl-4 last:pb-0">
+                <span className={`absolute -left-[7px] top-1 h-3 w-3 rounded-full ${i === c.steps.length - 1 ? "bg-bad" : "bg-white ring-2 ring-bad"}`} />
+                <span className="mr-1 text-2xs text-slate-500">{i + 1}.</span>
+                {i === 0 ? t("Ursprung: {s}", { s: t(st) }) : i === c.steps.length - 1 && st.includes("überschritten") ? t("Folge: {s}", { s: t(st) }) : t("verschiebt Nachfolger: {s}", { s: t(st) })}
+              </li>
+            ))}
+          </ol>
+        </div>
+      ))}
+      <p className="text-2xs leading-relaxed text-slate-600">{t("Herleitung: Prognose je Vorgang = Restmenge ÷ beobachtete Tagesleistung plus Sperrtage aus Ereignissen. Ein verzögerter Vorgänger verschiebt den Nachfolger über Ende-Anfang (bzw. Anfang-Anfang, solange der Nachfolger nicht begonnen hat). Die Kette folgt dem kritischen Pfad bis zum Vertragstermin.")}</p>
+    </div>
+  );
+}
+
 export default function DashboardView({ day }: { day?: string }) {
   const { pid } = useParams<{ pid: string }>();
   const { data: d, error, reload } = useApi<any>(`/api/projects/${pid}/dashboard${day ? `?date=${day}` : ""}`, day ? undefined : 20_000);
@@ -113,6 +152,7 @@ export default function DashboardView({ day }: { day?: string }) {
   const drawer = useDrawer();
   const router = useRouter();
   const { t } = useT();
+  const [editProg, setEditProg] = useState(false);
   const idx = (days || []).findIndex((x) => x.date === day);
   const older = idx >= 0 ? days![idx + 1]?.date : undefined; // Liste ist neueste zuerst
   const newer = idx > 0 ? days![idx - 1]?.date : undefined;
@@ -218,33 +258,44 @@ export default function DashboardView({ day }: { day?: string }) {
 
       {/* B3 + B4 */}
       <div className="grid gap-4 lg:grid-cols-2">
-        <Section icon={Building2} title={t("Projektübersicht")}>
-          <table className="w-full text-sm">
-            <thead className="text-left text-xs text-slate-600"><tr>
-              <th className={th}>{t("Vorgang")}</th><th className={`${th} text-right`}>{t("Ist")}</th><th className={th}>{t("Plan → Prognose Ende")}</th>
-            </tr></thead>
-            <tbody>
-              {rep.work_performed.map((r: any) => (
-                <tr key={r.activity_id} className="row-click border-t border-slate-100" onClick={() => openEvidence(`${r.activity_id} ${t(r.description)}`, r.evidence_ids)}>
-                  <td className={td}>
-                    <span className="text-slate-500">{r.activity_id}</span> {t(r.description)}
-                    {r.critical && <span className="ml-1 inline-block h-2 w-2 rounded-full bg-bad align-middle" title={t("kritischer Pfad")} />}
-                  </td>
-                  <td className={`${td} text-right tabular-nums`}>{pct((r.progress_pct ?? 0) / 100)}</td>
-                  <td className={`${td} whitespace-nowrap tabular-nums`}>
-                    {dShort(r.planned_finish)} → {dShort(r.forecast_finish)}
-                    {r.delay_days > 0 && <span className="pill ml-1.5 bg-bad-soft text-bad-text">+{t("{n} AT", { n: r.delay_days })}</span>}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {rep.impact_chains.map((c: string) => <p key={c} className="mt-2 text-xs text-slate-600">{t(c)}</p>)}
+        <Section icon={Building2} title={t("Projektübersicht")}
+          right={<button className="btn-xs" onClick={() => drawer.open({
+            title: t("Verzugskette"), subtitle: dLong(d.date),
+            body: <DelayChains chains={rep.impact_details || []} events={Object.fromEntries(cards.map((e: any) => [e.event_id, e]))} onEvent={(e) => { drawer.close?.(); openEvent(e); }} />,
+          })}><GitBranch className="h-3.5 w-3.5" /> {t("Verzugskette")} ({(rep.impact_details || []).length})</button>}>
+          <ReportTable pid={pid} date={d.date} section="work" keyField="description" keyLabel="Vorgang" addLabel="Vorgang hinzufügen"
+            rows={rep.work_performed} onSaved={refresh} onRowClick={(r) => openEvidence(`${r.activity_id} ${t(r.description)}`, r.evidence_ids)}
+            actions={(r) => <EvidenceBtn ids={r.evidence_ids} title={t(r.description)} />}
+            keyShow={(r) => (<>
+              <span className="text-slate-500">{r.activity_id}</span> {t(r.description)}
+              {r.critical && <span className="ml-1 inline-block h-2 w-2 rounded-full bg-bad align-middle" title={t("kritischer Pfad")} />}
+              {r.added && <span className="pill ml-1 bg-slate-100 text-slate-600">{t("manuell")}</span>}
+            </>)}
+            cols={[
+              { key: "progress_pct", label: "Ist %", type: "num", right: true, show: (r) => pct((r.progress_pct ?? 0) / 100) },
+              { key: "planned_finish", label: "Plan Ende", type: "date", show: (r) => <span className="whitespace-nowrap tabular-nums">{r.planned_finish ? dShort(r.planned_finish) : "–"}</span> },
+              { key: "forecast_finish", label: "Prognose Ende", type: "date", show: (r) => <span className="whitespace-nowrap tabular-nums">{r.forecast_finish ? dShort(r.forecast_finish) : "–"}</span> },
+              { key: "delay_days", label: "Verzug", type: "int", right: true,
+                show: (r) => r.delay_days > 0 ? <span className="pill bg-bad-soft text-bad-text">+{t("{n} AT", { n: r.delay_days })}</span> : "–" },
+            ]} />
         </Section>
 
         <Section icon={TrendingUp} title={t("Tagesfortschritt")}
-          right={<button className="btn-xs" onClick={() => drawer.open({ title: t("Captures"), subtitle: dLong(d.date), body: <CaptureTimeline caps={rep.progress_captures} /> })}>
-            <Camera className="h-3.5 w-3.5" /> {t("Captures")} ({rep.progress_captures.length})</button>}>
+          right={<span className="flex gap-1.5">
+            <button className={`btn-xs ${editProg ? "bg-accent-soft" : ""}`} onClick={() => setEditProg(!editProg)}>
+              {editProg ? <X className="h-3.5 w-3.5" /> : <Pencil className="h-3.5 w-3.5" />} {t(editProg ? "Fertig" : "Bearbeiten")}</button>
+            <button className="btn-xs" onClick={() => drawer.open({ title: t("Captures"), subtitle: dLong(d.date), body: <CaptureTimeline caps={rep.progress_captures} /> })}>
+              <Camera className="h-3.5 w-3.5" /> {t("Captures")} ({rep.progress_captures.length})</button></span>}>
+          {editProg ? (
+            <ReportTable pid={pid} date={d.date} section="work" keyField="description" keyLabel="Vorgang" addLabel="Leistung hinzufügen"
+              rows={rep.work_performed} onSaved={refresh} actions={() => null}
+              keyShow={(r) => t(r.description)}
+              cols={[
+                { key: "quantity_planned", label: "Tagessoll", type: "num", right: true },
+                { key: "quantity_actual", label: "Ist", type: "num", right: true },
+                { key: "unit", label: "Einheit", type: "text" },
+              ]} />
+          ) : (<>
           <div className="space-y-2">
             {rep.work_performed.filter((r: any) => r.quantity_planned).map((r: any) => {
               const ratio = r.ratio_pct === null ? null : r.ratio_pct / 100;
@@ -276,6 +327,7 @@ export default function DashboardView({ day }: { day?: string }) {
             <span className="inline-flex items-center gap-1"><span className="h-2.5 w-3 bg-ok" />≥ 90 %</span>
             <span>· {t("Ist / Tagessoll")}</span>
           </div>
+          </>)}
         </Section>
       </div>
 
@@ -339,56 +391,40 @@ export default function DashboardView({ day }: { day?: string }) {
 
       {/* B8 Lieferungen (§ 4) */}
       <Section icon={Truck} title={t("Lieferungen")}>
-        {rep.deliveries.length ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="text-left text-xs text-slate-600"><tr>
-                <th className={th}>{t("Lieferant")}</th><th className={th}>{t("Material")}</th><th className={`${th} text-right`}>{t("Menge")}</th>
-                <th className={th}>{t("geplant")}</th><th className={th}>{t("tatsächlich")}</th><th className={th}>{t("pünktlich")}</th>
-                <th className={th}>{t("Status")}</th><th className={`${th} text-right`}>{t("bisher gesamt")}</th>
-                <th className={th}>{t("Lieferschein")}</th><th className={`${th} text-right`}>{t("Belege")}</th>
-              </tr></thead>
-              <tbody>
-                {rep.deliveries.map((r: any, i: number) => (
-                  <tr key={i} className="border-t border-slate-100">
-                    <td className={td}>{r.supplier || "–"}</td><td className={td}>{r.material}</td>
-                    <td className={`${td} text-right tabular-nums`}>{r.quantity != null ? `${num(r.quantity)} ${r.unit}` : "–"}</td>
-                    <td className={td}>{r.planned_time || "–"}</td><td className={td}>{r.actual_time || "–"}</td>
-                    <td className={td}>{!r.actual_time ? "–" : r.delay_minutes ? t("{n} min Verzug", { n: r.delay_minutes }) : r.planned_time ? t("ja") : "–"}</td>
-                    <td className={td}>
-                      <span className={r.status === "geliefert" ? "" : "font-semibold text-bad-text"}>{t(r.status?.startsWith("überfällig") ? "überfällig" : r.status || "geliefert")}</span>
-                      {r.announced_on && <span className="block text-2xs text-slate-500">{t("angekündigt am {d}", { d: dShort(r.announced_on) })}</span>}
-                      {r.previous_delivery && <span className="block text-2xs text-slate-500">{t("zuletzt {d}", { d: dShort(r.previous_delivery) })}</span>}
-                    </td>
-                    <td className={`${td} text-right tabular-nums`}>{r.total_to_date != null ? `${num(r.total_to_date)} ${r.unit}` : "–"}</td>
-                    <td className={td}>{r.delivery_note_no || "–"}</td>
-                    <td className={`${td} text-right`}><EvidenceBtn ids={r.evidence_ids || []} title={r.material} /></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : <p className="text-sm text-slate-600">{t("Keine Lieferungen erfasst.")}</p>}
+        {!rep.deliveries.length && <p className="mb-2 text-sm text-slate-600">{t("Keine Lieferungen erfasst.")}</p>}
+        <ReportTable pid={pid} date={d.date} section="deliveries" keyField="material" keyLabel="Material" addLabel="Lieferung hinzufügen"
+          rows={rep.deliveries} onSaved={refresh} actions={(r) => <EvidenceBtn ids={r.evidence_ids || []} title={r.material} />}
+          cols={[
+            { key: "supplier", label: "Lieferant", type: "text" },
+            { key: "quantity", label: "Menge", type: "num", right: true, show: (r) => (r.quantity != null ? num(r.quantity) : "–") },
+            { key: "unit", label: "Einheit", type: "text" },
+            { key: "planned_time", label: "geplant", type: "time" },
+            { key: "actual_time", label: "tatsächlich", type: "time" },
+            { key: "delay_minutes", label: "Verzug min", type: "int", right: true,
+              show: (r) => (!r.actual_time ? "–" : r.delay_minutes ? t("{n} min Verzug", { n: r.delay_minutes }) : r.planned_time ? t("pünktlich") : "–") },
+            { key: "status", label: "Status", type: "select", options: ["geliefert", "ausstehend", "überfällig"],
+              show: (r) => (<>
+                <span className={r.status === "geliefert" ? "" : "font-semibold text-bad-text"}>{t(r.status?.startsWith("überfällig") ? "überfällig" : r.status || "geliefert")}</span>
+                {r.announced_on && <span className="block text-2xs text-slate-500">{t("angekündigt am {d}", { d: dShort(r.announced_on) })}</span>}
+                {r.total_to_date != null && <span className="block text-2xs text-slate-500">{t("bisher gesamt")} {num(r.total_to_date)} {r.unit}</span>}
+              </>) },
+            { key: "delivery_note_no", label: "Lieferschein", type: "text" },
+          ]} />
       </Section>
 
       {/* Tagesbuch: Prüfungen, Besuche, Geräte-Befunde, erledigte Arbeiten (kein Ereignis, kein Regelwerk) */}
-      {(rep.site_log || []).length > 0 && (
-        <Section icon={NotebookPen} title={t("Prüfungen, Besuche und weitere Feststellungen")}>
-          <ul className="divide-y divide-slate-100 text-sm">
-            {rep.site_log.map((r: any) => (
-              <li key={r.log_id} className="flex items-start gap-3 py-2">
-                <span className="w-12 shrink-0 font-mono text-xs text-slate-500">{r.time || "–"}</span>
-                <span className="pill shrink-0 bg-slate-100 text-slate-700">{t(r.label)}</span>
-                <div className="min-w-0 flex-1">
-                  <div>{r.text}</div>
-                  {r.detail && <div className="text-xs text-slate-600">{t(r.detail)}</div>}
-                </div>
-                <EvidenceBtn ids={r.evidence_ids || []} title={t(r.label)} />
-              </li>
-            ))}
-          </ul>
-        </Section>
-      )}
+      <Section icon={NotebookPen} title={t("Tagesbuch – Prüfungen, Besuche und weitere Feststellungen")}>
+        {!(rep.site_log || []).length && <p className="mb-2 text-sm text-slate-600">{t("Keine Tagesbuch-Einträge an diesem Tag.")}</p>}
+        <ReportTable pid={pid} date={d.date} section="site_log" keyField="log_id" keyLabel="Eintrag" addLabel="Eintrag hinzufügen" hideKey
+          rows={rep.site_log || []} onSaved={refresh} actions={(r) => <EvidenceBtn ids={r.evidence_ids || []} title={t(r.label)} />}
+          cols={[
+            { key: "time", label: "Uhrzeit", type: "time", show: (r) => <span className="font-mono text-xs text-slate-500">{r.time || "–"}</span> },
+            { key: "label", label: "Art", type: "select", options: ["Prüfung", "Besuch", "Erledigte Arbeit", "Geräteeinsatz", "Feststellung", "Anweisung", "Sonstiges"],
+              show: (r) => <span className="pill bg-slate-100 text-slate-700">{t(r.label)}</span> },
+            { key: "text", label: "Eintrag", type: "text", show: (r) => <span>{r.text || "–"}</span> },
+            { key: "detail", label: "Beteiligte / Ergebnis", type: "text", show: (r) => <span className="text-xs text-slate-600">{r.detail ? t(r.detail) : "–"}</span> },
+          ]} />
+      </Section>
 
       {/* B9 Handlungsbedarf (§ 7) */}
       <section>

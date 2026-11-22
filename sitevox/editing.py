@@ -150,6 +150,14 @@ REPORT_FIELDS = {
     "workforce": {"company": str, "trade": str, "planned": int, "count": int, "hours_total": float, "idle_hours": float},
     "equipment": {"status": str, "hours_planned": float, "hours_operated": float, "downtime": list,
                   "downtime_cause": str},
+    # Leistungen / Projektübersicht (Schlüssel = Vorgangsbezeichnung)
+    "work": {"activity_id": str, "progress_pct": float, "quantity_planned": float, "quantity_actual": float,
+             "unit": str, "planned_finish": str, "forecast_finish": str, "delay_days": int},
+    # Lieferungen § 4 (Schlüssel = Material)
+    "deliveries": {"supplier": str, "quantity": float, "unit": str, "planned_time": str, "actual_time": str,
+                   "delay_minutes": int, "status": str, "delivery_note_no": str, "supplied_by": str},
+    # Tagesbuch: Prüfungen, Besuche, erledigte Arbeiten … (Schlüssel = log_id, neue Einträge M-…)
+    "site_log": {"time": str, "label": str, "text": str, "detail": str},
 }
 
 

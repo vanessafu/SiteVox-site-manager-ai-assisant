@@ -621,7 +621,44 @@ def document(doc_id: str) -> dict:
     if not d:
         raise HTTPException(404)
     d["gaeb_exportable"] = d.get("collection") == "project" and bool(gaeb_io.doc_items(d))
+    d["has_file"] = bool(_doc_file(d))
+    d["info"] = _doc_info(d)
     return d
+
+
+def _doc_file(d: dict) -> Optional[Path]:
+    f = d.get("file")
+    if not f:
+        return None
+    p = Path(f) if Path(f).is_absolute() else settings.data_dir() / f
+    if not p.exists():
+        p = settings.ROOT / f
+    return p if p.exists() else None
+
+
+def _doc_info(d: dict) -> Optional[dict]:
+    """Aus dem Dokument gelesene Angaben (regelbasiert): Bautagesbericht oder Vertrag."""
+    from sitevox.understand import contract_info, report_info
+
+    try:
+        if d.get("kind") == "vertrag":
+            return {"type": "vertrag", "fields": [{"key": k, **v} for k, v in contract_info.extract(d).items()]}
+        if report_info.is_daily_report(d):
+            return report_info.extract(d)
+    except Exception:  # noqa: BLE001 – Anzeige des Dokuments darf nicht scheitern
+        return None
+    return None
+
+
+@app.get("/api/documents/{doc_id}/file")
+def document_file(doc_id: str) -> FileResponse:
+    """Originaldatei (inline, z. B. PDF im Browser-Viewer)."""
+    d = store.get("documents", doc_id)
+    p = _doc_file(d) if d else None
+    if not p:
+        raise HTTPException(404, "Originaldatei nicht vorhanden")
+    media = mimetypes.guess_type(p.name)[0] or "application/octet-stream"
+    return FileResponse(p, media_type=media, headers={"Content-Disposition": f"inline; filename*=UTF-8''{__import__('urllib.parse').parse.quote(p.name)}"})
 
 
 @app.get("/api/documents/{doc_id}/gaeb")

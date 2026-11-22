@@ -20,6 +20,7 @@ reportlab>=4.2          # PDF-Bautagesbericht (ohne LibreOffice)
 imageio-ffmpeg>=0.5     # ffmpeg-Binary: Browser-WebM → m4a (Safari, Spulen), Whisper-Dekodierung
 pillow>=10.0            # EXIF, Demo-Fotos
 pypdf>=5.0              # PDF-Textebene ohne Docling (Wissensbasis)
+pdfplumber>=0.11        # Tabellen aus PDFs (CPU), z. B. Bautagesbericht
 rapidocr>=3.4           # OCR für Scans/Bilder auf der CPU (PP-OCRv5 latin, Modelle ~15 MB beim ersten Lauf)
 onnxruntime>=1.20       # Laufzeit für RapidOCR (CPU)
 gaeb>=0.5.4             # GAEB DA XML 2.x–3.3 / GAEB 2000 / GAEB 90: LV-Import und -Export (X81/X83/X84/X86)

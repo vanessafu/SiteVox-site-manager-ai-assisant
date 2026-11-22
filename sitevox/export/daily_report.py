@@ -221,6 +221,22 @@ def deliveries(project_id: str, day: str, refs) -> list[dict]:
     return rows
 
 
+def _delivery_rows(project_id: str, day: str, refs) -> list[dict]:
+    """Lieferungen + manuelle Korrekturen (Schlüssel = Material, bei Dubletten mit Uhrzeit)."""
+    rows, seen = [], set()
+    for r in deliveries(project_id, day, refs):
+        k = r["material"] or "–"
+        if k in seen:
+            k = f"{k} ({r.get('actual_time') or r.get('planned_time') or len(seen)})"
+        seen.add(k)
+        rows.append({**r, "material": k})
+    return _apply_manual(rows, store.report_rows(project_id, day, "deliveries"), "material",
+                         {"quantity": None, "unit": "", "supplier": None, "supplied_by": "AN", "planned_time": None,
+                          "actual_time": None, "delay_minutes": None, "delivery_note_no": None, "status": "geliefert",
+                          "announced_on": None, "previous_delivery": None, "total_to_date": None, "source_refs": [],
+                          "evidence_ids": [], "log_ids": []})
+
+
 def site_log(project_id: str, day: str, refs) -> list[dict]:
     """Weitere Tagesbuch-Einträge (Prüfung, Besuch, erledigte Arbeit, Geräte-Befund) – Wortlaut + Beleg."""
     from ..schemas import EQUIPMENT_STATE_LABELS, LOG_KIND_LABELS
@@ -235,7 +251,10 @@ def site_log(project_id: str, day: str, refs) -> list[dict]:
                     "time": l.get("time"), "text": _clean(l.get("text"), 300), "detail": " · ".join(detail) or None,
                     "activity_id": l.get("activity_id"), "source_refs": refs([l["evidence_id"]]),
                     "evidence_ids": [l["evidence_id"]]})
-    return out
+    out = _apply_manual(out, store.report_rows(project_id, day, "site_log"), "log_id",
+                        {"kind": "note", "label": "Feststellung", "time": None, "text": "", "detail": None,
+                         "activity_id": None, "source_refs": [], "evidence_ids": []})
+    return sorted(out, key=lambda r: r.get("time") or "99:99")
 
 
 # ------------------------------------------------------------------------------------------- build
@@ -415,6 +434,19 @@ def build(project_id: str, day: str) -> dict[str, Any]:
         elif al["kind"] == "milestone":
             milestones.append(al["message"])
     impact_chains = [ch["text"] for ch in a.get("impact", [])]
+    impact_details = [{"root": ch["root"], "critical": ch["critical"], "delay_days": ch["delay_days"],
+                       "events": ch["events"], "steps": ch["steps"]} for ch in a.get("impact", [])]
+
+    # manuelle Korrekturen Leistungen (Projektübersicht + Tagesfortschritt); Quote folgt geänderten Mengen
+    work = _apply_manual(work, store.report_rows(project_id, day, "work"), "description",
+                         {"activity_id": "", "critical": False, "quantity_planned": None, "quantity_actual": None,
+                          "unit": "", "ratio_pct": None, "progress_pct": 0, "forecast_finish": None,
+                          "planned_finish": None, "lv_pos": None, "delay_days": 0, "source_refs": [],
+                          "evidence_ids": [], "event_ids": []})
+    for w in work:
+        if w.get("manual") and ({"quantity_planned", "quantity_actual"} & set(w["manual"])):
+            qp, qa = w.get("quantity_planned"), w.get("quantity_actual")
+            w["ratio_pct"] = (qa or 0) / qp * 100 if qp else None
 
     # ---- Besondere Vorkommnisse
     incidents = []
@@ -540,9 +572,9 @@ def build(project_id: str, day: str) -> dict[str, Any]:
             "author": signer, "working_hours": {"start": start, "end": end},
         },
         "weather": weather, "workforce": workforce, "equipment": equipment,
-        "deliveries": deliveries(project_id, day, refs), "site_log": site_log(project_id, day, refs),
+        "deliveries": _delivery_rows(project_id, day, refs), "site_log": site_log(project_id, day, refs),
         "work_performed": work, "deviations": deviations, "milestones_at_risk": milestones,
-        "impact_chains": impact_chains, "incidents": incidents, "photos": photos, "sources": sources,
+        "impact_chains": impact_chains, "impact_details": impact_details, "incidents": incidents, "photos": photos, "sources": sources,
         "review": {"status": "KI-Entwurf", "ai_generated": True, "unsupported_statements": unsupported,
                    "uncertain": uncertain, "open_questions": questions},
     }
