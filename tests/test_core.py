@@ -982,8 +982,10 @@ def test_dashboard_defaults_to_today_and_carries_open_letters(monkeypatch):
     from backend import views
     from backend.main import app
 
+    from sitevox import settings as _s
+
     monkeypatch.delenv("SITEVOX_TODAY", raising=False)
-    assert views.default_day("BV-RIEM") == date.today().isoformat()
+    assert views.default_day("BV-RIEM") == (_s.models()["runtime"].get("today") or date.today().isoformat())
     monkeypatch.setenv("SITEVOX_TODAY", "2026-11-20")
     assert views.default_day("BV-RIEM") == "2026-11-20"
     d = TestClient(app).get("/api/projects/BV-RIEM/dashboard?date=2026-11-23").json()

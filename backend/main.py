@@ -194,6 +194,8 @@ async def upload_capture(pid: str, background: BackgroundTasks, kind: str = Form
     if kind not in ("audio", "photo", "note", "email", "document"):
         raise HTTPException(400, "unbekannte Art")
     ts = captured_at or datetime.now().astimezone().isoformat(timespec="seconds")
+    if not captured_at and settings.today():  # fester Vorführungstag: Live-Erfassung zählt zu diesem Tag (echte Uhrzeit)
+        ts = settings.today() + ts[10:]
     path = None
     if file is not None:
         path = await _tmp_file(file, f"upload_{kind}")

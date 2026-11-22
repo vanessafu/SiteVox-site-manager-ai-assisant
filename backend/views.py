@@ -18,7 +18,9 @@ def default_day(project_id: str) -> str:
     Für Vorführungen lässt sich der Tag mit SITEVOX_TODAY=JJJJ-MM-TT festhalten (z. B. Demo-Tag 2026-11-20)."""
     import os
 
-    return os.environ.get("SITEVOX_TODAY") or date.today().isoformat()
+    from sitevox import settings as _settings
+
+    return _settings.today() or date.today().isoformat()
 
 
 def pending_letters(project_id: str) -> int:
