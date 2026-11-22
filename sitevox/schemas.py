@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Any, Literal, Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 Sphere = Literal["AG", "AN", "neutral"]
 EventType = Literal[
@@ -110,17 +110,28 @@ class LLMEvent(BaseModel):
 
 
 class LLMProgress(BaseModel):
-    activity: str
+    """Ausgeführte Menge eines Vorgangs. Einzige Stelle für Mengen (work_done im Tagebuch hat keine Mengen)."""
+    activity: str = Field(description="Vorgang, möglichst Name aus 'Bekannte Vorgänge'")
     quantity: float
-    unit: str
-    quote: str
+    unit: str = Field(description="z. B. m³, t, m, m², Stk")
+    quote: str = Field(description="Wörtliches Zitat NUR des Teils mit dieser Menge")
 
 
 class LLMStaffing(BaseModel):
-    crew: str
+    """Kopfzahl einer genannten Kolonne. crew nur, wenn die Kolonne in der Eingabe genannt wird – nie raten."""
+    crew: Optional[str] = Field(None, description="Kolonne wie genannt (z. B. 'Kolonne Müller'), sonst null")
     present: int
     absent: Optional[int] = None
     reason: Optional[str] = None
+    quote: str
+
+
+class LLMStaffingTotal(BaseModel):
+    """Gesamtzahl Personal ohne Kolonnenzuordnung ("alle 16 Mann da"). Aufteilung auf Kolonnen entscheidet der
+    Bauleiter im Dashboard."""
+    present_total: int = Field(description="Gesamtzahl anwesender Personen inkl. Aushilfen")
+    additional: Optional[int] = Field(None, description="davon zusätzlich/aushilfsweise (z. B. '+2 von Pasing')")
+    note: Optional[str] = Field(None, description="Herkunft der Aushilfen o. Ä.")
     quote: str
 
 
@@ -132,12 +143,13 @@ class LLMOpenItem(BaseModel):
 
 
 LogKind = Literal["delivery", "equipment_use", "inspection", "visit", "work_done"]
-EquipmentState = Literal["in_operation", "checked_ok", "restricted", "idle", "not_used"]
+EquipmentState = Literal["in_operation", "idle", "restricted", "under_inspection", "not_used"]
 LOG_KIND_LABELS: dict[str, str] = {"delivery": "Lieferung", "equipment_use": "Geräteeinsatz", "inspection": "Prüfung",
                                    "visit": "Besuch", "work_done": "Erledigte Arbeit"}
-EQUIPMENT_STATE_LABELS: dict[str, str] = {"in_operation": "im Einsatz", "checked_ok": "geprüft, in Ordnung",
-                                          "restricted": "eingeschränkt", "idle": "Stillstand",
-                                          "not_used": "nicht eingesetzt"}
+EQUIPMENT_STATE_LABELS: dict[str, str] = {"in_operation": "im Einsatz", "idle": "Stillstand",
+                                          "restricted": "eingeschränkt", "under_inspection": "in Prüfung/Wartung",
+                                          "not_used": "nicht eingesetzt",
+                                          "checked_ok": "geprüft, in Ordnung"}  # Altdaten vor Schema-Änderung
 
 
 class LLMLogEntry(BaseModel):
@@ -158,7 +170,7 @@ class LLMLogEntry(BaseModel):
     expected_date: Optional[str] = Field(None, description="ISO-Datum einer angekündigten Lieferung")
     expected_time: Optional[str] = Field(None, description="HH:MM der angekündigten/geplanten Anlieferung")
     # equipment_use
-    resource: Optional[str] = Field(None, description="Gerät, z. B. 'Bagger', 'Radlader', 'Kran'")
+    resource: Optional[str] = Field(None, description="Gerät aus 'Bekannte Geräte' (nie eine Kolonne/ein Material)")
     state: Optional[EquipmentState] = None
     start_time: Optional[str] = Field(None, description="HH:MM Einsatzbeginn")
     end_time: Optional[str] = Field(None, description="HH:MM Einsatzende")
@@ -166,13 +178,22 @@ class LLMLogEntry(BaseModel):
     party: Optional[str] = Field(None, description="Prüfer/Besucher/Firma, z. B. 'Prüfstatiker', 'Bauherr'")
     result: Optional[str] = Field(None, description="Ergebnis einer Prüfung/Abnahme, z. B. 'ohne Beanstandung'")
     activity: Optional[str] = Field(None, description="Betroffener Vorgang, falls erkennbar")
+    # work_done hat bewusst KEINE Menge: Mengen gehören immer in Extraction.progress
+
+
+_EXTRACTION_FIELDS = ["summary", "events", "progress", "staffing", "staffing_total", "log_entries", "open_items"]
 
 
 class Extraction(BaseModel):
+    """Alle Felder sind im JSON-Schema PFLICHT (guided decoding muss jedes Feld ausgeben, leer = [] bzw. null);
+    Python-seitig bleiben Defaults, damit Heuristik und ältere Demo-Fixtures weiter validieren."""
+    model_config = ConfigDict(json_schema_extra={"required": _EXTRACTION_FIELDS})
+
     summary: str = ""
     events: list[LLMEvent] = Field(default_factory=list)
     progress: list[LLMProgress] = Field(default_factory=list)
     staffing: list[LLMStaffing] = Field(default_factory=list)
+    staffing_total: Optional[LLMStaffingTotal] = None
     log_entries: list[LLMLogEntry] = Field(default_factory=list)
     open_items: list[LLMOpenItem] = Field(default_factory=list)
 

@@ -264,14 +264,25 @@ def _extract_into(cap: dict, body: str, acts: list[dict], fixture_key: Optional[
                              f"addiert (Tagessumme {_num(r['total'])} {p.unit}). War eine Tagessumme gemeint, "
                              "bitte im Bericht korrigieren.")
     crews = {c["name"]: c["planned_staff"] for c in settings.project_cfg(project_id).get("crews", [])}
-    for s in main.staffing:
-        ev = _quote_evidence(cap, s.quote, body)
-        r = store.add_staffing_report(project_id, day, s.crew, s.present, crews.get(s.crew, s.present + (s.absent or 0)),
-                                      ev.evidence_id)
+    staff_rows = [(s.crew, s.present, s.absent, s.quote) for s in main.staffing if s.crew]
+    # Kopfzahl ohne Kolonne (staffing ohne crew bzw. staffing_total) → "Gesamt"; Aufteilung macht der Bauleiter
+    totals = [(s.present, s.quote) for s in main.staffing if not s.crew]
+    if main.staffing_total:
+        totals = [(main.staffing_total.present_total, main.staffing_total.quote)]
+    for present, quote in totals[:1]:
+        staff_rows.append((STAFF_TOTAL, present, None, quote))
+        extra = f" (davon {main.staffing_total.additional} zusätzlich: {main.staffing_total.note or 'Aushilfe'})" \
+            if main.staffing_total and main.staffing_total.additional else ""
+        hints.append(f"Personal: {present} Personen gemeldet{extra}, aber ohne Kolonnenangabe – die Zuordnung zu den "
+                     "Kolonnen lässt sich daraus nicht ableiten. Bitte im Dashboard festlegen.")
+    for crew, present, absent, quote in staff_rows:
+        ev = _quote_evidence(cap, quote, body)
+        planned = sum(crews.values()) if crew == STAFF_TOTAL else crews.get(crew, present + (absent or 0))
+        r = store.add_staffing_report(project_id, day, crew, present, planned, ev.evidence_id)
         cap["evidence_ids"].append(ev.evidence_id)
-        if r["n"] > 1 and any(x != s.present for x in r["previous"]):
-            hints.append(f"{s.crew}: heute bereits mit {', '.join(map(str, r['previous']))} Personen gemeldet – "
-                         f"die neueste Meldung ({s.present}) gilt (Kopfzahlen werden nicht addiert).")
+        if r["n"] > 1 and any(x != present for x in r["previous"]):
+            hints.append(f"{crew}: heute bereits mit {', '.join(map(str, r['previous']))} Personen gemeldet – "
+                         f"die neueste Meldung ({present}) gilt (Kopfzahlen werden nicht addiert).")
     _save_log_entries(cap, main.log_entries, body, acts)
     touched = []
     for le in main.events:
@@ -281,6 +292,9 @@ def _extract_into(cap: dict, body: str, acts: list[dict], fixture_key: Optional[
         if ev_id not in cap["event_ids"]:
             cap["event_ids"].append(ev_id)
     return touched
+
+
+STAFF_TOTAL = "Gesamt"   # Kopfzahl ohne Kolonnenzuordnung (Bericht/Dashboard werten "Gesamt" gesondert aus)
 
 
 def _num(x: float) -> str:

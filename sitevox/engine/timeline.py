@@ -27,9 +27,9 @@ def _match(resource_cfg: dict, name: str) -> bool:
     return resource_cfg["name"].lower() in n or n in resource_cfg["name"].lower() or resource_cfg["id"] in n
 
 
-# Tagesbuch-Zustand → Tagesverlauf-Status (checked_ok ändert den Verlauf nicht, nur Bemerkung)
+# Tagesbuch-Zustand → Tagesverlauf-Status (checked_ok = Altdaten: ändert den Verlauf nicht, nur Bemerkung)
 LOG_STATUS = {"in_operation": "work", "restricted": "restricted", "idle": "idle", "not_used": "planned_not_started",
-              "checked_ok": None}
+              "under_inspection": "restricted", "checked_ok": None}
 
 
 def _norm(name: str) -> str:

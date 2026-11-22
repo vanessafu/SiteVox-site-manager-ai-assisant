@@ -219,10 +219,17 @@ def main() -> None:
                   "ok": (prog.get(r["vorgang"]) or 0) == r["ist"] if r["ist"] == 0 else
                   (prog.get(r["vorgang"]) is not None and abs(prog[r["vorgang"]] - r["ist"]) <= 0.01 * max(1, r["ist"]))}
                  for r in er.get("5_tagesleistung") or []]
+    # Gesamtzahl: gemeldete "Gesamt"-Zahl (ohne Kolonne) zählt als richtig, wenn sie stimmt – die Kolonnen-
+    # aufteilung ist dann bewusst offen (Bauleiter entscheidet im Dashboard) und wird nur als Hinweis ausgewiesen.
     gold_total = (er.get("2_personal_summe") or {}).get("ist") or sum(r["ist"] for r in er.get("2_personal") or [])
-    sys_total = sum(s["present"] for s in run["staffing"]) if run["staffing"] else None
+    by_crew = {s["crew"]: s["present"] for s in run["staffing"]}
+    reported_total = by_crew.get("Gesamt")
+    crew_sum = sum(v for k, v in by_crew.items() if k != "Gesamt") or None
+    sys_total = reported_total if reported_total is not None else crew_sum
     staff = {"gold_total": gold_total, "system_total": sys_total, "ok": sys_total == gold_total,
-             "crews": [f"{s['crew']}={s['present']}" for s in run["staffing"]]}
+             "crew_assignment": "vollständig" if crew_sum and reported_total is None else
+             ("offen – nur Gesamtzahl gemeldet (Zuordnung im Dashboard)" if reported_total is not None else "–"),
+             "crews": [f"{k}={v}" for k, v in by_crew.items()]}
 
     # ------------------------------------------------------------------ Nachrichten / Schreiben
     msg_rows = []
@@ -359,7 +366,8 @@ def to_md(d: dict) -> str:
          f"{D['delivery_qty_ok']}/{D['deliveries']} · {D['pending_flagged']}/{D['pending']} |",
          f"| Geräte erfasst · Ausfall erkannt | {D['equipment_logged']}/{D['equipment']} · {D['outage_ok']}/{D['outages']} |",
          f"| Leistung je Vorgang · Personal gesamt | {S['progress']['correct']}/{S['progress']['total']} · "
-         f"{S['staffing']['system_total']} vs. {S['staffing']['gold_total']} {ok(S['staffing']['ok'])} |",
+         f"{S['staffing']['system_total']} vs. {S['staffing']['gold_total']} {ok(S['staffing']['ok'])} "
+         f"(Kolonnen: {S['staffing']['crew_assignment']}) |",
          f"| Nachrichten: an AG entworfen · an Dritte (nicht unterstützt) · fälschlich an AG | "
          f"{Mg['to_ag_drafted']}/{Mg['to_ag']} · {Mg['non_ag_unsupported']} · {Mg['wrong_to_ag']} |",
          f"| Pflichtinhalte in Entwürfen (≈ Schlüsselwörter) | {Mg['must_include'][0]}/{Mg['must_include'][1]} |",

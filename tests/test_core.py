@@ -1002,7 +1002,7 @@ def test_normal_reports_become_log_entries_not_events():
                   acts, None, ["Bagger"], "2026-11-20")
     assert not x.events
     eq = [l for l in x.log_entries if l.kind == "equipment_use"]
-    assert len(eq) == 1 and eq[0].resource == "Bagger" and eq[0].state == "checked_ok"
+    assert len(eq) == 1 and eq[0].resource == "Bagger" and eq[0].state == "in_operation"
     dl = [l for l in x.log_entries if l.kind == "delivery"][0]
     assert dl.arrived is False and dl.expected_date == "2026-11-21" and dl.expected_time == "07:00"
 

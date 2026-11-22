@@ -6,13 +6,16 @@ damit die mobile Erfassung auch ohne GPU sichtbar Ergebnisse liefert.
 """
 from __future__ import annotations
 
+import logging
 import re
 from difflib import SequenceMatcher
 from typing import Any, Optional
 
 from .. import llm, settings
 from ..prompts import EXTRACT_PHOTO_CONTEXT, EXTRACT_USER, MINUTES_SYSTEM, extract_system
-from ..schemas import Extraction, LLMEvent, LLMLogEntry, LLMProgress, LLMStaffing, MinutesSummary
+from ..schemas import Extraction, LLMEvent, LLMLogEntry, LLMProgress, LLMStaffing, LLMStaffingTotal, MinutesSummary
+
+log = logging.getLogger(__name__)
 
 # ----------------------------------------------------------------------------- activity matching
 def match_activity(name: str, acts: list[dict], threshold: float = 0.55) -> Optional[str]:
@@ -175,14 +178,14 @@ def log_heuristic(text: str, acts: list[dict], resources: Optional[list[str]] = 
             out.append(LLMLogEntry(kind="visit", text=s, quote=s, time=t, party=pm.group(1) if pm else None))
             continue
         if res_name and not FAIL_RE.search(low):
-            state = ("not_used" if NOT_USED_RE.search(low) else "checked_ok" if OK_RE.search(low)
+            # geprüft + in Ordnung = verfügbar/im Einsatz (Schema kennt kein "checked_ok" mehr)
+            state = ("not_used" if NOT_USED_RE.search(low) else "in_operation" if OK_RE.search(low)
                      else "in_operation" if IN_OP_RE.search(low) else None)
             if state:
                 if res_name in seen_res:  # gleicher Befund in Folgesatz → an vorhandenen Eintrag anhängen
                     e = next(x for x in out if x.kind == "equipment_use" and x.resource == res_name)
                     e.quote, e.text = f"{e.quote} {s}", f"{e.text} {s}"
-                    if state == "checked_ok":
-                        e.state = state
+                    e.state = e.state or state
                     continue
                 seen_res.add(res_name)
                 out.append(LLMLogEntry(kind="equipment_use", text=s, quote=s, time=t, resource=res_name, state=state))
@@ -192,6 +195,7 @@ def log_heuristic(text: str, acts: list[dict], resources: Optional[list[str]] = 
 def heuristic(text: str, acts: list[dict], hint_subtypes: Optional[list[str]] = None,
               resources: Optional[list[str]] = None, day: Optional[str] = None) -> Extraction:
     events, progress, staffing = [], [], []
+    staffing_total = None
     attrs = _attr_cues(text)
     for s in _sentences(text):
         low = s.lower()
@@ -222,7 +226,7 @@ def heuristic(text: str, acts: list[dict], hint_subtypes: Optional[list[str]] = 
                                             unit=UNIT.get(unit, m.group(2)), quote=s))
         pm = re.search(r"(\d+)\s*(mann|leute|personen)", low)
         if pm and ("personal" in low or "kolonne" in low):
-            staffing.append(LLMStaffing(crew="Gesamt", present=int(pm.group(1)), quote=s))
+            staffing_total = LLMStaffingTotal(present_total=int(pm.group(1)), quote=s)
     # Foto-Antwort ohne Schlüsselwort ("Vorleistung von Firma X"): Ereignistyp aus der Beobachtung,
     # Zitat und Verantwortungs-Hinweise aber aus der Antwort.
     typ = next((SUBTYPE_EVENT[h] for h in hint_subtypes or [] if h in SUBTYPE_EVENT), None)
@@ -238,7 +242,8 @@ def heuristic(text: str, acts: list[dict], hint_subtypes: Optional[list[str]] = 
     # Ein Satz wird entweder Ereignis oder Tagesbuch-Eintrag, nicht beides
     ev_quotes = {q for e in events for q in e.quotes}
     logs = [l for l in logs if l.quote not in ev_quotes]
-    return Extraction(summary=text[:200], events=events, progress=progress, staffing=staffing, log_entries=logs)
+    return Extraction(summary=text[:200], events=events, progress=progress, staffing=staffing,
+                      staffing_total=staffing_total, log_entries=logs)
 
 
 # ----------------------------------------------------------------------------- API
@@ -255,6 +260,17 @@ def photo_context(question: str, analysis: dict) -> str:
     return EXTRACT_PHOTO_CONTEXT.format(question=question, observations=lines, scene=scene)
 
 
+def crew_names(pcfg: dict) -> list[str]:
+    return [c["name"] for c in pcfg.get("crews", [])]
+
+
+def equipment_names(pcfg: dict) -> list[str]:
+    """Einsatzplan-Ressourcen ohne Kolonnen (baseline 'resources' enthält beides)."""
+    crews = {n.lower() for n in crew_names(pcfg)}
+    return [r["name"] for r in pcfg.get("resources", [])
+            if r["name"].lower() not in crews and not r["name"].lower().startswith(("kolonne", "crew"))]
+
+
 def extract(text: str, *, project_id: str, date: str, time: str, source: str, acts: list[dict],
             fixture_key: Optional[str] = None, context: str = "",
             hint_subtypes: Optional[list[str]] = None, out_lang: str = "de") -> dict[str, Any]:
@@ -268,15 +284,25 @@ def extract(text: str, *, project_id: str, date: str, time: str, source: str, ac
         {"role": "user", "content": EXTRACT_USER.format(
             project=pcfg["title"], date=date, time=time, source=source,
             activities=", ".join(a["name"] for a in acts),
-            resources=", ".join(r["name"] for r in pcfg.get("resources", [])), text=text, context=context)},
+            equipment=", ".join(equipment_names(pcfg)) or "–", crews=", ".join(crew_names(pcfg)) or "–",
+            text=text, context=context)},
     ]
     client = llm.get("extractor")
     fx = (project_id, f"extract_{fixture_key}") if fixture_key else None
     fb = lambda: heuristic(text, acts, hint_subtypes,  # noqa: E731
                            [r["name"] for r in pcfg.get("resources", [])], date)
-    main = client.structured(Extraction, msgs, n=1, temperature=cfg["temperature"], fixture=fx, fallback=fb)[0]
-    samples = client.structured(Extraction, msgs, n=cfg["n_samples"], temperature=cfg["sample_temperature"],
-                                fixture=fx, fallback=fb)
+    try:
+        main = client.structured(Extraction, msgs, n=1, temperature=cfg["temperature"], fixture=fx, fallback=fb)[0]
+    except llm.LLMError as e:  # ungültiges JSON nach allen Retries → Heuristik statt Abbruch des Laufs
+        log.warning("Extraktion fehlgeschlagen (%s) – Heuristik-Fallback", e)
+        main = fb()
+        return {"main": main, "samples": [main] * cfg["n_samples"]}
+    try:
+        samples = client.structured(Extraction, msgs, n=cfg["n_samples"], temperature=cfg["sample_temperature"],
+                                    fixture=fx, fallback=fb)
+    except llm.LLMError as e:
+        log.warning("Konsistenz-Sampling fehlgeschlagen (%s) – nur Hauptlauf", e)
+        samples = [main] * cfg["n_samples"]
     return {"main": main, "samples": samples}
 
 
