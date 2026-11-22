@@ -97,11 +97,18 @@ SITEVOX_MODE=gpu uvicorn backend.main:app --port 8000
 | --- | --- | --- |
 | 07:00 | 语音：14/16 人，Kolonne Müller 2 人病假 | Personalmangel → **AN**，只做内部预警，不发函 |
 | 07:30 | 语音 + 照片：Achse C 配筋图（Index b）未到 | Planlieferverzug → **AG** → Behinderungsanzeige § 6 Abs. 1，计时开始 |
+| 07:45 | 语音：Betonstahl 8 t 到货（Lieferschein 48213）；业主供货的 Fertigteiltreppen 预告 15:00 | 只进 Lieferungen：两条到货 / 一条 **ausstehend**（业主供货，§ 9 合同） |
+| 09:15 | 语音：Prüfingenieur 验收 A/B 轴钢筋无异议；塔吊检查正常 | 只进 Tagesbuch（Prüfung、Geräteeinsatz），不触发事件 |
 | 10:02 | 语音：挖掘机液压管爆裂 | Geräteausfall → **AN** → 只记 Bautagebuch（不会误起草 Behinderungsanzeige） |
+| 11:30 | 语音：建筑师现场巡查；Abstandhalter 2 托到货 | Tagesbuch（Besuch）+ Lieferungen |
 | 11:02 | 邮件（建筑师）：追加 4 个 Kernbohrung DN150 | LV 中无此项 → Mehrkostenankündigung § 2 Abs. 6，**须执行前**；提示建筑师无授权 |
 | 12:15 | 邮件（结构工程师）：图纸"voraussichtlich Montag" | 合并到 Planlieferverzug；引擎推算 Bewehrung +2 AT → Betonage → Wände EG 18.12. 代替 16.12.，**超出合同工期 2 AT**；影响天数置信度仅 0.59（"voraussichtlich"） |
 | 13:00 | 语音：混凝土泵取消 | 时间轴上 Betonpumpe "geplant, nicht begonnen" |
 | 16:30 | 语音：当日产量 | 子弹图：Aushub 59 %（红）、Bewehrung 81 %（黄）、Schalung 105 %（绿） |
+
+- 07:31 和 14:10 两张照片为真实感的生成图片（`data/demo/BV-RIEM/inputs/2026-11-20/IMG_0731.jpg`、`IMG_1410.jpg`，EXIF 含拍摄时间和 GPS）；`make_demo_data.py` 不会再用占位图覆盖已有照片。识别结果（演示模式回放）按画面标注了局部框。
+- 新增的 3 段语音（07:45、09:15、11:30）目前是无人声的占位音频（演示模式用预置转写）；要播放时可用 `scripts/data/audio/tts_synthesize.py --demo` 生成。
+- **Bauvertrag 原件为 PDF**（`data/demo/BV-RIEM/docs/Bauvertrag_RI-2026-014.pdf`，seed 时优先于同名 `.md`）。PDF 的硬换行在合同提取和联系人识别前会接回成整句（`contract_info._unwrap`），断行的邮箱如 `wohnbau-|riem.example` 也能识别；PDF 与 Markdown 的提取结果一致。
 
 审核编辑器中，起草的 Behinderungsanzeige 有一句"已于 16.11.2026 电话催告"——证据里找不到这个日期，被标红并阻止放行，直到 Bauleiter 填写依据并确认（写入 Audit-Log）。
 

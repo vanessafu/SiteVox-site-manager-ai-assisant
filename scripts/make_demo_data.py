@@ -60,8 +60,17 @@ MEMOS = {
                           "Kolonne Müller kann bis Mittag noch in den Achsen A und B verlegen, ab 12 Uhr haben die in "
                           "Achse C keinen Arbeitsbereich mehr. Damit ist die Betonage der Bodenplatte heute Nachmittag "
                           "nicht zu halten. Ich mache Fotos von Achse C."),
+    "rec_0745": ("07:45", "Sieben Uhr fünfundvierzig. Lieferung Betonstahl B500B von Stahlhandel Huber, acht Tonnen, "
+                          "Lieferschein 48213, abgeladen am Lagerplatz Nord. Die Fertigteiltreppen für Haus A vom "
+                          "Bauherrn sind für heute 15 Uhr angekündigt."),
+    "rec_0915": ("09:15", "Neun Uhr fünfzehn. Prüfingenieur Dr. Hartl hat die Bewehrung der Bodenplatte in Achse A und B "
+                          "abgenommen, ohne Beanstandung, das Protokoll kommt per Mail. Turmdrehkran heute früh "
+                          "geprüft, in Ordnung."),
     "rec_1002": ("10:02", "Zehn Uhr zwei. Der Bagger steht seit 10 Uhr, Hydraulikschlauch am Ausleger geplatzt. "
                           "Werkstatt ist informiert, der Monteur kommt gegen eins. Aushub BA1 steht solange komplett."),
+    "rec_1130": ("11:30", "Elf Uhr dreißig. Frau Lechner vom Architekturbüro war zur Bauüberwachung da, Rundgang "
+                          "Bodenplatte und Baugrube, keine Hinweise. Außerdem Lieferung Abstandhalter und "
+                          "Schalungsanker von Baustoff Meier, zwei Paletten, Lieferschein M-7781."),
     "rec_1300": ("13:00", "13 Uhr. Betonpumpe für heute abbestellt, die Bewehrung in Achse C ist nicht fertig. Neuer "
                           "Betoniertermin erst, wenn die Pläne da sind und Achse C verlegt ist."),
     "rec_1630": ("16:30", "Tagesleistung 20. November. Aushub BA1 etwa 190 Kubik, der Bagger lief ab halb zwei "
@@ -167,28 +176,32 @@ def write_mail(key: str, m: dict) -> None:
 PHOTOS = {
     "IMG_0731": {"time": "07:31", "label": "Achse C – Bewehrung unvollständig", "link": "planlieferverzug",
                  "analysis": {
-                     "summary": "Bodenplatte Achse C: untere Bewehrungslage nur teilweise verlegt, obere Lage fehlt. "
-                                "Zwei Arbeiter stehen am Rand, es finden keine Verlegearbeiten statt. Leichter Regen, "
-                                "Pfützen auf der Sauberkeitsschicht.",
+                     "summary": "Bodenplatte: untere Bewehrungslage nur auf einem Teil der Fläche verlegt, obere Lage "
+                                "fehlt. Stabstahl-Bündel und Abstandhalter liegen ungenutzt auf der nassen "
+                                "Sauberkeitsschicht. Zwei Arbeiter stehen am Rand, es finden keine Verlegearbeiten "
+                                "statt. Nebel, Pfützen auf der Sauberkeitsschicht.",
                      "scene": {"bauteil": "Bodenplatte Achse C", "stage": "untere Bewehrungslage teilweise verlegt",
                                "activity_guess": "Bewehrung Bodenplatte"},
                      "observations": [
                          {"category": "progress", "subtype": "stage_change",
                           "description": "Untere Bewehrungslage nur teilweise verlegt, obere Lage fehlt.",
-                          "bbox": [0, 672, 1000, 1000], "severity": "medium", "visual_conf": 0.82},
+                          "bbox": [0, 265, 790, 525], "severity": "medium", "visual_conf": 0.84},
+                         {"category": "obstruction", "subtype": "material_storage",
+                          "description": "Stabstahl-Bündel und Abstandhalter liegen ungenutzt auf der Sauberkeitsschicht.",
+                          "bbox": [340, 380, 850, 670], "severity": "low", "visual_conf": 0.78},
                          {"category": "obstruction", "subtype": "standing_water",
                           "description": "Pfützen auf der Sauberkeitsschicht.",
-                          "bbox": [520, 700, 980, 990], "severity": "low", "visual_conf": 0.61}],
+                          "bbox": [420, 300, 990, 720], "severity": "low", "visual_conf": 0.63}],
                      "followup_question": "Warum ruhen die Bewehrungsarbeiten?"}},
     "IMG_1410": {"time": "14:10", "label": "Bagger nach Reparatur", "link": "equipment_failure",
                  "analysis": {
-                     "summary": "Bagger am Aushub BA1 wieder in Betrieb, Ausleger mit neuem Hydraulikschlauch. "
-                                "Ein Lkw wird beladen.",
+                     "summary": "Kettenbagger in der Baugrube mit Spundwandverbau wieder in Betrieb; Hydraulikschläuche "
+                                "am Ausleger sichtbar. Aushub wird auf einen Muldenkipper geladen. Boden nass, Pfützen.",
                      "scene": {"bauteil": "Baugrube BA1", "stage": "Aushub läuft", "activity_guess": "Aushub"},
                      "observations": [
                          {"category": "progress", "subtype": "stage_change",
-                          "description": "Bagger in Betrieb, Lkw wird beladen.",
-                          "bbox": [312, 187, 938, 656], "severity": "low", "visual_conf": 0.86}],
+                          "description": "Bagger in Betrieb, Muldenkipper wird beladen.",
+                          "bbox": [260, 120, 1000, 930], "severity": "low", "visual_conf": 0.88}],
                      "followup_question": "Welche Menge wurde heute ausgehoben?"}},
 }
 # Weitere Replay-Analysen für eigene Uploads im Demo-Modus (Dateiname = Schlüssel, z. B. IMG_1530.jpg).
@@ -224,6 +237,8 @@ def vision_fixture(p: dict) -> dict:
 
 def write_photo(key: str, p: dict) -> None:
     out = INP / f"{key}.jpg"
+    if out.exists() and out.stat().st_size > 50_000:  # echtes Demo-Foto liegt bereits vor → nicht überschreiben
+        return
     try:
         from PIL import Image, ImageDraw
     except ImportError:
@@ -290,6 +305,42 @@ EXTRACT = {
         "progress": [], "staffing": [], "open_items": []},
         "variants": [{}, {"events.0.impact_estimate_days": 1}, {},
                      {"events.0.responsible_party_guess": "neutral", "events.0.impact_estimate_days": 3}, {}]},
+    "rec_0745": {"base": {
+        "summary": "Lieferung Betonstahl 8 t (Stahlhandel Huber); Fertigteiltreppen Haus A (AG) für 15 Uhr angekündigt.",
+        "events": [], "progress": [], "staffing": [], "open_items": [],
+        "log_entries": [
+            {"kind": "delivery", "text": "Betonstahl B500B, 8 t, von Stahlhandel Huber geliefert und am Lagerplatz Nord abgeladen.",
+             "time": "07:40", "quote": "Lieferung Betonstahl B500B von Stahlhandel Huber, acht Tonnen, Lieferschein 48213",
+             "material": "Betonstahl B500B", "quantity": 8, "unit": "t", "supplier": "Stahlhandel Huber",
+             "supplied_by": "AN", "delivery_note_no": "48213", "arrived": True, "activity": "Bewehrung BP"},
+            {"kind": "delivery", "text": "Fertigteiltreppen Haus A (Beistellung AG) für 15:00 Uhr angekündigt.",
+             "time": "07:45", "quote": "Die Fertigteiltreppen für Haus A vom Bauherrn sind für heute 15 Uhr angekündigt",
+             "material": "Fertigteiltreppen Haus A", "quantity": 4, "unit": "St", "supplier": "Wohnbau Riem (Beistellung)",
+             "supplied_by": "AG", "arrived": False, "expected_date": "2026-11-20", "expected_time": "15:00"}]},
+        "variants": [{}, {}, {}, {}, {}]},
+    "rec_0915": {"base": {
+        "summary": "Bewehrungsabnahme Achse A/B durch Prüfingenieur ohne Beanstandung; Kran geprüft.",
+        "events": [], "progress": [], "staffing": [], "open_items": [],
+        "log_entries": [
+            {"kind": "inspection", "text": "Abnahme der Bewehrung Bodenplatte, Achsen A und B, durch den Prüfingenieur.",
+             "time": "09:15", "quote": "Prüfingenieur Dr. Hartl hat die Bewehrung der Bodenplatte in Achse A und B abgenommen, ohne Beanstandung",
+             "party": "Prüfingenieur Dr. Hartl", "result": "ohne Beanstandung, Protokoll folgt per E-Mail",
+             "activity": "Bewehrung BP"},
+            {"kind": "equipment_use", "text": "Turmdrehkran vor Arbeitsbeginn geprüft.", "time": "07:00",
+             "quote": "Turmdrehkran heute früh geprüft, in Ordnung", "resource": "Turmdrehkran", "state": "checked_ok"}]},
+        "variants": [{}, {}, {}, {}, {}]},
+    "rec_1130": {"base": {
+        "summary": "Bauüberwachung Architekturbüro Lechner ohne Hinweise; Lieferung Abstandhalter/Schalungsanker.",
+        "events": [], "progress": [], "staffing": [], "open_items": [],
+        "log_entries": [
+            {"kind": "visit", "text": "Bauüberwachung durch das Architekturbüro Lechner: Rundgang Bodenplatte und Baugrube.",
+             "time": "11:00", "quote": "Frau Lechner vom Architekturbüro war zur Bauüberwachung da, Rundgang Bodenplatte und Baugrube, keine Hinweise",
+             "party": "Architekturbüro Lechner (Bauüberwachung)", "result": "keine Hinweise"},
+            {"kind": "delivery", "text": "Abstandhalter und Schalungsanker, 2 Paletten, von Baustoff Meier geliefert.",
+             "time": "11:25", "quote": "Lieferung Abstandhalter und Schalungsanker von Baustoff Meier, zwei Paletten, Lieferschein M-7781",
+             "material": "Abstandhalter und Schalungsanker", "quantity": 2, "unit": "Pal.", "supplier": "Baustoff Meier",
+             "supplied_by": "AN", "delivery_note_no": "M-7781", "arrived": True}]},
+        "variants": [{}, {}, {}, {}, {}]},
     "rec_1002": {"base": {
         "summary": "Bagger seit 10:00 Uhr defekt (Hydraulikschlauch), Aushub BA1 steht.",
         "events": [ev(type="equipment_failure",

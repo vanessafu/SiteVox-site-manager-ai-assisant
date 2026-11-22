@@ -29,3 +29,6 @@ torch_cache/
 vllm-cache/
 *.wav.tmp
 data/hf_release/
+
+# lokale Sicherungen vor Demo-Resets
+data/backup_*/

@@ -56,6 +56,13 @@ def _sentence(text: str, start: int, end: int) -> str:
     return re.sub(r"\s+", " ", text[a:b]).strip()
 
 
+def _doc_text(d: dict) -> str:
+    """Seitentext; Zeilenumbrüche aus PDFs verbunden (sonst zerfällt z. B. „wohnbau-|riem.example“)."""
+    from .contract_info import _unwrap
+
+    return _unwrap("\n".join(p.get("text", "") for p in d.get("pages", [])))
+
+
 def find_client_email(project_id: str) -> Optional[dict[str, Any]]:
     """Beste belegte Adresse des AG oder None. Rückgabe: email, quote, source, title, doc_id/capture_id, score."""
     project = settings.project_cfg(project_id)
@@ -93,7 +100,7 @@ def find_client_email(project_id: str) -> Optional[dict[str, Any]]:
 
     # 1) hochgeladene Dokumente (Vertrag zuerst: höchstes Gewicht als Vertragsgrundlage)
     for d in store.query("documents", "project_id=?", (project_id,)):
-        text = "\n".join(p.get("text", "") for p in d.get("pages", []))
+        text = _doc_text(d)
         is_contract = (d.get("collection") == "contract" or "vertrag" in (d.get("title") or "").lower())
         scan(text, {"source": "contract" if is_contract else "document", "title": d.get("title"),
                     "doc_id": d.get("doc_id"), "bonus": 1 if is_contract else 0})
@@ -251,7 +258,7 @@ def all_contacts(project_id: str) -> list[dict[str, Any]]:
                  "phone": re.sub(r"\s+", " ", ph.group(1)) if ph else None}, {**base, "quote": sent})
 
     for d in store.query("documents", "project_id=?", (project_id,)):
-        scan("\n".join(p.get("text", "") for p in d.get("pages", [])),
+        scan(_doc_text(d),
              {"source": "document", "title": d.get("title"), "doc_id": d.get("doc_id")})
     for m in store.emails(project_id):
         for hdr in ("from", "to", "cc"):

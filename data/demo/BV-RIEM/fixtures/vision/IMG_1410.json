@@ -7,7 +7,7 @@
   "taken_at": "2026-11-20T14:10:00+01:00"
  },
  "base": {
-  "summary": "Bagger am Aushub BA1 wieder in Betrieb, Ausleger mit neuem Hydraulikschlauch. Ein Lkw wird beladen.",
+  "summary": "Kettenbagger in der Baugrube mit Spundwandverbau wieder in Betrieb; Hydraulikschläuche am Ausleger sichtbar. Aushub wird auf einen Muldenkipper geladen. Boden nass, Pfützen.",
   "scene": {
    "bauteil": "Baugrube BA1",
    "stage": "Aushub läuft",
@@ -17,15 +17,15 @@
    {
     "category": "progress",
     "subtype": "stage_change",
-    "description": "Bagger in Betrieb, Lkw wird beladen.",
+    "description": "Bagger in Betrieb, Muldenkipper wird beladen.",
     "bbox": [
-     312,
-     187,
-     938,
-     656
+     260,
+     120,
+     1000,
+     930
     ],
     "severity": "low",
-    "visual_conf": 0.86
+    "visual_conf": 0.88
    }
   ],
   "followup_question": "Welche Menge wurde heute ausgehoben?"

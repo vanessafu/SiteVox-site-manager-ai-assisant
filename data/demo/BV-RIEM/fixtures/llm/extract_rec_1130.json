@@ -1,0 +1,39 @@
+{
+ "base": {
+  "summary": "Bauüberwachung Architekturbüro Lechner ohne Hinweise; Lieferung Abstandhalter/Schalungsanker.",
+  "events": [],
+  "progress": [],
+  "staffing": [],
+  "open_items": [],
+  "log_entries": [
+   {
+    "kind": "visit",
+    "text": "Bauüberwachung durch das Architekturbüro Lechner: Rundgang Bodenplatte und Baugrube.",
+    "time": "11:00",
+    "quote": "Frau Lechner vom Architekturbüro war zur Bauüberwachung da, Rundgang Bodenplatte und Baugrube, keine Hinweise",
+    "party": "Architekturbüro Lechner (Bauüberwachung)",
+    "result": "keine Hinweise"
+   },
+   {
+    "kind": "delivery",
+    "text": "Abstandhalter und Schalungsanker, 2 Paletten, von Baustoff Meier geliefert.",
+    "time": "11:25",
+    "quote": "Lieferung Abstandhalter und Schalungsanker von Baustoff Meier, zwei Paletten, Lieferschein M-7781",
+    "material": "Abstandhalter und Schalungsanker",
+    "quantity": 2,
+    "unit": "Pal.",
+    "supplier": "Baustoff Meier",
+    "supplied_by": "AN",
+    "delivery_note_no": "M-7781",
+    "arrived": true
+   }
+  ]
+ },
+ "variants": [
+  {},
+  {},
+  {},
+  {},
+  {}
+ ]
+}

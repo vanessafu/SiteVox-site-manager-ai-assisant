@@ -37,6 +37,24 @@ def _hit(value: Any, quote: str, page: int) -> dict:
     return {"value": value, "quote": re.sub(r"\s+", " ", quote).strip()[:400], "page": page}
 
 
+LABEL_RE = re.compile(r"^\s*(#|\d+\.\s|§|[-•○*]\s|[A-ZÄÖÜ][\wÄÖÜäöüß ()/.\-]{1,40}:\s)")
+
+
+def _unwrap(text: str) -> str:
+    """Zeilenumbrüche aus PDFs (Fließtext) zu Sätzen verbinden: Trennstrich am Zeilenende bleibt erhalten
+    (z. B. „wohnbau-|riem.example“, „Netto-|Abrechnungssumme“); neue Absätze/Listenpunkte/„Feld:“-Zeilen bleiben."""
+    out: list[str] = []
+    for line in text.splitlines():
+        l = line.rstrip()
+        if out and out[-1] and l.strip() and "\t" not in l and "\t" not in out[-1] \
+                and not out[-1].lstrip().startswith("#") and not LABEL_RE.match(l) \
+                and not re.search(r"[.:;!?]$", out[-1]):
+            out[-1] = out[-1] + ("" if out[-1].endswith("-") and l.strip()[:1].islower() else " ") + l.strip()
+        else:
+            out.append(l)
+    return "\n".join(out)
+
+
 def _sentences(text: str) -> list[str]:
     # Abkürzungen (Dipl.-Ing., Nr., Abs.) nicht als Satzende werten
     protected = re.sub(r"\b(Dipl|Ing|Dr|Prof|Nr|Abs|Str|bzw|ggf|ca|inkl|Tel|Fa|z\.\s?B)\.", r"\1§DOT§", text)
@@ -82,7 +100,13 @@ def extract(doc: dict) -> dict[str, dict]:
                 v = "VOB/B (aktuelle Fassung) als Vertragsbestandteil vereinbart" if "aktuell" in m.group(1).lower() \
                     else re.search(r"VOB/B[^,;.]*", m.group(1)).group(0).strip() + " als Vertragsbestandteil vereinbart"
                 put("contract_basis", v, l, pno)
-        for s in _sentences(text):
+        joined = _unwrap(text)
+        m = re.search(r"Vertragsgrundlage[n]?\s*:\s*([^\n]+)", joined)
+        if m and "VOB/B" in m.group(1):
+            v = "VOB/B (aktuelle Fassung) als Vertragsbestandteil vereinbart" if "aktuell" in m.group(1).lower() \
+                else re.search(r"VOB/B[^,;.]*", m.group(1)).group(0).strip() + " als Vertragsbestandteil vereinbart"
+            put("contract_basis", v, m.group(0), pno)
+        for s in _sentences(joined):
             low = s.lower()
             if "bevollmächtigt" in low and "nicht bevollmächtigt" not in low and ("vertreter" in low or "auftraggeber" in low
                                                                               or " ag" in low):

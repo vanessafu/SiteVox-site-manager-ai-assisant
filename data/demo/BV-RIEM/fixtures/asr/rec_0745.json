@@ -1,0 +1,207 @@
+{
+ "language": "de",
+ "duration": 12.14,
+ "segments": [
+  {
+   "start": 0.3,
+   "end": 1.59,
+   "text": "Sieben Uhr fünfundvierzig.",
+   "words": [
+    {
+     "word": "Sieben",
+     "start": 0.3,
+     "end": 0.62,
+     "score": 0.918
+    },
+    {
+     "word": "Uhr",
+     "start": 0.67,
+     "end": 0.88,
+     "score": 0.976
+    },
+    {
+     "word": "fünfundvierzig.",
+     "start": 0.93,
+     "end": 1.59,
+     "score": 0.927
+    }
+   ]
+  },
+  {
+   "start": 1.64,
+   "end": 7.35,
+   "text": "Lieferung Betonstahl B500B von Stahlhandel Huber, acht Tonnen, Lieferschein 48213, abgeladen am Lagerplatz Nord.",
+   "words": [
+    {
+     "word": "Lieferung",
+     "start": 1.64,
+     "end": 2.08,
+     "score": 0.967
+    },
+    {
+     "word": "Betonstahl",
+     "start": 2.13,
+     "end": 2.6,
+     "score": 0.941
+    },
+    {
+     "word": "B500B",
+     "start": 2.65,
+     "end": 2.93,
+     "score": 0.905
+    },
+    {
+     "word": "von",
+     "start": 2.98,
+     "end": 3.19,
+     "score": 0.921
+    },
+    {
+     "word": "Stahlhandel",
+     "start": 3.24,
+     "end": 3.75,
+     "score": 0.925
+    },
+    {
+     "word": "Huber,",
+     "start": 3.8,
+     "end": 4.12,
+     "score": 0.96
+    },
+    {
+     "word": "acht",
+     "start": 4.17,
+     "end": 4.41,
+     "score": 0.937
+    },
+    {
+     "word": "Tonnen,",
+     "start": 4.47,
+     "end": 4.82,
+     "score": 0.922
+    },
+    {
+     "word": "Lieferschein",
+     "start": 4.87,
+     "end": 5.42,
+     "score": 0.904
+    },
+    {
+     "word": "48213,",
+     "start": 5.48,
+     "end": 5.79,
+     "score": 0.915
+    },
+    {
+     "word": "abgeladen",
+     "start": 5.85,
+     "end": 6.28,
+     "score": 0.941
+    },
+    {
+     "word": "am",
+     "start": 6.33,
+     "end": 6.5,
+     "score": 0.963
+    },
+    {
+     "word": "Lagerplatz",
+     "start": 6.55,
+     "end": 7.02,
+     "score": 0.94
+    },
+    {
+     "word": "Nord.",
+     "start": 7.07,
+     "end": 7.35,
+     "score": 0.976
+    }
+   ]
+  },
+  {
+   "start": 7.4,
+   "end": 11.79,
+   "text": "Die Fertigteiltreppen für Haus A vom Bauherrn sind für heute 15 Uhr angekündigt.",
+   "words": [
+    {
+     "word": "Die",
+     "start": 7.4,
+     "end": 7.61,
+     "score": 0.942
+    },
+    {
+     "word": "Fertigteiltreppen",
+     "start": 7.66,
+     "end": 8.4,
+     "score": 0.917
+    },
+    {
+     "word": "für",
+     "start": 8.45,
+     "end": 8.66,
+     "score": 0.941
+    },
+    {
+     "word": "Haus",
+     "start": 8.71,
+     "end": 8.95,
+     "score": 0.935
+    },
+    {
+     "word": "A",
+     "start": 9.0,
+     "end": 9.13,
+     "score": 0.948
+    },
+    {
+     "word": "vom",
+     "start": 9.18,
+     "end": 9.39,
+     "score": 0.968
+    },
+    {
+     "word": "Bauherrn",
+     "start": 9.44,
+     "end": 9.83,
+     "score": 0.914
+    },
+    {
+     "word": "sind",
+     "start": 9.88,
+     "end": 10.13,
+     "score": 0.949
+    },
+    {
+     "word": "für",
+     "start": 10.18,
+     "end": 10.38,
+     "score": 0.941
+    },
+    {
+     "word": "heute",
+     "start": 10.43,
+     "end": 10.71,
+     "score": 0.906
+    },
+    {
+     "word": "15",
+     "start": 10.77,
+     "end": 10.93,
+     "score": 0.978
+    },
+    {
+     "word": "Uhr",
+     "start": 10.98,
+     "end": 11.19,
+     "score": 0.976
+    },
+    {
+     "word": "angekündigt.",
+     "start": 11.24,
+     "end": 11.79,
+     "score": 0.955
+    }
+   ]
+  }
+ ]
+}

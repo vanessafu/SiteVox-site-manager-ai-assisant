@@ -7,7 +7,7 @@
   "taken_at": "2026-11-20T07:31:00+01:00"
  },
  "base": {
-  "summary": "Bodenplatte Achse C: untere Bewehrungslage nur teilweise verlegt, obere Lage fehlt. Zwei Arbeiter stehen am Rand, es finden keine Verlegearbeiten statt. Leichter Regen, Pfützen auf der Sauberkeitsschicht.",
+  "summary": "Bodenplatte: untere Bewehrungslage nur auf einem Teil der Fläche verlegt, obere Lage fehlt. Stabstahl-Bündel und Abstandhalter liegen ungenutzt auf der nassen Sauberkeitsschicht. Zwei Arbeiter stehen am Rand, es finden keine Verlegearbeiten statt. Nebel, Pfützen auf der Sauberkeitsschicht.",
   "scene": {
    "bauteil": "Bodenplatte Achse C",
    "stage": "untere Bewehrungslage teilweise verlegt",
@@ -20,25 +20,38 @@
     "description": "Untere Bewehrungslage nur teilweise verlegt, obere Lage fehlt.",
     "bbox": [
      0,
-     672,
-     1000,
-     1000
+     265,
+     790,
+     525
     ],
     "severity": "medium",
-    "visual_conf": 0.82
+    "visual_conf": 0.84
+   },
+   {
+    "category": "obstruction",
+    "subtype": "material_storage",
+    "description": "Stabstahl-Bündel und Abstandhalter liegen ungenutzt auf der Sauberkeitsschicht.",
+    "bbox": [
+     340,
+     380,
+     850,
+     670
+    ],
+    "severity": "low",
+    "visual_conf": 0.78
    },
    {
     "category": "obstruction",
     "subtype": "standing_water",
     "description": "Pfützen auf der Sauberkeitsschicht.",
     "bbox": [
-     520,
-     700,
-     980,
-     990
+     420,
+     300,
+     990,
+     720
     ],
     "severity": "low",
-    "visual_conf": 0.61
+    "visual_conf": 0.63
    }
   ],
   "followup_question": "Warum ruhen die Bewehrungsarbeiten?"
