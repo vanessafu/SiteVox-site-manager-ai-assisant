@@ -137,7 +137,24 @@ class LLM:
             if n > 1 and "n" in str(e):
                 return [r for _ in range(n) for r in self._complete(schema, msgs, n=1, temperature=temperature)]
             raise LLMError(str(e)) from e
+        self._last_meta = {"finish_reason": [ch.finish_reason for ch in resp.choices],
+                           "completion_tokens": getattr(resp.usage, "completion_tokens", None),
+                           "prompt_tokens": getattr(resp.usage, "prompt_tokens", None),
+                           "max_tokens": self.cfg.get("max_tokens", 2048)}
         return [ch.message.content or "" for ch in resp.choices]
+
+    def _dump_invalid(self, msgs: list[dict], content: str, error: str, attempt: int) -> None:
+        """Ungültige Rohausgabe für die Fehleranalyse ablegen (nur wenn SITEVOX_LLM_DEBUG_DIR gesetzt)."""
+        import json, os, time
+        d = os.environ.get("SITEVOX_LLM_DEBUG_DIR")
+        if not d:
+            return
+        os.makedirs(d, exist_ok=True)
+        rec = {"role": self.role, "attempt": attempt, "meta": getattr(self, "_last_meta", {}),
+               "chars": len(content), "error": error, "raw": content,
+               "user_input": next((m["content"] for m in msgs if m["role"] == "user"), "")}
+        with open(os.path.join(d, f"{self.role}_{time.time_ns()}.json"), "w", encoding="utf-8") as f:
+            json.dump(rec, f, ensure_ascii=False, indent=1)
 
     def _call(self, schema: Type[T], messages: list[dict], *, n: int, temperature: Optional[float]) -> list[T]:
         if temperature is None:
@@ -155,6 +172,7 @@ class LLM:
                     results.append(schema.model_validate_json(raw))
                 except ValidationError as ve:
                     errors.append(str(ve)[:800])
+                    self._dump_invalid(msgs, content, str(ve), attempts)
             if errors and len(results) < n:
                 log.warning("Schema-Verletzung (%s), Retry %d", self.role, attempts)
                 msgs = list(messages) + [

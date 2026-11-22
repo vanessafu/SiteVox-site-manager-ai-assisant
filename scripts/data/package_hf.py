@@ -42,7 +42,7 @@ def main() -> None:
     ap.add_argument("--out", type=Path, default=ROOT / "data" / "hf_release" / "sitevox-scenarios")
     ap.add_argument("--langs", nargs="+", default=["de", "en", "pl", "tr"])
     ap.add_argument("--project", default="BV-RIEM")
-    ap.add_argument("--license", default="cc-by-nc-4.0")
+    ap.add_argument("--license", default="cc-by-nc-sa-4.0")
     a = ap.parse_args()
     out = a.out
     shutil.rmtree(out, ignore_errors=True)
@@ -134,7 +134,7 @@ def main() -> None:
 def readme(a, days: dict, stats: Counter, notes: list[str]) -> str:
     day_rows = "\n".join(
         f"| {k.split('_')[1]} | {s['meta'].get('weekday', '')} | {len(s['captures'])} | "
-        f"{sum(len(c['photos']) for c in s['captures'])} | {sum(c['note']['kind'] == 'voice' for c in s['captures'])} | "
+        f"{sum(len(c['photos']) for c in s['captures'])} | {sum(n.get('kind') == 'voice' for c in s['captures'] for n in (c.get('notes') or [c['note']] if c.get('note') else c.get('notes') or []))} | "
         f"{sum(bool((c.get('gold') or {}).get('event')) for c in s['captures'])} | {s.get('title', '')} |"
         for k, s in sorted(days.items()))
     known = "\n".join(f"- {n}" for n in notes) or "- none"
@@ -151,7 +151,7 @@ size_categories: [n<1K]
 
 A small, fully **synthetic**, multimodal benchmark of a German building site seen through the phone of the
 contractor's site manager. Over four consecutive working days (23–26 Nov 2026) the site manager photographs what
-happens and adds one short note per photo series, typed or spoken, in **German, English, Polish or Turkish**.
+happens and adds one or two short notes per capture (with 0–2 photos), typed or spoken, in **German, English, Polish or Turkish**.
 Every capture is annotated with what a good assistant should do with it: write a site-diary entry, recognise a
 disruption, attribute it to the right risk sphere under the German construction contract rules (VOB/B), draft
 the right notice to the right recipient, attach the right photos, and do none of this for routine messages.
@@ -185,7 +185,7 @@ inputs/<scenario>/            the input stream exactly as the system receives it
   audio/rec_HHMM_Cxx.wav        voice notes (16 kHz mono)
   notes/note_HHMM_Cxx.txt       typed notes
   photos/IMG_xxxxxx.jpg         the same images under random names with EXIF time and GPS
-  inputs.json                   ordered captures: time, photos, note (text or audio)
+  inputs.json                   ordered captures: time, photos, notes[] (text or audio)
   gold.json                     mapping of inputs to gold captures + audio metadata (SNR, noise, accent, TTS QC)
 manifest.csv                  every file with size and SHA-256
 ```
@@ -237,21 +237,29 @@ Per-file SNR, noise source, voice/accent and QC result are in `inputs/<scenario>
 
 ## Licence and attribution
 
-Released under **{a.license.upper()}** (non-commercial), because it contains derivatives of:
+Released under **{a.license.upper()}** (attribution, non-commercial, share-alike): non-commercial because of XTTS-v2 and
+UrbanSound8K, share-alike because of DEMAND. The dataset contains derivatives of:
 
-- **XTTS-v2** (Coqui Public Model License, non-commercial) – all synthetic speech
+- **XTTS-v2** (Coqui, Coqui Public Model License 1.0.0, non-commercial; https://coqui.ai/cpml) – all synthetic speech
 - **Common Voice** (CC0) – reference clips for voice cloning
 - **UrbanSound8K** (CC BY-NC 3.0, J. Salamon, C. Jacoby, J. P. Bello, ACM MM 2014) – engine, jackhammer, drilling noise
-- **DEMAND** (CC BY-SA 3.0, J. Thiemann, N. Ito, E. Vincent) – street traffic background
-- Images: generated with an image model; scenario texts, documents and annotations: original work of the authors.
+- **DEMAND** (CC BY-SA 3.0, J. Thiemann, N. Ito, E. Vincent, "The Diverse Environments Multi-channel Acoustic Noise
+  Database", ICA 2013, https://zenodo.org/records/1227121) – street traffic background, mixed into the audio
+- Images: generated with an image model; scenario texts, documents and annotations: original work of Zitong Fu.
+
+Note: CC BY-SA 3.0 (DEMAND) and the non-commercial terms above are not formally fully compatible; the dataset is
+offered for non-commercial research only, with all upstream licences and attributions kept. Commercial users must
+replace the synthetic speech and noise.
 
 ## Citation
 
 ```bibtex
 @misc{{sitevox_scenarios_2026,
+  author = {{Fu, Zitong}},
   title  = {{SiteVox Construction-Site Scenarios: a multilingual, multimodal benchmark for construction site
             documentation under VOB/B}},
   year   = {{2026}},
+  howpublished = {{https://huggingface.co/datasets/vanessaaaa1224/sitevox-scenarios}},
   note   = {{Synthetic dataset}}
 }}
 ```
