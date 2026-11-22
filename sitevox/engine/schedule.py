@@ -24,10 +24,12 @@ class WorkCalendar:
         r = settings.rules()["calendar"]
         self.workdays = set(workdays or r["workdays"])
         self.holidays = {date.fromisoformat(h) for h in (holidays or r["holidays"])}
+        self.holidays |= {date.fromisoformat(h) for h in r.get("skip_workdays", [])}
+        self.extra = {date.fromisoformat(h) for h in r.get("extra_workdays", [])}  # z. B. Wochenendarbeit
         self.origin = self.next_workday(origin, include=True)
 
     def is_workday(self, d: date) -> bool:
-        return d.isoweekday() in self.workdays and d not in self.holidays
+        return d in self.extra or (d.isoweekday() in self.workdays and d not in self.holidays)
 
     def next_workday(self, d: date, include: bool = False) -> date:
         if not include:
