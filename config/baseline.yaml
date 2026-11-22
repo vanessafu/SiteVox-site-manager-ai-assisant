@@ -34,10 +34,14 @@ projects:
       - {name: Kolonne Schalung, trade: Schalung, planned_staff: 4}
       - {name: Erdbau, trade: Aushub, planned_staff: 4}
     resources:                    # Tagesverlauf-Zeilen (Geräte/Kolonnen) mit Standard-Einsatzzeit
-      - {id: bagger, name: Bagger, activity: A20, from: "07:00", to: "17:00"}
+      - {id: bagger, name: Bagger, activity: A20, from: "07:00", to: "17:00",
+         aliases: [Kettenbagger, excavator, digger, koparka, koparki, ekskavatör, ekskavator, kazıcı]}
       - {id: kolonne_mueller, name: Kolonne Müller, activity: A40, from: "07:00", to: "17:00"}
       - {id: kolonne_schalung, name: Kolonne Schalung, activity: A30, from: "07:00", to: "16:00"}
-      - {id: betonpumpe, name: Betonpumpe, activity: A50, from: "13:00", to: "17:00"}
+      - {id: betonpumpe, name: Betonpumpe, activity: A50, from: "13:00", to: "17:00",
+         aliases: [Pumpe, concrete pump, pump, pompa do betonu, pompa, beton pompası, pompa]}
+      - {id: turmdrehkran, name: Turmdrehkran, activity: A40, from: "07:00", to: "17:00",
+         aliases: [Kran, tower crane, crane, żuraw wieżowy, żuraw, kule vinç, vinç, vinc]}
     milestones:
       - {id: M1, name: Vertragsfrist Rohbau EG, date: "2026-12-16", contractual: true}
   - id: BV-PASING

@@ -30,7 +30,8 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
 from evaluation import metrics as M  # noqa: E402
 
 TYPE_MAP = {"plan_delivery_delay": "planlieferverzug", "change_order": "leistungsaenderung",
@@ -57,6 +58,25 @@ def gold_doc_kind(doc: dict | None) -> str | None:
 def hhmm(x) -> str | None:
     m = re.search(r"(\d{1,2}):(\d{2})", str(x or ""))
     return f"{int(m.group(1)):02d}:{m.group(2)}" if m else None
+
+
+def _min(t) -> int | None:
+    m = re.search(r"(\d{1,2}):(\d{2})", str(t or ""))
+    return int(m.group(1)) * 60 + int(m.group(2)) if m else None
+
+
+def _equipment_names(device: str) -> list[str]:
+    """Projektgerät (baseline.yaml) zum Gold-Gerätenamen – Name + Aliasse, kleingeschrieben, Projektname zuerst.
+    So zählen 'Ekskavatör', 'excavator', 'koparka' als Bagger und 'crane'/'żuraw'/'vinç' als Turmdrehkran."""
+    import yaml
+    d = device.lower()
+    cfg = yaml.safe_load((ROOT / "config" / "baseline.yaml").read_text(encoding="utf-8"))
+    for p in cfg.get("projects", []):
+        for r in p.get("resources", []):
+            names = [r["name"].lower(), *[x.lower() for x in r.get("aliases", [])]]
+            if any(n == d or n in d or d in n for n in names):
+                return names
+    return [d, "kran" if "kran" in d else d[:5]]
 
 
 def _num(x) -> float | None:
@@ -181,16 +201,34 @@ def main() -> None:
     false_alarm = [r for r in routine_rows if r["false_events"] and not r["closes"]]
 
     # ------------------------------------------------------------------ Bautagebuch: Lieferungen, Geräte
+    # Sprachunabhängig zuordnen: (1) über die Gold-Erfassung, aus der der Eintrag stammt (facts.delivery bzw.
+    # Erfassungszeit ≈ Ist-Anlieferung), (2) Menge, (3) erst zuletzt Wortübereinstimmung mit dem Gold-Namen.
     dl = [l for l in logs if l["kind"] == "delivery"]
+    sc_caps = sc.get("captures") or []
+
+    def _gold_caps_for_delivery(k: int, r: dict) -> set[str]:
+        ref = f"L-{k + 1:02d}"
+        out = {c["id"] for c in sc_caps if ((c.get("gold") or {}).get("facts") or {}).get("delivery") == ref}
+        t = _min(r.get("actual"))
+        if not out and t is not None:
+            out = {c["id"] for c in sc_caps if _min(c.get("time")) is not None and -20 <= _min(c["time"]) - t <= 60
+                   and ("4_lieferungen" in ((c.get("gold") or {}).get("report") or []) or c.get("purpose") == "material")}
+        return out
+
     deliv_rows = []
-    for r in er.get("4_lieferungen") or []:
+    for k, r in enumerate(er.get("4_lieferungen") or []):
         keys = _tokens(r.get("item", ""))
-        cand = sorted(dl, key=lambda l: -sum(k in M.canonical(" ".join(str(l.get(x) or "") for x in
-                                                                        ("material", "text", "quote"))) for k in keys))
-        best = cand[0] if cand and sum(k in M.canonical(" ".join(str(cand[0].get(x) or "") for x in
-                                                                  ("material", "text", "quote"))) for k in keys) else None
-        delivered = r.get("actual") is not None
         gq = _num(r.get("qty"))
+        gcs = _gold_caps_for_delivery(k, r)
+
+        def score(l):
+            txt = M.canonical(" ".join(str(l.get(x) or "") for x in ("material", "text", "quote")))
+            return (3 * (sys2gold.get(l.get("capture_id")) in gcs)
+                    + 2 * (gq is not None and l.get("quantity") is not None and abs(l["quantity"] - gq) < 0.01)
+                    + sum(k_ in txt for k_ in keys))
+        cand = sorted(dl, key=lambda l: -score(l))
+        best = cand[0] if cand and score(cand[0]) > 0 else None
+        delivered = r.get("actual") is not None
         deliv_rows.append({
             "item": r["item"], "qty": r.get("qty"), "status": r.get("status"), "delivered": delivered,
             "logged": bool(best), "sys": (best or {}).get("material"), "sys_qty": (best or {}).get("quantity"),
@@ -198,18 +236,27 @@ def main() -> None:
             "arrived_ok": bool(best and (best.get("arrived") is not False) == delivered) if best else False,
             "note_ok": (bool(best and r["delivery_note"].replace(" ", "") in str(best.get("delivery_note_no") or "").replace(" ", ""))
                         if r.get("delivery_note") else None),
+            "material_named": bool(best and best.get("material")),
             # nicht gelieferte Posten erkennt das System u. U. als Ereignis (material_delay) statt Tagebuch
             "as_event": any(s["type"] == "material_delay" for s in sys_rows if not delivered)})
+
     eq = [l for l in logs if l["kind"] == "equipment_use"]
     equip_rows = []
     for r in er.get("3_geraete") or []:
-        dev = r["device"].lower()
-        stem = "kran" if "kran" in dev else dev[:5]
-        hit = [l for l in eq if stem in str(l.get("resource") or "").lower() or stem in l.get("text", "").lower()]
-        ev = [s for s in sys_rows if s["type"] in ("equipment_failure", "third_party_interference")
-              and stem in s["description"].lower()]
+        names = _equipment_names(r["device"])
+        canon = names[0]
+
+        def hit_text(t: str) -> bool:
+            t = (t or "").lower()
+            return any(n in t for n in names)
+        hit = [l for l in eq if (l.get("resource") or "").lower() == canon or hit_text(l.get("resource"))
+               or hit_text(l.get("text")) or hit_text(l.get("quote"))]
+        ev = [s_ for s_, e in zip(sys_rows, run["events"]) if s_["type"] in ("equipment_failure", "third_party_interference",
+                                                                            "material_delay", "weather_interruption")
+              and (hit_text(e.get("description")) or any(hit_text(x.get("resource")) for x in e.get("resource_effects") or []))]
         equip_rows.append({"device": r["device"], "ausfall": r.get("ausfall"), "logged": bool(hit) or bool(ev),
                            "states": sorted({l.get("state") or "–" for l in hit}),
+                           "resource_named": any((l.get("resource") or "").lower() == canon for l in hit),
                            "outage_ok": (bool(ev) or any(l.get("state") in ("idle", "restricted") for l in hit))
                            if r.get("ausfall") else None})
 

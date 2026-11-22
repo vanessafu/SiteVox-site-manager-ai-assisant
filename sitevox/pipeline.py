@@ -249,6 +249,7 @@ def _extract_into(cap: dict, body: str, acts: list[dict], fixture_key: Optional[
                           out_lang=_out_lang(cap))
     main, samples = res["main"], res["samples"]
     cap["summary"] = main.summary
+    cap["extraction"] = main.model_dump(exclude_none=True)  # Rohergebnis zur Fehleranalyse (vor Filtern/Regeln)
     cap["progress_found"] = bool(main.progress)
     hints = cap.setdefault("hints", [])
     names = {a["id"]: a["name"] for a in acts}
@@ -264,9 +265,13 @@ def _extract_into(cap: dict, body: str, acts: list[dict], fixture_key: Optional[
                              f"addiert (Tagessumme {_num(r['total'])} {p.unit}). War eine Tagessumme gemeint, "
                              "bitte im Bericht korrigieren.")
     crews = {c["name"]: c["planned_staff"] for c in settings.project_cfg(project_id).get("crews", [])}
-    staff_rows = [(s.crew, s.present, s.absent, s.quote) for s in main.staffing if s.crew]
+    # Stillstand ("2 Mann stehen", "4 ludzi w gotowości") ist keine Anwesenheitsmeldung; erfundene 0-Kolonnen
+    # (keine Zahl im Zitat) ebenso nicht → beides verwerfen, bevor es den Tagesbericht überschreibt.
+    staffing = [s for s in main.staffing if not _IDLE_STAFF_RE.search(s.quote or "")
+                and not (s.present == 0 and not s.absent and not re.search(r"\b0\b|\bniemand|\bkeiner", s.quote or ""))]
+    staff_rows = [(s.crew, s.present, s.absent, s.quote) for s in staffing if s.crew]
     # Kopfzahl ohne Kolonne (staffing ohne crew bzw. staffing_total) → "Gesamt"; Aufteilung macht der Bauleiter
-    totals = [(s.present, s.quote) for s in main.staffing if not s.crew]
+    totals = [(s.present, s.quote) for s in staffing if not s.crew]
     if main.staffing_total:
         totals = [(main.staffing_total.present_total, main.staffing_total.quote)]
     for present, quote in totals[:1]:
@@ -294,6 +299,9 @@ def _extract_into(cap: dict, body: str, acts: list[dict], fixture_key: Optional[
     return touched
 
 
+_IDLE_STAFF_RE = re.compile(
+    r"\b(stehen|steht|warten|wartet|bereit|stillstand|untätig|idle|waiting|standby|stand(ing)? by|stoi|stoją|czeka|"
+    r"czekają|bezczynn\w*|gotowości|bekliyor|duruyor|bekle\w*|hazırda)\b", re.I)
 STAFF_TOTAL = "Gesamt"   # Kopfzahl ohne Kolonnenzuordnung (Bericht/Dashboard werten "Gesamt" gesondert aus)
 
 
@@ -312,6 +320,13 @@ def _save_log_entries(cap: dict, entries: list, body: str, acts: list[dict]) -> 
         ev = _quote_evidence(cap, le.quote, body)
         cap["evidence_ids"].append(ev.evidence_id)
         d = le.model_dump()
+        pcfg = settings.project_cfg(pid)
+        if le.kind == "equipment_use":  # Gerätename auf Projektnamen normieren (auch Aliasse en/pl/tr)
+            d["resource"] = extract.canonical_equipment(pcfg, le.resource, le.quote, le.text) or le.resource
+            le.resource = d["resource"]
+        if le.kind == "delivery" and d.get("quantity") is None:
+            d["quantity"], unit = extract.parse_quantity(le.quote or le.text)
+            d["unit"] = d.get("unit") or unit
         aid = extract.match_activity(le.activity, acts) if le.activity else None
         res = next((r for r in resources if le.resource and timeline._match(r, le.resource)), None)
         d.update(log_id=store.next_id(f"LOG-{day.replace('-', '')}-", 2), project_id=pid, date=day,
@@ -567,9 +582,27 @@ def _text_agreement(main: str, others: list[Optional[str]]) -> float:
     return sum(vals) / len(vals) if vals else 1.0
 
 
-def _find_mergeable(project_id: str, day: str, typ: str, act_ids: list[str], resources: list[str]) -> Optional[dict]:
+_SPHERE_ATTRS = ("owner_supplied_material", "predecessor_by_owner", "own_work")
+
+
+def _minutes(t: Optional[str]) -> Optional[int]:
+    m = re.search(r"(\d{1,2}):(\d{2})", t or "")
+    return int(m.group(1)) * 60 + int(m.group(2)) if m else None
+
+
+def _find_mergeable(project_id: str, day: str, typ: str, act_ids: list[str], resources: list[str],
+                    attrs: Optional[dict] = None, at: Optional[str] = None) -> Optional[dict]:
+    """Gleiches Ereignis fortschreiben statt doppelt anlegen – aber nie über eine andere Ursache hinweg:
+    abgeschlossene Ereignisse, widersprüchliche Sphären-Merkmale (AG-beigestellt vs. eigene Leistung) und
+    Meldungen ohne gemeinsamen Vorgang/Gerät, die zeitlich weit auseinanderliegen, bleiben getrennt."""
+    attrs = attrs or {}
     for e in store.events(project_id, day):
         if e["type"] != typ or e["status"] in ("dismissed",):
+            continue
+        if e.get("end"):  # Störung bereits beendet → neue Meldung = neues Ereignis
+            continue
+        ea = e.get("attrs") or {}
+        if any(k in attrs and k in ea and bool(attrs[k]) != bool(ea[k]) for k in _SPHERE_ATTRS):
             continue
         if set(act_ids) & set(e["activity_ids"]):
             return e
@@ -577,7 +610,9 @@ def _find_mergeable(project_id: str, day: str, typ: str, act_ids: list[str], res
         if {r.lower() for r in resources} & er:
             return e
         if not act_ids and not resources and not e["activity_ids"] and not er:
-            return e
+            t0, t1 = _minutes((e.get("start") or "")[11:16]), _minutes(at)
+            if t0 is not None and t1 is not None and abs(t1 - t0) <= 60:
+                return e
     return None
 
 
@@ -608,11 +643,12 @@ def _upsert_event(cap: dict, le, same: list, body: str, acts: list[dict]) -> str
         stats[k]["evidence"] = ev_ids
         stats[k]["asr"] = asr_mean
 
-    existing = _find_mergeable(project_id, day, le.type, act_ids, [r.resource for r in le.resource_effects])
     effects = [ResourceEffect(resource=r.resource, status=r.status, start=r.start_time or start_time,
                               end=r.end_time).model_dump() for r in le.resource_effects]
     attrs_new = {k: getattr(le, k) for k in ("owner_supplied_material", "predecessor_by_owner", "own_work",
                                              "work_started", "ordered_by") if getattr(le, k) is not None}
+    existing = _find_mergeable(project_id, day, le.type, act_ids, [r.resource for r in le.resource_effects],
+                               attrs=attrs_new, at=cap["captured_at"][11:16])
     if existing:
         e = existing
         e["evidence"] = list(dict.fromkeys(e["evidence"] + ev_ids))

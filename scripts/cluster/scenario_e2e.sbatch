@@ -51,7 +51,7 @@ PIDS=()
 cleanup() { kill "${PIDS[@]}" 2>/dev/null || true; }
 trap cleanup EXIT
 wait_up() {  # $1 URL, $2 Name
-  for _ in $(seq 1 180); do
+  for _ in $(seq 1 360); do
     curl -sf -H "Authorization: Bearer ${SITEVOX_LLM_API_KEY}" "$1" >/dev/null && { echo "✓ $2 bereit"; return 0; }
     sleep 5
   done

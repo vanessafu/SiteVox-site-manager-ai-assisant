@@ -226,7 +226,7 @@ def heuristic(text: str, acts: list[dict], hint_subtypes: Optional[list[str]] = 
                                             unit=UNIT.get(unit, m.group(2)), quote=s))
         pm = re.search(r"(\d+)\s*(mann|leute|personen)", low)
         if pm and ("personal" in low or "kolonne" in low):
-            staffing_total = LLMStaffingTotal(present_total=int(pm.group(1)), quote=s)
+            staffing_total = LLMStaffingTotal(regular_staff=int(pm.group(1)), quote=s)
     # Foto-Antwort ohne Schlüsselwort ("Vorleistung von Firma X"): Ereignistyp aus der Beobachtung,
     # Zitat und Verantwortungs-Hinweise aber aus der Antwort.
     typ = next((SUBTYPE_EVENT[h] for h in hint_subtypes or [] if h in SUBTYPE_EVENT), None)
@@ -264,11 +264,53 @@ def crew_names(pcfg: dict) -> list[str]:
     return [c["name"] for c in pcfg.get("crews", [])]
 
 
-def equipment_names(pcfg: dict) -> list[str]:
+def equipment_resources(pcfg: dict) -> list[dict]:
     """Einsatzplan-Ressourcen ohne Kolonnen (baseline 'resources' enthält beides)."""
     crews = {n.lower() for n in crew_names(pcfg)}
-    return [r["name"] for r in pcfg.get("resources", [])
+    return [r for r in pcfg.get("resources", [])
             if r["name"].lower() not in crews and not r["name"].lower().startswith(("kolonne", "crew"))]
+
+
+def equipment_names(pcfg: dict) -> list[str]:
+    return [r["name"] for r in equipment_resources(pcfg)]
+
+
+def equipment_prompt_list(pcfg: dict) -> str:
+    """'Bagger (= excavator, koparka, ekskavatör), …' – Aliasse helfen bei en/pl/tr-Eingaben."""
+    return ", ".join(f"{r['name']} (= {', '.join(r['aliases'])})" if r.get("aliases") else r["name"]
+                     for r in equipment_resources(pcfg))
+
+
+def canonical_equipment(pcfg: dict, *texts: Optional[str]) -> Optional[str]:
+    """Gerätenamen aus Modellangabe/Zitat auf den Projektnamen abbilden (auch über Aliasse, sprachunabhängig)."""
+    res = equipment_resources(pcfg)
+    for t in texts:
+        if not t:
+            continue
+        low = t.lower()
+        for r in res:  # längste Treffer zuerst, damit 'Turmdrehkran' vor 'Kran' greift
+            names = sorted([r["name"], *r.get("aliases", [])], key=len, reverse=True)
+            if any(re.search(r"(?<!\w)" + re.escape(n.lower()), low) for n in names):
+                return r["name"]
+    return None
+
+
+_QTY_RE = re.compile(r"(\d+(?:[.,]\d+)?)\s*(t|to|tonnen|tonne|tons?|ton|stk|stück|stueck|szt|sztuk|adet|pcs|pieces?|"
+                     r"m³|m3|kubik|cbm|paletten?|pallets?|palet[ay]?|palet|lfm|m)(?![\wäöüß])", re.I)
+_UNIT = {"to": "t", "tonnen": "t", "tonne": "t", "ton": "t", "tons": "t", "stück": "Stk", "stueck": "Stk", "szt": "Stk",
+         "sztuk": "Stk", "adet": "Stk", "pcs": "Stk", "piece": "Stk", "pieces": "Stk", "stk": "Stk", "m3": "m³",
+         "kubik": "m³", "cbm": "m³", "palette": "Palette", "paletten": "Palette", "pallet": "Palette",
+         "pallets": "Palette", "paleta": "Palette", "palety": "Palette", "palet": "Palette"}
+
+
+def parse_quantity(text: Optional[str]) -> tuple[Optional[float], Optional[str]]:
+    """'12 Stück' → (12, 'Stk'); '2,5 Tonnen' → (2.5, 't'). Uhrzeiten (07:30) werden ignoriert."""
+    for m in _QTY_RE.finditer(text or ""):
+        if text[max(0, m.start() - 1):m.start()] == ":":
+            continue
+        u = m.group(2).lower()
+        return float(m.group(1).replace(",", ".")), _UNIT.get(u, u)
+    return None, None
 
 
 def extract(text: str, *, project_id: str, date: str, time: str, source: str, acts: list[dict],
@@ -284,7 +326,7 @@ def extract(text: str, *, project_id: str, date: str, time: str, source: str, ac
         {"role": "user", "content": EXTRACT_USER.format(
             project=pcfg["title"], date=date, time=time, source=source,
             activities=", ".join(a["name"] for a in acts),
-            equipment=", ".join(equipment_names(pcfg)) or "–", crews=", ".join(crew_names(pcfg)) or "–",
+            equipment=equipment_prompt_list(pcfg) or "–", crews=", ".join(crew_names(pcfg)) or "–",
             text=text, context=context)},
     ]
     client = llm.get("extractor")

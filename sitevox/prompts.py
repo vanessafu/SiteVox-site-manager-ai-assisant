@@ -31,6 +31,10 @@ Tagebuch-Eintrag schreibst, prüfe trotzdem events, progress und staffing. Teile
    Vorunternehmer, AN = wir selbst inkl. unserer Geräte, Lieferanten, Nachunternehmer, neutral = höhere Gewalt,
    außergewöhnliche Witterung, Streik). Begründe kurz in "responsible_rationale".
    Jedes Ereignis braucht mindestens ein wörtliches Zitat in "quotes".
+   equipment_failure NUR bei technischem Defekt des Geräts. Steht ein Gerät, weil ein anderer (Vorunternehmer,
+   Lieferant, Planer) nicht fertig ist, ist es der Typ dieser Ursache (z. B. third_party_interference).
+   Neue Ursache = neues Ereignis: eine andere Lieferung oder ein anderer Mangel wird nie mit einem früheren
+   Ereignis gleichen Typs zusammengefasst.
    KEIN Ereignis: Routine ohne Abweichung ("Bagger läuft, Schlauch dicht", "leichter Regen, Folie liegt bereit").
 
 2. PROGRESS – jede genannte Menge ausgeführter Arbeit (Zahl + Einheit + Vorgang)
@@ -43,25 +47,38 @@ Tagebuch-Eintrag schreibst, prüfe trotzdem events, progress und staffing. Teile
    - "Kazı 310 metreküp, donatı 1,5 ton" → zwei progress-Einträge (Aushub BA1 310 m³; Bewehrung BP 1.5 t)
    Mengen ausgeführter Arbeit sind NIE "delivery" und NIE "work_done". Nichts berechnen oder summieren.
 
-3. STAFFING – Personal: anwesend, fehlend, Grund
+3. STAFFING – Personal: anwesend, fehlend, Grund (NUR Anwesenheit/Kopfzahl des Tages)
    - Kolonne genannt → "staffing": {crew wie genannt, present, absent, reason}
      "Müller hat heute nur 6 Mann, 2 sind krank" → crew "Kolonne Müller", present 6, absent 2, reason "krank"
    - Keine Kolonne genannt → "staffing_total" (crew NICHT raten):
-     "alle 16 Mann da" / "all 16 here" / "wszystkich 16 jest" / "16 kişi tam" → staffing_total present_total 16
-     "alle 16 da und 2 Mann von der Baustelle Pasing" → present_total 18, additional 2, note "Baustelle Pasing"
+     "alle 16 Mann da" / "all 16 here" / "wszyscy 16 są" / "16 kişi tam" → regular_staff 16, additional_staff null
+     "alle 16 da und 2 Mann von der Baustelle Pasing" → regular_staff 16, additional_staff 2, note "Baustelle Pasing"
+     (NICHT selbst addieren – die Summe rechnet das System.)
+   - KEIN staffing: Leute, die wegen einer Störung warten/stehen/bereitstehen ("2 Mann von Müller stehen",
+     "3 ludzi stoi bezczynnie", "4 kişi bekliyor", "crane and 4 men on standby") – das ist Stillstand und gehört
+     NUR in das Ereignis (description), nie in staffing.
+   - Gib nur Kolonnen aus, die in der Eingabe mit einer Kopfzahl genannt werden. Erfinde keine Kolonnen mit 0.
    Die Zuordnung zu Kolonnen erfolgt später durch den Bauleiter im Dashboard.
 
 4. LOG_ENTRIES – normaler Ablauf ohne Störung (Bautagebuch)
    delivery      Anlieferung (material, quantity, unit, supplier, supplied_by, delivery_note_no; arrived=true)
                  oder angekündigte Lieferung (arrived=false, expected_date, expected_time).
+                 "material" ist PFLICHT, immer als deutscher Fachbegriff, auch bei en/pl/tr-Text
+                 (steel/stal/demir → "Betonstahl", baskets/kosze/sepetler → "Unterstützungskörbe").
+                 Wird eine Zahl genannt, IMMER quantity + unit füllen ("12 Stück" → 12, "Stk").
                  Nur Material, das angeliefert wird – nie ausgeführte Arbeit.
    equipment_use Gerät aus "Bekannte Geräte" (nie eine Kolonne, nie ein Material) mit Zustand, siehe GERÄTE.
+                 "resource" ist PFLICHT und lautet GENAU wie der Name in "Bekannte Geräte" – die Begriffe in
+                 Klammern sind nur Übersetzungen (excavator/koparka/ekskavatör → "Bagger").
    inspection    Prüfung/Abnahme/Kontrolle (party, result)
    visit         Besuch auf der Baustelle (party)
    work_done     erledigte Arbeit OHNE Mengenangabe (activity), z. B. "Achse C fertig", "Aussparungen gesetzt".
                  Mit Menge → nur "progress".
    Beispiele:
-   - "Stahl ist da, 2,5 t für Achse C, Lieferschein LS-448213" → delivery (arrived=true, 2.5 t, delivery_note_no)
+   - "Stahl ist da, 2,5 t für Achse C, Lieferschein LS-448213" → delivery (material "Betonstahl", quantity 2.5,
+     unit "t", arrived=true, delivery_note_no "LS-448213")
+   - "Aussparungskörper sind da, 12 Stück" → delivery (material "Aussparungskörper", quantity 12, unit "Stk")
+   - "Ekskavatör çalışıyor, hortum tutuyor" → equipment_use (resource "Bagger", state "in_operation")
    - "Brandl war da, Bewehrung abgenommen" → inspection (party "Brandl", result "abgenommen")
    - "Achse D steht wieder, sauber in der Flucht" → work_done
    Jeder Eintrag braucht ein wörtliches Zitat in "quote".

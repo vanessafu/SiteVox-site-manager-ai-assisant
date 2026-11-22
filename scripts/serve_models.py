@@ -36,6 +36,12 @@ def vllm_cmd(role: str, cfg: dict, serve: dict, host: str = "127.0.0.1", api_key
         cmd += ["--enable-lora", "--lora-modules", f"extract={cfg['lora_adapter']}"]
     if role == "vision":
         cmd += ["--limit-mm-per-prompt", '{"image": 1}']
+    # Guided JSON ohne beliebige Leerzeichen: sonst kann das Modell nach einem Feld in eine Endlosschleife aus
+    # Leerzeichen/Zeilenumbrüchen geraten, bis max_tokens erreicht ist (0017 pl/tr: finish_reason=length).
+    # Achtung: kompaktes JSON verschlechtert Qwen3-4B deutlich (Job 5044032: Ereignisse 54→36/64, Wortschleifen) –
+    # daher nur per SITEVOX_JSON_COMPACT=1 zuschalten; Standard: Leerraum erlaubt, Schleifen fängt der Retry ab.
+    if os.environ.get("SITEVOX_JSON_COMPACT") == "1":
+        cmd += ["--structured-outputs-config", '{"backend": "xgrammar", "disable_any_whitespace": true}']
     if api_key:
         cmd += ["--api-key", api_key]
     return cmd

@@ -129,10 +129,18 @@ class LLMStaffing(BaseModel):
 class LLMStaffingTotal(BaseModel):
     """Gesamtzahl Personal ohne Kolonnenzuordnung ("alle 16 Mann da"). Aufteilung auf Kolonnen entscheidet der
     Bauleiter im Dashboard."""
-    present_total: int = Field(description="Gesamtzahl anwesender Personen inkl. Aushilfen")
-    additional: Optional[int] = Field(None, description="davon zusätzlich/aushilfsweise (z. B. '+2 von Pasing')")
+    regular_staff: int = Field(description="Eigene Stammmannschaft laut Ansage OHNE Aushilfen ('alle 16 da' → 16)")
+    additional_staff: Optional[int] = Field(None, description="Zusätzliche Leute/Aushilfen ('+2 von Pasing' → 2), sonst null")
     note: Optional[str] = Field(None, description="Herkunft der Aushilfen o. Ä.")
     quote: str
+
+    @property
+    def present_total(self) -> int:  # Summe rechnet der Code, nicht das Modell
+        return self.regular_staff + (self.additional_staff or 0)
+
+    @property
+    def additional(self) -> Optional[int]:
+        return self.additional_staff
 
 
 class LLMOpenItem(BaseModel):
@@ -160,9 +168,10 @@ class LLMLogEntry(BaseModel):
     time: Optional[str] = Field(None, description="HH:MM, falls genannt")
     quote: str = Field(description="Wörtliches Zitat aus der Eingabe")
     # delivery
-    material: Optional[str] = Field(None, description="Lieferung: was (z. B. 'Betonstahl B500B', 'Transportbeton C30/37')")
-    quantity: Optional[float] = None
-    unit: Optional[str] = None
+    material: Optional[str] = Field(None, description="Lieferung: PFLICHT – was geliefert wurde, als deutscher Fachbegriff "
+                                    "(z. B. 'Betonstahl', 'Unterstützungskörbe', 'Aussparungskörper', 'Transportbeton')")
+    quantity: Optional[float] = Field(None, description="Lieferung: genannte Menge als Zahl ('12 Stück' → 12, '2,5 t' → 2.5)")
+    unit: Optional[str] = Field(None, description="Einheit der Menge: t, Stk, m³, Palette, m …")
     supplier: Optional[str] = Field(None, description="Lieferant/Firma")
     supplied_by: Optional[Literal["AN", "AG"]] = Field(None, description="AG = vom Bauherrn beigestellt")
     delivery_note_no: Optional[str] = Field(None, description="Lieferschein-Nr., falls genannt")
@@ -170,7 +179,8 @@ class LLMLogEntry(BaseModel):
     expected_date: Optional[str] = Field(None, description="ISO-Datum einer angekündigten Lieferung")
     expected_time: Optional[str] = Field(None, description="HH:MM der angekündigten/geplanten Anlieferung")
     # equipment_use
-    resource: Optional[str] = Field(None, description="Gerät aus 'Bekannte Geräte' (nie eine Kolonne/ein Material)")
+    resource: Optional[str] = Field(None, description="equipment_use: PFLICHT – Gerätename GENAU wie in 'Bekannte Geräte' "
+                                    "(auch bei fremdsprachigem Text: excavator/koparka/ekskavatör → 'Bagger')")
     state: Optional[EquipmentState] = None
     start_time: Optional[str] = Field(None, description="HH:MM Einsatzbeginn")
     end_time: Optional[str] = Field(None, description="HH:MM Einsatzende")

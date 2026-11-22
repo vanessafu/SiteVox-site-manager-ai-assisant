@@ -166,7 +166,9 @@ class LLM:
             attempts += 1
             want = n - len(results)
             errors = []
-            for content in self._complete(schema, msgs, n=want, temperature=temperature):
+            # Wiederholung mit derselben Eingabe bei T=0 liefert dieselbe kaputte Ausgabe → ab Versuch 2 leicht streuen
+            t = temperature if attempts == 1 else max(temperature, 0.3)
+            for content in self._complete(schema, msgs, n=want, temperature=t):
                 raw = _strip_json(content)
                 try:
                     results.append(schema.model_validate_json(raw))
