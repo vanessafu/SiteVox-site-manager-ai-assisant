@@ -133,30 +133,7 @@ Tests:
 
 ## 5. GPU mode – runbook
 
-### 5.1 One-time setup on the cluster (login node)
-
-```bash
-cd ~/Abschlussarbeit-multilingual-math-reasoning/SiteVox-site-manager-ai-assisant
-export HF_HOME=$WORK/hf_cache            # keep caches and weights out of $HOME (quota)
-
-# API key protecting the model services (they listen on the cluster network)
-mkdir -p ~/.config/sitevox && openssl rand -hex 24 > ~/.config/sitevox/api_key && chmod 600 ~/.config/sitevox/api_key
-
-# Python environments
-#   vLLM:  ~/mmr-env/venv            (vLLM 0.32, torch 2.13)
-#   ASR:   $WORK/asr-venv            (faster-whisper, fastapi, uvicorn; see scripts/cluster/eval_asr.sbatch)
-
-# Model weights (local folders, the jobs run offline)
-~/mmr-env/venv/bin/hf download Qwen/Qwen3-VL-4B-Instruct     --local-dir $WORK/mmr/models/Qwen3-VL-4B-Instruct
-~/mmr-env/venv/bin/hf download Qwen/Qwen3-8B                 --local-dir $WORK/mmr/models/Qwen3-8B
-~/mmr-env/venv/bin/hf download Qwen/Qwen3-4B-Instruct-2507   --local-dir $WORK/mmr/models/Qwen3-4B-Instruct-2507
-HF_HOME=$WORK/hf_cache $WORK/asr-venv/bin/python scripts/cluster/prefetch_models.py --asr-only
-```
-
-If `Qwen3-4B-Instruct-2507` is not in `$WORK/mmr/models`, the serving job falls back to an existing Hugging Face
-cache snapshot (see `serve_models_single.sbatch`).
-
-### 5.2 Start the model services (every session)
+### 5.1 Start the model services (every session)
 
 ```bash
 sbatch scripts/cluster/serve_models_single.sbatch
@@ -170,7 +147,7 @@ The job starts the three vLLM servers one after another on the same GPU (waiting
 the ASR server. Logs per service: `data/serve_extractor.log`, `serve_drafter.log`, `serve_vision.log`,
 `serve_asr.log`. Stop with `scancel -n sitevox-llm`.
 
-### 5.3 Connect the local machine
+### 5.2 Connect the local machine
 
 ```bash
 # terminal 1 – keep open; re-run after every new job (the node may change)
@@ -188,12 +165,6 @@ uvicorn backend.main:app --port 8000
 
 # terminal 3 – frontend
 cd frontend && npm run dev                                     # http://localhost:3000
-```
-
-Without bash (Windows), the tunnel is a single command:
-
-```
-ssh -N -J <hpc-user>@JUMP_HOST -L 8001:<node>:8001 -L 8002:<node>:8002 -L 8003:<node>:8003 -L 8004:<node>:8004 <hpc-user>@LOGIN_HOST
 ```
 
 ### 5.4 End-to-end benchmark on the cluster
