@@ -84,7 +84,7 @@ tests/                  pytest suite
 ## 3. Tech stack
 
 | Layer | Technology |
-|---|---|---|
+|---|---|
 | Frontend | Next.js 15.5, React 19, TypeScript 5.7, Tailwind CSS 3.4, lucide-react |
 | Backend API | FastAPI, uvicorn, Pydantic 2, httpx, `openai` client (OpenAI-compatible endpoints) |
 | Storage | SQLite (`data/sitevox.db`), files under `data/<project>/<date>/`, Chroma index |
