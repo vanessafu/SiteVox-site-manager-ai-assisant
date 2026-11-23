@@ -43,7 +43,7 @@ flowchart LR
   subgraph Tunnel["SSH tunnel (Bearer API key)"]
     T["localhost:8001–8004 → GPU node"]
   end
-  subgraph GPU["cluster · 1× GPU · Slurm"]
+  subgraph GPU["Slurm"]
     X["vLLM :8001<br/>Qwen3-4B-Instruct-2507<br/>extraction"]
     D["vLLM :8002<br/>Qwen3-8B<br/>letter drafting"]
     V["vLLM :8003<br/>Qwen3-VL-4B-Instruct<br/>photo analysis"]
@@ -83,21 +83,21 @@ tests/                  pytest suite
 
 ## 3. Tech stack
 
-| Layer | Technology | Runs on |
+| Layer | Technology |
 |---|---|---|
-| Frontend | Next.js 15.5, React 19, TypeScript 5.7, Tailwind CSS 3.4, lucide-react | local |
-| Backend API | FastAPI, uvicorn, Pydantic 2, httpx, `openai` client (OpenAI-compatible endpoints) | local |
-| Storage | SQLite (`data/sitevox.db`), files under `data/<project>/<date>/`, Chroma index | local |
-| Retrieval | rank_bm25, Chroma, BAAI/bge-m3, BAAI/bge-reranker-v2-m3 | local |
-| Documents | Docling, pdfplumber, pypdf, python-docx, openpyxl, RapidOCR + onnxruntime, gaeb | local |
-| Rules engine | plain Python (`sitevox/engine/`), thresholds in `config/rules.toml` | local |
-| Drafting / export | Jinja2 templates (de/en), ReportLab (PDF), python-docx (DOCX), OpenCV (face blurring), Pillow (EXIF) | local |
-| Mail | IMAP (read-only import), SMTP (send after confirmation), `.eml` drafts for Outlook | local |
-| Weather | Bright Sky API (open DWD data, no key) | local → internet |
-| LLM serving | vLLM 0.32, torch 2.13, transformers 5.19 | GPU |
-| Models | Qwen3-4B-Instruct-2507 (extraction), Qwen3-8B (drafting), Qwen3-VL-4B-Instruct (vision) | GPU |
-| Speech | faster-whisper large-v3 (CTranslate2, fp16) behind a small FastAPI service | GPU |
-| Cluster | Slurm, SSH ProxyJump tunnel, Bearer API key | cluster |
+| Frontend | Next.js 15.5, React 19, TypeScript 5.7, Tailwind CSS 3.4, lucide-react |
+| Backend API | FastAPI, uvicorn, Pydantic 2, httpx, `openai` client (OpenAI-compatible endpoints) |
+| Storage | SQLite (`data/sitevox.db`), files under `data/<project>/<date>/`, Chroma index |
+| Retrieval | rank_bm25, Chroma, BAAI/bge-m3, BAAI/bge-reranker-v2-m3 |
+| Documents | Docling, pdfplumber, pypdf, python-docx, openpyxl, RapidOCR + onnxruntime, gaeb |
+| Rules engine | plain Python (`sitevox/engine/`), thresholds in `config/rules.toml` |
+| Drafting / export | Jinja2 templates (de/en), ReportLab (PDF), python-docx (DOCX), OpenCV (face blurring), Pillow (EXIF) |
+| Mail | IMAP (read-only import), SMTP (send after confirmation), `.eml` drafts for Outlook |
+| Weather | Bright Sky API (open DWD data, no key) |
+| LLM serving | vLLM 0.32, torch 2.13, transformers 5.19 |
+| Models | Qwen3-4B-Instruct-2507 (extraction), Qwen3-8B (drafting), Qwen3-VL-4B-Instruct (vision) |
+| Speech | faster-whisper large-v3 (CTranslate2, fp16) behind a small FastAPI service |
+| Cluster | Slurm, SSH ProxyJump tunnel, Bearer API key | 
 
 ---
 
@@ -151,7 +151,7 @@ the ASR server. Logs per service: `data/serve_extractor.log`, `serve_drafter.log
 
 ```bash
 # terminal 1 – keep open; re-run after every new job (the node may change)
-CLUSTER_USER=<hpc-user> bash scripts/cluster/tunnel.sh            # or: … tunnel.sh <node>
+USER=<hpc-user> bash scripts/cluster/tunnel.sh            # or: … tunnel.sh <node>
 # check
 curl localhost:8004/health
 curl -H "Authorization: Bearer <key>" localhost:8001/v1/models
