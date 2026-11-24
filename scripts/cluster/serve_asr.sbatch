@@ -7,9 +7,7 @@
 # Start:   sbatch scripts/cluster/serve_asr.sbatch        (ASR_BACKEND=whisperx sbatch … für WhisperX)
 # Knoten:  squeue -u $USER -n sitevox-asr -h -o %N
 #SBATCH --job-name=sitevox-asr
-#SBATCH --partition=gpu
 #SBATCH --gres=gpu:1
-#SBATCH --constraint=gpu
 #SBATCH --time=08:00:00
 #SBATCH --output=data/serve_asr_slurm_%j.log
 #SBATCH --export=NONE

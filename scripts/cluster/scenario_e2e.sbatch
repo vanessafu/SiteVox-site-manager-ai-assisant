@@ -10,9 +10,7 @@
 #         SCENARIOS="data/demo/scenario/scenario_SCN-RIEM-0016_de.json …" sbatch --export=ALL …   (einzelne Tage)
 #         Foto-zuerst-Szenarien ("captures"): je Sprache eine DB, Tage nacheinander; alte timeline-Szenarien: eigene DB
 #SBATCH --job-name=sitevox-e2e
-#SBATCH --partition=gpu
 #SBATCH --gres=gpu:1
-#SBATCH --constraint=gpu
 #SBATCH --time=05:00:00
 #SBATCH --output=data/e2e_slurm_%j.log
 set -euo pipefail

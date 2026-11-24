@@ -37,7 +37,7 @@ Orchestration: `sitevox/pipeline.py` (`ingest` → `_ingest_body` → `_photo_an
 | | |
 |---|---|
 | **Input** | Voice note from the phone (browser WebM/Opus, or WAV), or a spoken answer to a photo question |
-| **Model** | faster-whisper **large-v3** (CTranslate2, fp16) on the GPU, behind `scripts/cluster/asr_server.py` (`:8004`) |
+| **Model** | faster-whisper **large-v3** (CTranslate2, fp16) on the GPU node, behind `scripts/cluster/asr_server.py` (`:8004`) |
 | **Code** | `sitevox/understand/asr.py` (`backend = "remote"` on the laptop, `faster_whisper` on the GPU node) |
 
 Steps:

@@ -1,6 +1,6 @@
 # Evaluation
 
-All runs below ran in **GPU mode** on one GPU (cluster) with the production models:
+All runs below ran in **GPU mode** on a single GPU with the production models:
 faster-whisper large-v3 (ASR), Qwen3-VL-4B-Instruct (photos), Qwen3-4B-Instruct-2507 (extraction) and
 Qwen3-8B (drafting), served with vLLM 0.32. Test data are described in [MOCK_DATA.md](MOCK_DATA.md).
 

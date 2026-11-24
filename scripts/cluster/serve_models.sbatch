@@ -1,5 +1,5 @@
 #!/bin/bash
-# SiteVox-Modelle auf einem GPU-Knoten (cluster), 2 GPUs:
+# SiteVox-Modelle auf einem GPU-Knoten mit 2 GPUs:
 #   GPU 0: vLLM Qwen3-4B Extraktor :8001 + Qwen3-8B-AWQ Drafter :8002
 #   GPU 1: vLLM Qwen3-VL-4B Vision :8003 + WhisperX large-v3 ASR :8004
 # Backend + Frontend laufen lokal und erreichen die Dienste über scripts/cluster/tunnel.sh.
@@ -11,7 +11,6 @@
 # Start:   sbatch scripts/cluster/serve_models.sbatch
 # Knoten:  squeue -u $USER -n sitevox-llm -h -o %N
 #SBATCH --job-name=sitevox-llm
-#SBATCH --partition=gpu
 #SBATCH --gres=gpu:2
 #SBATCH --time=08:00:00
 #SBATCH --output=data/serve_slurm_%j.log

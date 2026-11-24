@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # LOKAL ausführen: leitet localhost:8001–8004 (LLMs, Vision, ASR) über Jump-Host → Login-Knoten auf den GPU-Knoten weiter.
-#   bash scripts/cluster/tunnel.sh <knoten>            # Knoten aus `squeue -u $USER -n sitevox-llm`
-#   CLUSTER_USER=CLUSTER_USER bash scripts/cluster/tunnel.sh # Knoten automatisch ermitteln
+#   bash scripts/cluster/tunnel.sh <knoten>           # Knoten aus `squeue -u $USER -n sitevox-llm`
+#   CLUSTER_USER=<user> JUMP_HOST=<jump> LOGIN_HOST=<login> bash scripts/cluster/tunnel.sh # Knoten automatisch ermitteln
 set -euo pipefail
 CLUSTER_USER="${CLUSTER_USER:-$USER}"
-JUMP="${CLUSTER_USER}@JUMP_HOST"
-LOGIN="${CLUSTER_USER}@LOGIN_HOST"
+JUMP="${CLUSTER_USER}@${JUMP_HOST:?JUMP_HOST setzen}"
+LOGIN="${CLUSTER_USER}@${LOGIN_HOST:?LOGIN_HOST setzen}"
 PORTS="${PORTS:-8001 8002 8003 8004}"
 SSH_OPTS=(-o ServerAliveInterval=30 -o ExitOnForwardFailure=yes -o ControlMaster=auto
           -o ControlPath="${HOME}/.ssh/cm-%r@%h:%p" -o ControlPersist=10m)

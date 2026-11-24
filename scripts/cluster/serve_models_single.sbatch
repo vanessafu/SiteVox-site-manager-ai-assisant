@@ -1,17 +1,15 @@
 #!/bin/bash
-# Alle SiteVox-Modelle auf EINER GPU (cluster):
+# Alle SiteVox-Modelle auf EINER GPU:
 #   :8001 vLLM Qwen3-4B-Instruct-2507 (Extraktor)   ~0.18 GPU-Speicher
 #   :8002 vLLM Qwen3-8B bf16 (Drafter, kein AWQ)    ~0.30 GPU-Speicher
 #   :8003 vLLM Qwen3-VL-4B-Instruct (Vision)        ~0.20 GPU-Speicher
 #   :8004 faster-whisper large-v3 (asr_server.py)    Rest
-# Backend + Frontend laufen lokal:  CLUSTER_USER=CLUSTER_USER bash scripts/cluster/tunnel.sh
+# Backend + Frontend laufen lokal:  bash scripts/cluster/tunnel.sh
 #
 # Modelle als lokale Ordner (Login-Knoten herunterladen, siehe MODELS unten); vLLM aus VLLM_VENV, ASR aus ASR_VENV.
 # Start:   sbatch scripts/cluster/serve_models_single.sbatch
 #SBATCH --job-name=sitevox-llm
-#SBATCH --partition=gpu
 #SBATCH --gres=gpu:1
-#SBATCH --constraint=gpu
 #SBATCH --time=18:00:00
 #SBATCH --output=data/serve_slurm_%j.log
 #SBATCH --export=NONE

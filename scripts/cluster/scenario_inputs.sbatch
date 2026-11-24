@@ -3,9 +3,7 @@
 #   sbatch --export=ALL scripts/cluster/scenario_inputs.sbatch            # Serie 23.–26.11., de/en/pl/tr
 #   SCENARIOS="data/demo/scenario/….json" SNR_OFFSET=10 sbatch --export=ALL scripts/cluster/scenario_inputs.sbatch
 #SBATCH --job-name=sitevox-inputs
-#SBATCH --partition=gpu
 #SBATCH --gres=gpu:1
-#SBATCH --constraint=gpu
 #SBATCH --time=01:30:00
 #SBATCH --output=data/inputs_slurm_%j.log
 set -euo pipefail

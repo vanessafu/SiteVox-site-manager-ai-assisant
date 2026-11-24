@@ -8,9 +8,7 @@
 #   HF_HOME=$WORK/hf_cache TORCH_HOME=$WORK/torch_cache $WORK/asr-venv/bin/python scripts/cluster/prefetch_models.py --asr-only
 # Start:  sbatch scripts/cluster/eval_asr.sbatch          (BACKENDS="whisperx" sbatch … für nur ein Backend)
 #SBATCH --job-name=sitevox-eval-asr
-#SBATCH --partition=gpu
 #SBATCH --gres=gpu:1
-#SBATCH --constraint=gpu
 #SBATCH --time=03:00:00
 #SBATCH --output=data/eval_asr_slurm_%j.log
 #SBATCH --export=NONE

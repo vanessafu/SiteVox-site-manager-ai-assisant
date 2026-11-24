@@ -1,6 +1,6 @@
 #!/bin/bash
-# TTS-Daten (XTTS-v2) auf einer GPU (cluster): Demo-Memos + Szenarien → Baustellenlärm-Mischungen.
-# XTTS braucht nur ~4 GB VRAM – mit "--partition=gpu --gres=gpu:1" (ohne -C) startet der Job oft schneller.
+# TTS-Daten (XTTS-v2) auf einer GPU: Demo-Memos + Szenarien → Baustellenlärm-Mischungen.
+# XTTS braucht nur ~4 GB VRAM.
 #
 # Einmalig (Login-Knoten, hat Internet):
 #   module load python/3.12-base && python3 -m venv $WORK/tts-venv
@@ -13,9 +13,7 @@
 #   $WORK/tts-venv/bin/python scripts/data/audio/download_data.py      # Lärm + Common-Voice-Akzente → data/raw
 # Start:  sbatch scripts/cluster/tts.sbatch      (SCENARIOS=… bzw. DEMO=1 sbatch --export=ALL,DEMO=1 …)
 #SBATCH --job-name=sitevox-tts
-#SBATCH --partition=gpu
 #SBATCH --gres=gpu:1
-#SBATCH --constraint=gpu
 #SBATCH --time=02:00:00
 #SBATCH --output=data/tts_slurm_%j.log
 #SBATCH --export=NONE
